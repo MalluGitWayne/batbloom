@@ -115,6 +115,9 @@ fun QuitScreen(modifier: Modifier) {
             colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = MaterialTheme.colorScheme.onTertiary),
         ) { Text("Craving SOS · 10 minutes", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
 
+        // Health milestones, front and centre
+        quit?.let { MilestoneHero(it, java.time.Duration.between(it.atStartOfDay(zone), now)) }
+
         // Today's doses
         val todaySlots = schedule.slotsOn(today)
         SectionCard("Today's tablets") {
@@ -205,23 +208,6 @@ fun QuitScreen(modifier: Modifier) {
         // Everything below folds up: tap a section to open it.
         androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Milestones
-        if (q != null) SectionCard("Health milestones") {
-            val since = java.time.Duration.between(q.atStartOfDay(zone), now)
-            Milestones.all.forEach { m ->
-                val pr = Milestones.progress(m, since)
-                Column {
-                    Row {
-                        Text((if (pr >= 1f) "✓ " else "") + m.title, Modifier.weight(1f), fontWeight = FontWeight.SemiBold, color = if (pr >= 1f) Teal else MaterialTheme.colorScheme.onSurface)
-                        Text("${(pr * 100).roundToInt()}%", color = Muted, fontSize = 12.sp)
-                    }
-                    Text(m.text, fontSize = 13.sp, color = Muted)
-                    LinearProgressIndicator({ pr }, Modifier.fillMaxWidth().height(4.dp), color = Teal, drawStopIndicator = {})
-                }
-            }
-            Text("Approximate, based on commonly cited public-health guidance. Everyone's body is different.", color = Muted, fontSize = 11.sp)
-        }
-
         // Cravings chart
         val cravings = remember(sessions) { sessions.filter { it.tag == com.malluwayne.batbloom.data.Tags.CRAVING } }
         SectionCard("Cravings, last 14 days") {

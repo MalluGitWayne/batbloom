@@ -13,7 +13,8 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
 - **Quit tab** for a varenicline course. Defaults: a 12-week plan, 0.5 mg in the morning on Days 1–3, 0.5 mg twice a day on Days 4–7, then 1 mg twice a day to Day 84. Everything is editable in Settings.
   - Dose reminders use exact alarms that are set again after a reboot. Each one has Taken / Skip / Snooze buttons and the right mg for that day.
   - A dose log, missed-dose advice (skip it if the next dose is close, never take two at once) and tablet stock with a warning about 4 days before it runs out.
-  - A smoke-free tracker: time, cigarettes not smoked, money saved and life regained, plus a health-milestone timeline (approximate).
+  - **Health milestones** front and centre: a progress ring and countdown to the next one, a timeline of all nine, and a notification the moment each is reached. The next one also shows on the Focus screen and widget.
+  - A smoke-free tracker: time, cigarettes not smoked, money saved and life regained.
   - Craving SOS, a craving chart, a kind slip log and a side-effect diary with clear "contact your doctor" warnings.
   - Badges that pay coins. Finishing the course unlocks the Dawnbreath Lily.
   - It's a tracker and **does not replace medical advice**.

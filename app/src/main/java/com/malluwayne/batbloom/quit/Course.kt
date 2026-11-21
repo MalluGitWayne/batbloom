@@ -110,24 +110,53 @@ object Doses {
     fun lowStock(stock: Stock, warnDays: Int = 4): Boolean = stock.daysLeft != null && stock.daysLeft <= warnDays
 }
 
-data class Milestone(val after: Duration, val title: String, val text: String)
+data class Milestone(val after: Duration, val title: String, val text: String, val short: String)
 
 /** Commonly cited public-health milestones after the last cigarette. Approximate; everyone is different. */
 object Milestones {
     val all = listOf(
-        Milestone(Duration.ofMinutes(20), "20 minutes", "Heart rate and blood pressure begin to come down."),
-        Milestone(Duration.ofHours(12), "12 hours", "Carbon monoxide in your blood drops toward normal."),
-        Milestone(Duration.ofHours(24), "24 hours", "Most of the nicotine has left your bloodstream."),
-        Milestone(Duration.ofHours(48), "48 hours", "Taste and smell often start to improve."),
-        Milestone(Duration.ofHours(72), "72 hours", "Breathing may feel easier as airways relax."),
-        Milestone(Duration.ofDays(14), "2 weeks", "Circulation starts to improve (over about 2–12 weeks)."),
-        Milestone(Duration.ofDays(30), "1 month", "Coughing and shortness of breath begin to ease for many people."),
-        Milestone(Duration.ofDays(90), "3 months", "Lung function keeps improving."),
-        Milestone(Duration.ofDays(365), "1 year", "Extra risk of heart disease is roughly half that of a smoker."),
+        Milestone(Duration.ofMinutes(20), "20 minutes", "Heart rate and blood pressure begin to come down.", "20m"),
+        Milestone(Duration.ofHours(12), "12 hours", "Carbon monoxide in your blood drops toward normal.", "12h"),
+        Milestone(Duration.ofHours(24), "24 hours", "Most of the nicotine has left your bloodstream.", "1d"),
+        Milestone(Duration.ofHours(48), "48 hours", "Taste and smell often start to improve.", "2d"),
+        Milestone(Duration.ofHours(72), "72 hours", "Breathing may feel easier as airways relax.", "3d"),
+        Milestone(Duration.ofDays(14), "2 weeks", "Circulation starts to improve (over about 2\u201312 weeks).", "2w"),
+        Milestone(Duration.ofDays(30), "1 month", "Coughing and shortness of breath begin to ease for many people.", "1mo"),
+        Milestone(Duration.ofDays(90), "3 months", "Lung function keeps improving.", "3mo"),
+        Milestone(Duration.ofDays(365), "1 year", "Extra risk of heart disease is roughly half that of a smoker.", "1y"),
     )
 
     fun progress(m: Milestone, sinceQuit: Duration): Float =
         if (sinceQuit.isNegative) 0f else (sinceQuit.seconds.toDouble() / m.after.seconds).coerceIn(0.0, 1.0).toFloat()
+
+    fun reached(sinceQuit: Duration): List<Milestone> = all.filter { !sinceQuit.isNegative && sinceQuit >= it.after }
+
+    /** The next milestone to reach, or null when all are reached. */
+    fun next(sinceQuit: Duration): Milestone? = all.firstOrNull { sinceQuit.isNegative || sinceQuit < it.after }
+
+    /** How far along the way from the previous milestone (or the quit moment) to [next] you are, 0..1. */
+    fun stepProgress(sinceQuit: Duration): Float {
+        if (sinceQuit.isNegative) return 0f
+        val n = next(sinceQuit) ?: return 1f
+        val prev = all.lastOrNull { it.after <= sinceQuit }?.after ?: Duration.ZERO
+        val span = (n.after - prev).seconds.toDouble()
+        return ((sinceQuit - prev).seconds / span).coerceIn(0.0, 1.0).toFloat()
+    }
+
+    /** "6h 12m", "3d 4h", "45m", "under a minute". */
+    fun formatLeft(d: Duration): String = when {
+        d.toMinutes() < 1 -> "under a minute"
+        d.toDays() >= 1 -> "${d.toDays()}d ${d.toHours() % 24}h"
+        d.toHours() >= 1 -> "${d.toHours()}h ${d.toMinutes() % 60}m"
+        else -> "${d.toMinutes()}m"
+    }
+
+    /** One line for status bars: "Next milestone in 6h 12m", or null before the quit day / after all. */
+    fun nextLine(sinceQuit: Duration): String? {
+        if (sinceQuit.isNegative) return null
+        val n = next(sinceQuit) ?: return null
+        return "${n.short} milestone in ${formatLeft(n.after - sinceQuit)}"
+    }
 }
 
 data class QuitProgress(val sinceQuit: Duration, val notSmoked: Int, val moneySaved: Double, val lifeRegained: Duration)

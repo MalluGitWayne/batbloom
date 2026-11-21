@@ -170,7 +170,10 @@ class BloomWidget : AppWidgetProvider() {
                 if (due.isNotEmpty()) add("Revise: " + due.take(3).joinToString(", ") { it.subject })
                 if (goal > 0) add("FMGE ${Rules.formatMinutes(s.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}")
                 prefs.examDate.value?.let { add(Stats.examLine(it, today)) }
-                prefs.quitDate.value?.let { add(Stats.quitLine(it, today)) }
+                prefs.quitDate.value?.let { q ->
+                    val since = java.time.Duration.between(q.atStartOfDay(zone), java.time.ZonedDateTime.now(zone))
+                    add(listOfNotNull(Stats.quitLine(q, today), com.malluwayne.batbloom.quit.Milestones.nextLine(since)).joinToString(" \u00B7 "))
+                }
             }
 
             for (id in ids) {

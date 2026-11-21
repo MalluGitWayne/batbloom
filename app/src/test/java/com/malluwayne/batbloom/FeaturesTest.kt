@@ -159,3 +159,30 @@ class PeriodsTest {
         org.junit.Assert.assertTrue(p.timeOfDay.isEmpty())
     }
 }
+
+
+class MilestoneTest {
+    private val M = com.malluwayne.batbloom.quit.Milestones
+    private fun h(x: Long) = java.time.Duration.ofHours(x)
+
+    @org.junit.Test fun nextAndReached() {
+        org.junit.Assert.assertEquals("20 minutes", M.next(java.time.Duration.ofMinutes(-5))!!.title)
+        org.junit.Assert.assertTrue(M.reached(java.time.Duration.ofMinutes(-5)).isEmpty())
+        org.junit.Assert.assertEquals("12 hours", M.next(h(1))!!.title)
+        org.junit.Assert.assertEquals(1, M.reached(h(1)).size)
+        org.junit.Assert.assertEquals("48 hours", M.next(h(24))!!.title) // exactly 24 h counts as reached
+        org.junit.Assert.assertEquals(9, M.reached(java.time.Duration.ofDays(400)).size)
+        org.junit.Assert.assertNull(M.next(java.time.Duration.ofDays(400)))
+    }
+
+    @org.junit.Test fun stepProgressAndLines() {
+        // Halfway from 24 h to 48 h
+        org.junit.Assert.assertEquals(0.5f, M.stepProgress(h(36)), 0.001f)
+        org.junit.Assert.assertEquals(0f, M.stepProgress(h(-3)), 0f)
+        org.junit.Assert.assertEquals(1f, M.stepProgress(java.time.Duration.ofDays(400)), 0f)
+        org.junit.Assert.assertEquals("2d milestone in 12h 0m", M.nextLine(h(36)))
+        org.junit.Assert.assertNull(M.nextLine(h(-1)))
+        org.junit.Assert.assertEquals("3d 4h", M.formatLeft(h(76)))
+        org.junit.Assert.assertEquals("45m", M.formatLeft(java.time.Duration.ofMinutes(45)))
+    }
+}

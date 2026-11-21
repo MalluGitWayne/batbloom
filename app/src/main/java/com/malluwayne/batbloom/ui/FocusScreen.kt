@@ -166,7 +166,10 @@ private fun SetupView() {
         val status = listOfNotNull(
             if (goal > 0) "FMGE ${Rules.formatMinutes(summary.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}" else null,
             exam?.let { Stats.examLine(it, today) },
-            quit?.let { Stats.quitLine(it, today) },
+            quit?.let { q ->
+                val since = java.time.Duration.between(q.atStartOfDay(zone), java.time.Instant.ofEpochMilli(now).atZone(zone))
+                com.malluwayne.batbloom.quit.Milestones.nextLine(since) ?: Stats.quitLine(q, today)
+            },
         ).joinToString("  \u00B7  ")
         if (status.isNotEmpty()) Text(status, color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
         if (due.isNotEmpty()) Text(

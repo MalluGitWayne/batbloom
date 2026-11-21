@@ -32,7 +32,10 @@ class Prefs(context: Context) {
 
     private val _quitDate = MutableStateFlow(date("quit_date", "2026-11-28"))
     val quitDate: StateFlow<LocalDate?> = _quitDate
-    fun setQuitDate(d: LocalDate?) { putDate("quit_date", d); _quitDate.value = d }
+    fun setQuitDate(d: LocalDate?) {
+        putDate("quit_date", d); _quitDate.value = d
+        runCatching { com.malluwayne.batbloom.guard.Reminders.scheduleMilestone(com.malluwayne.batbloom.BatbloomApp.instance) }
+    }
 
     private val _examDate = MutableStateFlow(date("exam_date", null))
     val examDate: StateFlow<LocalDate?> = _examDate

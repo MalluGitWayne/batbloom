@@ -29,6 +29,8 @@ object Reminders {
     private const val CH_STUDY = "study"
     const val ACTION_GUARD = "batbloom.GUARD_CHECK"
     const val ACTION_FMGE = "batbloom.FMGE_REMINDER"
+    const val ACTION_MILESTONE = "batbloom.MILESTONE"
+    private const val CH_MILESTONE = "milestones"
     private const val NOTIF_STUDY = 40
 
     private fun app(c: Context) = c.applicationContext as BatbloomApp
@@ -37,6 +39,9 @@ object Reminders {
         val nm = c.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CH_GUARD, "Time Guard", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "When an app passes its daily limit"
+        })
+        nm.createNotificationChannel(NotificationChannel(CH_MILESTONE, "Health milestones", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "When you reach a smoke-free health milestone"
         })
         nm.createNotificationChannel(NotificationChannel(CH_STUDY, "Study reminder", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "Your daily FMGE reminder with today's revision"
@@ -56,6 +61,7 @@ object Reminders {
         val guard = pi(c, ACTION_GUARD, 200)
         if (prefs.guard.value.isEmpty()) am.cancel(guard)
         else am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60_000, AlarmManager.INTERVAL_FIFTEEN_MINUTES, guard)
+        scheduleMilestone(c)
         // FMGE reminder: once a day at the chosen time.
         val study = pi(c, ACTION_FMGE, 201)
         if (!prefs.fmgeReminder.value) { am.cancel(study); return }
@@ -63,6 +69,44 @@ object Reminders {
         var at = now.toLocalDate().atTime(prefs.fmgeTime.value).atZone(now.zone)
         if (!at.isAfter(now)) at = at.plusDays(1)
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toInstant().toEpochMilli(), study)
+    }
+
+    /** An exact alarm at the next health milestone after the quit day starts. */
+    fun scheduleMilestone(c: Context) {
+        val am = c.getSystemService(AlarmManager::class.java)
+        val pi = pi(c, ACTION_MILESTONE, 204)
+        val quit = app(c).prefs.quitDate.value
+        if (quit == null) { am.cancel(pi); return }
+        val start = quit.atStartOfDay(ZoneId.systemDefault())
+        val since = java.time.Duration.between(start, ZonedDateTime.now())
+        val next = com.malluwayne.batbloom.quit.Milestones.next(since)
+        if (next == null) { am.cancel(pi); return }
+        val at = start.plus(next.after).toInstant().toEpochMilli()
+        if (com.malluwayne.batbloom.quit.DoseAlarms.canExact(c)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+        else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+    }
+
+    /** Tells you about the milestone just reached (the latest one, if the phone was off for a while). */
+    fun notifyMilestone(c: Context) {
+        val quit = app(c).prefs.quitDate.value ?: return
+        val since = java.time.Duration.between(quit.atStartOfDay(ZoneId.systemDefault()), ZonedDateTime.now())
+        val m = com.malluwayne.batbloom.quit.Milestones.reached(since).lastOrNull() ?: return
+        val sp = c.getSharedPreferences("batbloom", Context.MODE_PRIVATE)
+        if (sp.getString("milestone_told", "") == "$quit-${m.short}") return
+        sp.edit().putString("milestone_told", "$quit-${m.short}").apply()
+        val open = PendingIntent.getActivity(
+            c, 205, Intent(c, MainActivity::class.java).setAction(MainActivity.ACTION_QUIT).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(c, CH_MILESTONE)
+            .setSmallIcon(R.drawable.ic_stat_bloom)
+            .setContentTitle("${m.title} smoke-free!")
+            .setContentText(m.text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("${m.text} (Approximate; everyone is different.) Keep going."))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(c).notify(41, n) }
     }
 
     /**
@@ -160,6 +204,11 @@ class ReminderReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     Reminders.ACTION_GUARD -> Reminders.checkGuard(context)
                     Reminders.ACTION_FMGE -> { Reminders.notifyStudy(context); Reminders.scheduleAll(context) }
+                    Reminders.ACTION_MILESTONE -> {
+                        Reminders.notifyMilestone(context)
+                        Reminders.scheduleMilestone(context)
+                        com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
+                    }
                 }
             } finally {
                 pending.finish()

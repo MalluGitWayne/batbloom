@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Batbloom</string>
+    <string name="widget_bloom_desc">Today\'s focus, FMGE goal, countdowns and quick start</string>
+    <string name="widget_craving_desc">One tap: a 10-minute craving session</string>
+    <string name="widget_bloom_label">Batbloom</string>
+    <string name="widget_craving_label">Batbloom craving</string>
+</resources>

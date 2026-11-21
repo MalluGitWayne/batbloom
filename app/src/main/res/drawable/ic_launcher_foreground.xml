@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Batbloom: a night bloom whose upper petals are bat wings, under a crescent moon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFF3C4" android:pathData="M72,26a10,10 0,1 0,6 18a8,8 0,1 1,-6 -18z" />
+    <path android:fillColor="#FF4F8A6E" android:pathData="M53,60h2v24h-2z" />
+    <path android:fillColor="#FF5FA882" android:pathData="M54,77q-8,-2 -11,-9q8,1 11,9z" />
+    <path android:fillColor="#FF5FA882" android:pathData="M54,72q8,-2 11,-9q-8,1 -11,9z" />
+    <path android:fillColor="#FF6B3FA0" android:pathData="M54,56l-16,-14q2,7 -2,9q7,0 7,6q4,-4 11,-1z" />
+    <path android:fillColor="#FF6B3FA0" android:pathData="M54,56l16,-14q-2,7 2,9q-7,0 -7,6q-4,-4 -11,-1z" />
+    <path android:fillColor="#FF8456C2" android:pathData="M54,58l-12,10q6,0 6,5q3,-4 6,-3z" />
+    <path android:fillColor="#FF8456C2" android:pathData="M54,58l12,10q-6,0 -6,5q-3,-4 -6,-3z" />
+    <path android:fillColor="#FFB48CFF" android:pathData="M54,42q4,7 0,14q-4,-7 0,-14z" />
+    <path android:fillColor="#FFFF8FB1" android:pathData="M51,57a3,3 0,1 1,6 0a3,3 0,1 1,-6 0z" />
+</vector>

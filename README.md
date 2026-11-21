@@ -12,15 +12,14 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
 - **Quit tab** for a varenicline course. Defaults: a 12-week plan, 0.5 mg in the morning on Days 1–3, 0.5 mg twice a day on Days 4–7, then 1 mg twice a day to Day 84. Everything is editable in Settings.
   - Dose reminders use exact alarms that are set again after a reboot. Each one has Taken / Skip / Snooze buttons and the right mg for that day.
   - A dose log, missed-dose advice (skip it if the next dose is close, never take two at once) and tablet stock with a warning about 4 days before it runs out.
-  - **Health milestones** front and centre: a progress ring and countdown to the next one, a timeline of all nine, and a notification the moment each is reached. The next one also shows on the Focus screen and widget.
+  - **Health milestones** front and centre: a live smoke-free clock, the date and time of every milestone, a progress ring and countdown to the next one, a timeline of all nine, and a notification the moment each is reached. The next one also shows on the Focus screen and widget.
   - A smoke-free tracker: time, cigarettes not smoked, money saved and life regained.
-  - A slip log and a side-effect diary with clear "contact your doctor" warnings.
   - Badges for quit milestones. Finishing the course unlocks the Dawnbreath Lily.
   - It's a tracker and **does not replace medical advice**.
 - **Garden:** clear wilted plants all at once, or long-press one to remove it.
 - **Seven original night plants** unlock as you bloom (5, 15, 30, 60 and 100 finished sessions); the Dawnbreath Lily comes with finishing the quit course.
 - **Widgets:** the bloom widget paints the night sky with today's plant and your recent plants (centred and larger when you make it tall), its Focus button names the mode it starts, and a **dose button** appears around your dose times to mark it taken in one tap. Two Hevy-style calendars show your consistency: a **study calendar** (days you studied, shaded by your goal) and a **smoke-free calendar** (every clean day since the quit day, slips ringed in red). Both lay out like a workout-history widget: this month, compact, and centred at any size.
-- Dark theme, no ads, no accounts. Everything is stored on the phone with Room. The internet is used only to check GitHub for updates.
+- **Themes:** Dark, OLED black, Light, or follow the system. No ads, no accounts. Everything is stored on the phone with Room. The internet is used only to check GitHub for updates.
 
 ## Updates
 

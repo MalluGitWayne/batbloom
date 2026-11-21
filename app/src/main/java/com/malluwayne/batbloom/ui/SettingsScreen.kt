@@ -113,6 +113,15 @@ fun SettingsScreen(modifier: Modifier) {
 
         UpdateSection()
 
+        SectionCard("Appearance") {
+            val mode by prefs.theme.collectAsState()
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemeMode.entries.forEach { m ->
+                    androidx.compose.material3.FilterChip(mode == m, { prefs.setTheme(m) }, { Text(m.label) })
+                }
+            }
+        }
+
         SectionCard("Permissions") {
             StatusRow("Usage access (leave detection)", hasUsage, "Turn on") { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
             StatusRow("Notifications", hasNotif, "Allow") {

@@ -165,6 +165,12 @@ class Prefs(context: Context) {
         get() = sp.getString("stock_warn", "")!!
         set(v) { sp.edit().putString("stock_warn", v).apply() }
 
+    private val _theme = MutableStateFlow(
+        runCatching { com.malluwayne.batbloom.ui.ThemeMode.valueOf(sp.getString("theme", "Dark")!!) }.getOrDefault(com.malluwayne.batbloom.ui.ThemeMode.Dark),
+    )
+    val theme: StateFlow<com.malluwayne.batbloom.ui.ThemeMode> = _theme
+    fun setTheme(t: com.malluwayne.batbloom.ui.ThemeMode) { sp.edit().putString("theme", t.name).apply(); _theme.value = t }
+
     // --- Time Guard and reminders ---
 
     /** Daily limits in minutes per app package. */

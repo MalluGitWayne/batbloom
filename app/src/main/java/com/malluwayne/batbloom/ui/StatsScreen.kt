@@ -167,6 +167,7 @@ private fun HBar(label: String, value: String, fraction: Float, color: Color) {
 @Composable
 private fun Bars(data: List<Pair<LocalDate, Double>>, color: Color, today: LocalDate, compact: Boolean) {
     val max = data.maxOf { it.second }.coerceAtLeast(1.0)
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
     Canvas(Modifier.fillMaxWidth().height(110.dp)) {
         val gap = size.width / data.size
         val bw = gap * if (compact) 0.6f else 0.42f
@@ -174,7 +175,7 @@ private fun Bars(data: List<Pair<LocalDate, Double>>, color: Color, today: Local
         data.forEachIndexed { i, (d, v) ->
             val h = (v / max).toFloat() * size.height
             val x = i * gap + (gap - bw) / 2
-            drawRoundRect(Color.White.copy(alpha = 0.05f), Offset(x, 0f), Size(bw, size.height), r)
+            drawRoundRect(track, Offset(x, 0f), Size(bw, size.height), r)
             if (h > 0) drawRoundRect(if (d == today) color else color.copy(alpha = 0.55f), Offset(x, size.height - h), Size(bw, h), r)
         }
     }

@@ -30,6 +30,7 @@ fun BloomBurst(modifier: Modifier, color: Color) {
     val t = remember { Animatable(0f) }
     LaunchedEffect(Unit) { t.animateTo(1f, tween(2600, easing = LinearEasing)) }
     val sparks = remember { Random(3).let { r -> List(34) { floatArrayOf(r.nextFloat() * 2f - 1f, 0.4f + r.nextFloat() * 0.6f, r.nextFloat() * 0.35f, r.nextFloat()) } } }
+    val gold = Gold
     Canvas(modifier) {
         val w = size.width
         val h = size.height
@@ -39,7 +40,7 @@ fun BloomBurst(modifier: Modifier, color: Color) {
             if (p <= 0f || p >= 1f) return@forEach
             val c = origin + Offset(dx * w * 0.42f * p, -h * 0.42f * speed * p + h * 0.12f * p * p)
             val a = (1f - p) * 0.95f
-            val col = if (hue > 0.5f) color else Gold
+            val col = if (hue > 0.5f) color else gold
             val r = w * 0.012f * (1.2f - p)
             drawCircle(Brush.radialGradient(listOf(col.copy(alpha = a), Color.Transparent), c, r * 5), r * 5, c)
             drawCircle(Color.White.copy(alpha = a), r, c)

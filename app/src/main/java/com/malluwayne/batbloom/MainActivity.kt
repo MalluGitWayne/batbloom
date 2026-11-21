@@ -51,7 +51,16 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        setContent { BatbloomTheme { AppRoot() } }
+        setContent {
+            val mode by BatbloomApp.instance.prefs.theme.collectAsState()
+            val palette = com.malluwayne.batbloom.ui.resolvePalette(mode)
+            androidx.compose.runtime.LaunchedEffect(palette.isLight) {
+                val t = android.graphics.Color.TRANSPARENT
+                val style = if (palette.isLight) androidx.activity.SystemBarStyle.light(t, t) else androidx.activity.SystemBarStyle.dark(t)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            BatbloomTheme(palette) { AppRoot() }
+        }
         Updates.load(this)
         lifecycleScope.launch { Updates.dailyCheck(this@MainActivity) }
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { com.malluwayne.batbloom.data.AutoBackup.runIfDue(this@MainActivity) }

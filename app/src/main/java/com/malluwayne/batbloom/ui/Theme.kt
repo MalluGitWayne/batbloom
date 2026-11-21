@@ -32,40 +32,98 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-val Lavender = Color(0xFFB9A3FF)
-val Teal = Color(0xFF7FE3D0)
-val Gold = Color(0xFFFFD27F)
-val Night = Color(0xFF0B0E1A)
-val Panel = Color(0xFF151B30)
-val Muted = Color(0xFF9AA0BC)
+/** The app's own colours for one theme (accents tuned so they read on that background). */
+data class Palette(
+    val lavender: Color,
+    val teal: Color,
+    val gold: Color,
+    val night: Color,
+    val panel: Color,
+    val muted: Color,
+    val isLight: Boolean,
+)
 
-private val scheme = darkColorScheme(
-    primary = Lavender,
+val DarkPalette = Palette(Color(0xFFB9A3FF), Color(0xFF7FE3D0), Color(0xFFFFD27F), Color(0xFF0B0E1A), Color(0xFF151B30), Color(0xFF9AA0BC), false)
+val OledPalette = DarkPalette.copy(night = Color(0xFF000000), panel = Color(0xFF0D0D12), muted = Color(0xFF8C90A6))
+val LightPalette = Palette(Color(0xFF6A4FD6), Color(0xFF0D8A79), Color(0xFFA86F00), Color(0xFFF5F4FA), Color(0xFFFFFFFF), Color(0xFF5E6276), true)
+
+val LocalPalette = androidx.compose.runtime.staticCompositionLocalOf { DarkPalette }
+
+val Lavender: Color @Composable @androidx.compose.runtime.ReadOnlyComposable get() = LocalPalette.current.lavender
+val Teal: Color @Composable @androidx.compose.runtime.ReadOnlyComposable get() = LocalPalette.current.teal
+val Gold: Color @Composable @androidx.compose.runtime.ReadOnlyComposable get() = LocalPalette.current.gold
+val Night: Color @Composable @androidx.compose.runtime.ReadOnlyComposable get() = LocalPalette.current.night
+val Panel: Color @Composable @androidx.compose.runtime.ReadOnlyComposable get() = LocalPalette.current.panel
+val Muted: Color @Composable @androidx.compose.runtime.ReadOnlyComposable get() = LocalPalette.current.muted
+
+enum class ThemeMode(val label: String) { System("System"), Dark("Dark"), Oled("OLED black"), Light("Light") }
+
+private fun darkScheme(p: Palette) = darkColorScheme(
+    primary = p.lavender,
     onPrimary = Color(0xFF1B1036),
     primaryContainer = Color(0xFF3A2C6B),
     onPrimaryContainer = Color(0xFFE9E0FF),
-    secondary = Teal,
+    secondary = p.teal,
     onSecondary = Color(0xFF00332C),
     secondaryContainer = Color(0xFF12443D),
-    tertiary = Gold,
+    onSecondaryContainer = Color(0xFFCFF7EE),
+    tertiary = p.gold,
     onTertiary = Color(0xFF2A1E00),
     tertiaryContainer = Color(0xFF4A3A10),
-    background = Night,
+    background = p.night,
     onBackground = Color(0xFFE6E8F2),
-    surface = Night,
+    surface = p.night,
     onSurface = Color(0xFFE6E8F2),
-    surfaceVariant = Color(0xFF1E2540),
+    surfaceVariant = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF1E2540),
     onSurfaceVariant = Color(0xFFC0C5DC),
-    surfaceContainer = Panel,
-    surfaceContainerHigh = Color(0xFF1B2240),
-    surfaceContainerHighest = Color(0xFF222A4A),
-    surfaceContainerLow = Color(0xFF111628),
+    surfaceContainer = p.panel,
+    surfaceContainerHigh = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF1B2240),
+    surfaceContainerHighest = if (p.night == Color(0xFF000000)) Color(0xFF1E1E26) else Color(0xFF222A4A),
+    surfaceContainerLow = if (p.night == Color(0xFF000000)) Color(0xFF07070A) else Color(0xFF111628),
     error = Color(0xFFFF8A80),
     errorContainer = Color(0xFF5C1A1A),
     onErrorContainer = Color(0xFFFFDAD6),
     outline = Color(0xFF4A5275),
     outlineVariant = Color(0xFF2C3352),
 )
+
+private fun lightScheme(p: Palette) = androidx.compose.material3.lightColorScheme(
+    primary = p.lavender,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFE6DEFF),
+    onPrimaryContainer = Color(0xFF21005D),
+    secondary = p.teal,
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFCDEFE8),
+    onSecondaryContainer = Color(0xFF00201B),
+    tertiary = p.gold,
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFFE6B3),
+    background = p.night,
+    onBackground = Color(0xFF1A1B2E),
+    surface = p.night,
+    onSurface = Color(0xFF1A1B2E),
+    surfaceVariant = Color(0xFFE7E5F0),
+    onSurfaceVariant = Color(0xFF474A5C),
+    surfaceContainer = p.panel,
+    surfaceContainerHigh = Color(0xFFECEAF4),
+    surfaceContainerHighest = Color(0xFFE3E0EE),
+    surfaceContainerLow = Color(0xFFFAF9FD),
+    error = Color(0xFFBA1A1A),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    outline = Color(0xFFB9B6C8),
+    outlineVariant = Color(0xFFDCD9E6),
+)
+
+/** Resolves System to Dark or Light from the phone's setting. */
+@Composable
+fun resolvePalette(mode: ThemeMode): Palette = when (mode) {
+    ThemeMode.Dark -> DarkPalette
+    ThemeMode.Oled -> OledPalette
+    ThemeMode.Light -> LightPalette
+    ThemeMode.System -> if (androidx.compose.foundation.isSystemInDarkTheme()) DarkPalette else LightPalette
+}
 
 private val type = androidx.compose.material3.Typography().let { t ->
     t.copy(
@@ -81,9 +139,20 @@ private val type = androidx.compose.material3.Typography().let { t ->
 val LocalCollapsibleCards = androidx.compose.runtime.staticCompositionLocalOf { false }
 
 @Composable
-fun BatbloomTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme, typography = type) {
-        Surface(color = MaterialTheme.colorScheme.background, content = content)
+fun BatbloomTheme(palette: Palette = DarkPalette, content: @Composable () -> Unit) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalPalette provides palette) {
+        MaterialTheme(colorScheme = if (palette.isLight) lightScheme(palette) else darkScheme(palette), typography = type) {
+            Surface(color = MaterialTheme.colorScheme.background, content = content)
+        }
+    }
+}
+
+/** Illustrated cards (night sky, milestones) stay dark in every theme. */
+@Composable
+fun DarkArt(content: @Composable () -> Unit) {
+    val p = if (LocalPalette.current == OledPalette) OledPalette else DarkPalette
+    androidx.compose.runtime.CompositionLocalProvider(LocalPalette provides p) {
+        MaterialTheme(colorScheme = darkScheme(p), typography = MaterialTheme.typography, content = content)
     }
 }
 
@@ -100,7 +169,7 @@ fun SectionCard(
         modifier = modifier.fillMaxWidth().animateContentSize(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = container),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (LocalPalette.current.isLight) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.05f)),
     ) {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (title != null) Row(
@@ -186,7 +255,7 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
 @Composable
 fun SubSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.06f), modifier = Modifier.padding(vertical = 4.dp))
+        androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 4.dp))
         Text(title, color = Lavender, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         content()
     }

@@ -229,5 +229,6 @@ class RescheduleReceiver : BroadcastReceiver() {
         DoseAlarms.ensureChannels(context)
         DoseAlarms.scheduleNext(context)
         com.malluwayne.batbloom.guard.Reminders.scheduleAll(context)
+        com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
     }
 }

@@ -34,7 +34,30 @@ class Prefs(context: Context) {
     val quitDate: StateFlow<LocalDate?> = _quitDate
     fun setQuitDate(d: LocalDate?) {
         putDate("quit_date", d); _quitDate.value = d
-        runCatching { com.malluwayne.batbloom.guard.Reminders.scheduleMilestone(com.malluwayne.batbloom.BatbloomApp.instance) }
+        quitChanged()
+    }
+
+    /** Time of the last cigarette on the quit day (milestones count from here). Default: midnight. */
+    private val _quitTime = MutableStateFlow(LocalTime.ofSecondOfDay(sp.getInt("quit_time", 0).toLong()))
+    val quitTime: StateFlow<LocalTime> = _quitTime
+    fun setQuitTime(t: LocalTime) { sp.edit().putInt("quit_time", t.toSecondOfDay()).apply(); _quitTime.value = t; quitChanged() }
+
+    /** Quit right now: today, this minute. */
+    fun quitNow() {
+        val now = java.time.LocalDateTime.now().withSecond(0).withNano(0)
+        putDate("quit_date", now.toLocalDate()); _quitDate.value = now.toLocalDate()
+        sp.edit().putInt("quit_time", now.toLocalTime().toSecondOfDay()).apply(); _quitTime.value = now.toLocalTime()
+        quitChanged()
+    }
+
+    fun quitStart(zone: java.time.ZoneId): java.time.ZonedDateTime? = _quitDate.value?.atTime(_quitTime.value)?.atZone(zone)
+
+    private fun quitChanged() {
+        runCatching {
+            val app = com.malluwayne.batbloom.BatbloomApp.instance
+            com.malluwayne.batbloom.guard.Reminders.scheduleMilestone(app)
+            com.malluwayne.batbloom.widget.BloomWidget.refresh(app)
+        }
     }
 
     private val _examDate = MutableStateFlow(date("exam_date", null))

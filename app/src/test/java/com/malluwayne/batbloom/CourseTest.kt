@@ -103,9 +103,15 @@ class CourseTest {
 
     @Test fun badges() {
         val quit = d(11, 28)
-        assertEquals(emptySet<String>(), Badges.earned(d(11, 27), s, quit))
-        assertEquals(setOf("quit_day"), Badges.earned(quit, s, quit))
-        assertEquals(setOf("quit_day", "week1"), Badges.earned(d(12, 5), s, quit))
+        assertEquals(setOf("course_start"), Badges.earned(d(11, 27), s, quit))
+        assertEquals(emptySet<String>(), Badges.earned(d(11, 20), s, quit))
+        assertEquals(setOf("course_start", "quit_day"), Badges.earned(quit, s, quit))
+        assertEquals(setOf("course_start", "quit_day", "week1"), Badges.earned(d(12, 5), s, quit))
+        assertTrue("month1" in Badges.earned(d(12, 28), s, quit))
+        assertEquals(setOf("bloom1", "bloom10", "streak7"), Badges.earned(d(11, 20), s, quit, blooms = 12, streak = 8))
+        assertEquals(d(12, 5), Badges.dueDate("week1", s, quit))
+        assertEquals(d(2, 12), Badges.dueDate("course", s, quit))
+        assertEquals(10, Badges.target("bloom10"))
         assertTrue("halfway" in Badges.earned(s.start.plusDays(41), s, quit))
         assertTrue("course" in Badges.earned(d(2, 12), s, quit))
     }

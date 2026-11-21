@@ -166,7 +166,7 @@ private fun SetupView() {
             if (goal > 0) "FMGE ${Rules.formatMinutes(summary.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}" else null,
             exam?.let { Stats.examLine(it, today) },
             quit?.let { q ->
-                val since = java.time.Duration.between(q.atStartOfDay(zone), java.time.Instant.ofEpochMilli(now).atZone(zone))
+                val since = java.time.Duration.between(prefs.quitStart(zone) ?: q.atStartOfDay(zone), java.time.Instant.ofEpochMilli(now).atZone(zone))
                 com.malluwayne.batbloom.quit.Milestones.nextLine(since) ?: Stats.quitLine(q, today)
             },
         ).joinToString("  \u00B7  ")

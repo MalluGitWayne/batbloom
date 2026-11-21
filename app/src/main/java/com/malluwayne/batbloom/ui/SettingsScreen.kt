@@ -160,9 +160,17 @@ fun SettingsScreen(modifier: Modifier) {
         }
 
         SectionCard("Quit smoking") {
-            LabeledRow("Quit day", quit?.let { fmt.format(it) } ?: "Not set")
+            val quitTime by prefs.quitTime.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Quit day", Modifier.weight(1f))
+                TextButton({ pickDate = "quit" }) { Text(quit?.let { fmt.format(it) } ?: "Set") }
+            }
+            if (quit != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Last cigarette at", Modifier.weight(1f))
+                TextButton({ pickTime = "quit" }) { Text(timeFmt.format(quitTime)) }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton({ pickDate = "quit" }) { Text(if (quit == null) "Set date" else "Change") }
+                OutlinedButton({ prefs.quitNow() }) { Text("I've quit now") }
                 if (quit != null) TextButton({ prefs.setQuitDate(null) }) { Text("Clear") }
             }
             NumberField("Cigarettes a day (before quitting)", smoking.perDay.toString()) { v -> v.toIntOrNull()?.let { prefs.setSmoking(smoking.copy(perDay = it)) } }
@@ -226,14 +234,18 @@ fun SettingsScreen(modifier: Modifier) {
     if (showApps) AllowListDialog(allowed) { showApps = false }
 
     pickTime?.let { which ->
-        val t = if (which == "am") schedule.amTime else schedule.pmTime
+        val t = when (which) { "am" -> schedule.amTime; "pm" -> schedule.pmTime; else -> prefs.quitTime.value }
         val st = rememberTimePickerState(t.hour, t.minute, false)
         AlertDialog(
             onDismissRequest = { pickTime = null },
             confirmButton = {
                 TextButton({
                     val nt = java.time.LocalTime.of(st.hour, st.minute)
-                    prefs.setSchedule(if (which == "am") schedule.copy(amTime = nt) else schedule.copy(pmTime = nt))
+                    when (which) {
+                        "am" -> prefs.setSchedule(schedule.copy(amTime = nt))
+                        "pm" -> prefs.setSchedule(schedule.copy(pmTime = nt))
+                        else -> prefs.setQuitTime(nt)
+                    }
                     pickTime = null
                 }) { Text("OK") }
             },

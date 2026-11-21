@@ -82,6 +82,7 @@ object Calendars {
     fun smokeFree(
         quit: LocalDate?, today: LocalDate, zone: ZoneId,
         perDay: Int, packSize: Int, packPrice: Double,
+        quitStart: java.time.ZonedDateTime? = quit?.atStartOfDay(zone),
     ): CalendarData {
         val ym = YearMonth.from(today)
         val name = ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
@@ -97,7 +98,7 @@ object Calendars {
         var clean = 0
         while (started && !d.isBefore(quit)) { clean++; d = d.minusDays(1) }
         val p = com.malluwayne.batbloom.quit.QuitMath.progress(
-            quit.atStartOfDay(zone), java.time.ZonedDateTime.now(zone), perDay, packSize, packPrice,
+            (quitStart ?: quit.atStartOfDay(zone)), java.time.ZonedDateTime.now(zone), perDay, packSize, packPrice,
         )
         val figures = if (!started) listOf(
             "${java.time.temporal.ChronoUnit.DAYS.between(today, quit)}" to "days to quit day",
@@ -242,9 +243,11 @@ object Calendars {
     }
 }
 
-private fun calendarUpdate(context: Context, provider: Class<*>, build: suspend (BatbloomApp, LocalDate, ZoneId) -> CalendarData, action: String, rc: Int) {
+private fun calendarUpdate(
+    context: Context, provider: Class<*>, build: suspend (BatbloomApp, LocalDate, ZoneId) -> CalendarData, action: String, rc: Int,
+): kotlinx.coroutines.Job {
     val app = context.applicationContext as BatbloomApp
-    app.appScope.launch {
+    return app.appScope.launch {
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, provider))
         if (ids.isEmpty()) return@launch
@@ -263,8 +266,14 @@ private fun calendarUpdate(context: Context, provider: Class<*>, build: suspend 
 
 /** Study calendar: the days you studied this month, like a workout-history widget. */
 class CalendarWidget : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = update(context)
-    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = update(context)
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = keepAlive(update(context))
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = keepAlive(update(context))
+
+    /** Holds the broadcast open until the picture is drawn, so Android doesn't stop the app half-way. */
+    private fun keepAlive(job: kotlinx.coroutines.Job) {
+        val pending = goAsync()
+        job.invokeOnCompletion { pending.finish() }
+    }
 
     companion object {
         fun update(context: Context) = calendarUpdate(context, CalendarWidget::class.java, { app, today, zone ->
@@ -275,13 +284,19 @@ class CalendarWidget : AppWidgetProvider() {
 
 /** Smoke-free calendar: every day since the quit day. */
 class SmokeFreeWidget : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = update(context)
-    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = update(context)
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = keepAlive(update(context))
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = keepAlive(update(context))
+
+    /** Holds the broadcast open until the picture is drawn, so Android doesn't stop the app half-way. */
+    private fun keepAlive(job: kotlinx.coroutines.Job) {
+        val pending = goAsync()
+        job.invokeOnCompletion { pending.finish() }
+    }
 
     companion object {
         fun update(context: Context) = calendarUpdate(context, SmokeFreeWidget::class.java, { app, today, zone ->
             val sm = app.prefs.smoking.value
-            Calendars.smokeFree(app.prefs.quitDate.value, today, zone, sm.perDay, sm.packSize, sm.packPrice)
+            Calendars.smokeFree(app.prefs.quitDate.value, today, zone, sm.perDay, sm.packSize, sm.packPrice, app.prefs.quitStart(zone))
         }, MainActivity.ACTION_QUIT, 16)
     }
 }

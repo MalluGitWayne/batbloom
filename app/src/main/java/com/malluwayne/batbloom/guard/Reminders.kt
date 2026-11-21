@@ -81,9 +81,8 @@ object Reminders {
     fun scheduleMilestone(c: Context) {
         val am = c.getSystemService(AlarmManager::class.java)
         val pi = pi(c, ACTION_MILESTONE, 204)
-        val quit = app(c).prefs.quitDate.value
-        if (quit == null) { am.cancel(pi); return }
-        val start = quit.atStartOfDay(ZoneId.systemDefault())
+        val start = app(c).prefs.quitStart(ZoneId.systemDefault())
+        if (start == null) { am.cancel(pi); return }
         val since = java.time.Duration.between(start, ZonedDateTime.now())
         val next = com.malluwayne.batbloom.quit.Milestones.next(since)
         if (next == null) { am.cancel(pi); return }
@@ -95,7 +94,8 @@ object Reminders {
     /** Tells you about the milestone just reached (the latest one, if the phone was off for a while). */
     fun notifyMilestone(c: Context) {
         val quit = app(c).prefs.quitDate.value ?: return
-        val since = java.time.Duration.between(quit.atStartOfDay(ZoneId.systemDefault()), ZonedDateTime.now())
+        val start = app(c).prefs.quitStart(ZoneId.systemDefault()) ?: return
+        val since = java.time.Duration.between(start, ZonedDateTime.now())
         val m = com.malluwayne.batbloom.quit.Milestones.reached(since).lastOrNull() ?: return
         val sp = c.getSharedPreferences("batbloom", Context.MODE_PRIVATE)
         if (sp.getString("milestone_told", "") == "$quit-${m.short}") return

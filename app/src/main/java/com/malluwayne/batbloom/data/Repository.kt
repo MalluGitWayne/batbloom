@@ -69,7 +69,9 @@ class Repository(private val db: AppDatabase) {
 
     /** Awards any badges now earned and returns the new ones. */
     suspend fun awardBadges(today: LocalDate, schedule: DoseSchedule, quitDate: LocalDate?): List<String> {
-        val earned = Badges.earned(today, schedule, quitDate)
+        val done = db.backup().sessions()
+        val st = com.malluwayne.batbloom.stats.Stats.compute(done, today, java.time.ZoneId.systemDefault())
+        val earned = Badges.earned(today, schedule, quitDate, st.completed, st.streakDays)
         return earned.filter { id ->
             quit.award(BadgeEntity(id, System.currentTimeMillis())) != -1L
         }

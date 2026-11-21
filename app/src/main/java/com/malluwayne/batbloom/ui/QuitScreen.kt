@@ -71,6 +71,7 @@ fun QuitScreen(modifier: Modifier) {
     val scope = rememberCoroutineScope()
     val schedule by prefs.schedule.collectAsState()
     val quit by prefs.quitDate.collectAsState()
+    val quitTime by prefs.quitTime.collectAsState()
     val smoking by prefs.smoking.collectAsState()
     val setupDone by prefs.smokingSetupDone.collectAsState()
     val stockLeft by prefs.tabletsLeft.collectAsState()
@@ -78,6 +79,7 @@ fun QuitScreen(modifier: Modifier) {
     val closeHours by prefs.closeHours.collectAsState()
     val doses by app.repo.doses.collectAsState(emptyList())
     val badges by app.repo.badges.collectAsState(emptyList())
+    val sessions by app.repo.sessions.collectAsState(emptyList())
     val nowMs = rememberNow(30_000)
     val zone = ZoneId.systemDefault()
     val now = Instant.ofEpochMilli(nowMs).atZone(zone)
@@ -89,7 +91,7 @@ fun QuitScreen(modifier: Modifier) {
     val dateFmt = remember { DateTimeFormatter.ofPattern("EEE d MMM") }
     val warn = MaterialTheme.colorScheme.error
 
-    LaunchedEffect(Unit) { DoseAlarms.checkBadges(ctx) }
+    LaunchedEffect(quit, today) { DoseAlarms.checkBadges(ctx) }
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
@@ -110,7 +112,10 @@ fun QuitScreen(modifier: Modifier) {
             )
         }
 
-        quit?.let { MilestoneHero(it, java.time.Duration.between(it.atStartOfDay(zone), now)) }
+        quit?.let { q ->
+            val start = q.atTime(quitTime).atZone(zone)
+            MilestoneHero(start, java.time.Duration.between(start, now), onQuitNow = { prefs.quitNow() })
+        }
 
         // Today's tablets: one row per dose, tap the circle to tick it off
         val todaySlots = schedule.slotsOn(today)
@@ -168,7 +173,7 @@ fun QuitScreen(modifier: Modifier) {
         // Savings since the quit day
         val q = quit
         if (q != null) {
-            val p = QuitMath.progress(q.atStartOfDay(zone), now, smoking.perDay, smoking.packSize, smoking.packPrice)
+            val p = QuitMath.progress(q.atTime(quitTime).atZone(zone), now, smoking.perDay, smoking.packSize, smoking.packPrice)
             if (!p.sinceQuit.isNegative) SectionCard {
                 Row(Modifier.fillMaxWidth()) {
                     QuitFigure("${p.notSmoked}", "not smoked", Modifier.weight(1f))
@@ -178,20 +183,10 @@ fun QuitScreen(modifier: Modifier) {
             }
         }
 
+        BadgeShelf(badges.associate { it.id to it.earnedAt }, schedule, quit, sessions)
+
         androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SectionCard("Badges") {
-                    val have = badges.map { it.id }.toSet()
-                    Badges.all.forEach { b ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (b.id in have) "\u2605" else "\u2606", color = if (b.id in have) Gold else Muted, fontSize = 22.sp, modifier = Modifier.padding(end = 10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(b.title, fontWeight = FontWeight.SemiBold, color = if (b.id in have) MaterialTheme.colorScheme.onSurface else Muted)
-                                Text(b.text, fontSize = 12.sp, color = Muted)
-                            }
-                        }
-                    }
-                }
                 if (doses.isNotEmpty()) SectionCard("Dose log") {
                     doses.take(14).forEach { d: DoseLogEntity ->
                         LabeledRow(

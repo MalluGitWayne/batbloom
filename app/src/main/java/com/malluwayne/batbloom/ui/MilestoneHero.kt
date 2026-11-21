@@ -43,13 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malluwayne.batbloom.quit.Milestones
 import java.time.Duration
-import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private val HeroTeal = Color(0xFF7FE3D0)
-private val HeroMuted = Color(0xFF9AA8B8)
-private val HeroText = Color(0xFFEAF6F3)
 
 /** "6d 14h 22m", "14h 03m", "22m". */
 private fun longDuration(d: Duration): String {
@@ -68,10 +63,19 @@ private fun longDuration(d: Duration): String {
  * date and time, and a timeline. Tap for every milestone with the date it was (or will be) reached.
  */
 @Composable
-fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
+fun MilestoneHero(start: java.time.ZonedDateTime, sinceQuit: Duration, onQuitNow: () -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
-    val zone = ZoneId.systemDefault()
-    val start = quitDay.atStartOfDay(zone)
+    var confirmQuit by rememberSaveable { mutableStateOf(false) }
+    val pal = LocalPalette.current
+    val HeroTeal = pal.teal
+    val HeroText = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
+    val HeroMuted = pal.muted
+    val bg = when {
+        pal.isLight -> listOf(Color(0xFFE3F4F0), Color(0xFFFFFFFF))
+        pal.night == Color(0xFF000000) -> listOf(Color(0xFF07211D), Color(0xFF0B0B10))
+        else -> listOf(Color(0xFF12302B), Color(0xFF1A1A20))
+    }
+    val track = HeroText.copy(alpha = 0.10f)
     val next = Milestones.next(sinceQuit)
     val reached = Milestones.reached(sinceQuit)
     val started = !sinceQuit.isNegative
@@ -84,7 +88,7 @@ fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
 
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF0F2A2A), Color(0xFF101A33))))
+            .background(Brush.linearGradient(bg))
             .clickable { open = !open }
             .animateContentSize()
             .padding(20.dp),
@@ -97,7 +101,12 @@ fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
                 longDuration(if (started) sinceQuit else sinceQuit.negated()),
                 color = HeroText, fontSize = 36.sp, fontWeight = FontWeight.Bold,
             )
-            if (!started) Text(start.format(DateTimeFormatter.ofPattern("EEEE d MMMM")), color = HeroMuted, fontSize = 13.sp)
+            if (!started) {
+                Text(start.format(DateTimeFormatter.ofPattern("EEEE d MMMM, h:mm a")), color = HeroMuted, fontSize = 13.sp)
+                androidx.compose.material3.OutlinedButton({ confirmQuit = true }, Modifier.padding(top = 10.dp)) {
+                    Text("Quit now instead", color = HeroTeal)
+                }
+            }
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -105,9 +114,9 @@ fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
                 Canvas(Modifier.size(84.dp)) {
                     val w = 8.dp.toPx()
                     val arc = Size(size.width - w, size.height - w)
-                    drawArc(Color.White.copy(alpha = 0.08f), 0f, 360f, false, Offset(w / 2, w / 2), arc, style = Stroke(w))
+                    drawArc(track, 0f, 360f, false, Offset(w / 2, w / 2), arc, style = Stroke(w))
                     if (started) drawArc(
-                        Brush.sweepGradient(listOf(HeroTeal.copy(alpha = 0.6f), HeroTeal, Color(0xFFB8FFF0))),
+                        Brush.sweepGradient(listOf(HeroTeal.copy(alpha = 0.6f), HeroTeal, HeroTeal)),
                         -90f, 360f * step, false, Offset(w / 2, w / 2), arc, style = Stroke(w, cap = StrokeCap.Round),
                     )
                 }
@@ -140,7 +149,7 @@ fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
                 val gap = size.width / n
                 val cy = size.height / 2
                 val xs = (0 until n).map { gap * (it + 0.5f) }
-                drawLine(Color.White.copy(alpha = 0.12f), Offset(xs.first(), cy), Offset(xs.last(), cy), 2.dp.toPx())
+                drawLine(track, Offset(xs.first(), cy), Offset(xs.last(), cy), 2.dp.toPx())
                 if (reached.isNotEmpty()) {
                     val last = (reached.size - 1).coerceAtMost(n - 1)
                     val endX = xs[last] + if (next != null) gap * step else 0f
@@ -151,7 +160,7 @@ fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
                     val isNext = m == next && started
                     if (isNext) drawCircle(HeroTeal.copy(alpha = 0.25f * pulse), 10.dp.toPx(), Offset(xs[i], cy))
                     drawCircle(
-                        when { done -> HeroTeal; isNext -> Color(0xFF1C4A46); else -> Color(0xFF2A3050) },
+                        when { done -> HeroTeal; isNext -> HeroTeal.copy(alpha = 0.35f); else -> HeroText.copy(alpha = 0.18f) },
                         if (done || isNext) 5.5.dp.toPx() else 4.dp.toPx(), Offset(xs[i], cy),
                     )
                     if (isNext) drawCircle(HeroTeal, 5.5.dp.toPx(), Offset(xs[i], cy), style = Stroke(1.5.dp.toPx()))
@@ -188,4 +197,11 @@ fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
             modifier = Modifier.fillMaxWidth().rotate(chevron),
         )
     }
+    if (confirmQuit) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmQuit = false },
+        title = { Text("Quit now?") },
+        text = { Text("Your quit time becomes right now. Milestones, savings and badges count from this moment.") },
+        confirmButton = { androidx.compose.material3.TextButton({ confirmQuit = false; onQuitNow() }) { Text("Quit now") } },
+        dismissButton = { androidx.compose.material3.TextButton({ confirmQuit = false }) { Text("Cancel") } },
+    )
 }

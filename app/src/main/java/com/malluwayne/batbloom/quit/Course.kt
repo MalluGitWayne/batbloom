@@ -196,14 +196,13 @@ object Badges {
         Badge("week1", "1 week smoke-free", "Seven days since your quit day.", 100),
         Badge("week3", "3 weeks smoke-free", "Twenty-one days since your quit day.", 150),
         Badge("halfway", "Halfway", "Day 42 of your course.", 200),
-        Badge("cravings10", "10 cravings beaten", "Ten craving sessions ridden out.", 100),
         Badge("course", "Course complete", "Full course finished. Unlocks the Dawnbreath Lily.", 500),
     )
 
     fun byId(id: String) = all.first { it.id == id }
 
     /** Time-based badges are never taken away by a slip. */
-    fun earned(today: LocalDate, schedule: DoseSchedule, quit: LocalDate?, cravingsBeaten: Int): Set<String> = buildSet {
+    fun earned(today: LocalDate, schedule: DoseSchedule, quit: LocalDate?): Set<String> = buildSet {
         if (quit != null) {
             if (!today.isBefore(quit)) add("quit_day")
             if (!today.isBefore(quit.plusDays(7))) add("week1")
@@ -212,6 +211,5 @@ object Badges {
         val day = schedule.dayNumber(today)
         if (day >= 42) add("halfway")
         if (day >= schedule.courseDays) add("course")
-        if (cravingsBeaten >= 10) add("cravings10")
     }
 }

@@ -219,9 +219,6 @@ private fun SetupView() {
         Button(onClick = { Starter.fromPrefs(ctx) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
             Text(if (stopwatch) "Start stopwatch" else if (pomodoro) "Start Pomodoro" else "Start", fontSize = 18.sp)
         }
-        TextButton({ Starter.craving(ctx) }, Modifier.padding(top = 4.dp)) {
-            Text("Craving? 10-minute bloom", color = Gold, fontWeight = FontWeight.SemiBold)
-        }
         if (!hasUsage) TextButton({ explainUsage = true }) {
             Text("Leave detection is off \u00B7 Turn on", color = Muted, fontSize = 12.sp)
         }
@@ -361,16 +358,6 @@ private fun Stepper(label: String, value: Int, min: Int, max: Int, step: Int, un
     }
 }
 
-private val cravingTips = listOf(
-    "A craving rises and falls like a wave. Ride this one out.",
-    "Breathe in for 4, hold for 4, out for 6. Do it five times.",
-    "Drink a glass of cold water, slowly.",
-    "Stand up, stretch, or walk around the room.",
-    "Chew gum or eat something crunchy.",
-    "Text a friend instead of reaching for a cigarette.",
-    "Every craving you beat makes the next one weaker.",
-)
-
 @Composable
 private fun RunningView(s: State.Running) {
     val ctx = LocalContext.current
@@ -402,8 +389,6 @@ private fun RunningView(s: State.Running) {
         }
         if (!hasUsage) Text("Leave detection is off", color = Muted, fontSize = 12.sp)
 
-        if (s.tag == Tags.CRAVING) CravingPanel(s, now, reason)
-
         TextButton({ confirm = true }) { Text("Give up", color = MaterialTheme.colorScheme.error) }
     }
     if (confirm) AlertDialog(
@@ -413,27 +398,6 @@ private fun RunningView(s: State.Running) {
         title = { Text("Give up?") },
         text = { Text("Your ${PlantCatalog.byId(s.plantId).name} will wilt.") },
     )
-}
-
-@Composable
-private fun CravingPanel(s: State.Running, now: Long, reason: String) {
-    val app = BatbloomApp.instance
-    val scope = rememberCoroutineScope()
-    var intensity by remember { mutableStateOf(s.request.cravingIntensity) }
-    var trigger by remember { mutableStateOf(s.request.trigger) }
-    fun save() { if (s.sessionId >= 0) scope.launch { app.repo.setCraving(s.sessionId, intensity, trigger) } }
-    val tips = if (reason.isNotBlank()) cravingTips + "Remember why: $reason" else cravingTips
-    SectionCard(container = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)) {
-        Text(tips[((now / 20_000) % tips.size).toInt()], fontWeight = FontWeight.SemiBold)
-        Text("How strong is it?", color = Muted, fontSize = 13.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            (1..5).forEach { i -> FilterChip(intensity == i, { intensity = i; save() }, { Text("$i") }) }
-        }
-        Text("What set it off?", color = Muted, fontSize = 13.sp)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Tags.cravingTriggers.forEach { t -> FilterChip(trigger == t, { trigger = t; save() }, { Text(t, fontSize = 12.sp) }) }
-        }
-    }
 }
 
 @Composable
@@ -474,7 +438,6 @@ private fun ResultView(s: State.Finished) {
             style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
         )
         val detail = when {
-            s.reason == null && s.request.tag == Tags.CRAVING && s.success -> "Craving beaten. That's one more win."
             s.reason == null -> "${s.minutes} min of ${listOfNotNull(s.request.tag, s.request.subject).joinToString(" · ")}"
             s.reason == "gave up" -> "You gave up. A shorter session next time?"
             s.reason == "too short" -> "Stopped before ${Rules.MIN_MINUTES} minutes, so nothing was planted this time."

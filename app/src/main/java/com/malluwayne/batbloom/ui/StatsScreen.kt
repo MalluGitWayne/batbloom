@@ -52,7 +52,6 @@ fun StatsScreen(modifier: Modifier) {
     val today = LocalDate.now(zone)
     val s = remember(sessions, today) { Stats.compute(sessions, today, zone) }
     val p = remember(sessions, today, month) { com.malluwayne.batbloom.stats.Periods.summary(sessions, today, zone, if (month) 30 else 7) }
-    val c = remember(sessions, today) { Stats.cravings(sessions, today, zone) }
     val periodName = if (month) "30 days" else "7 days"
 
     Column(
@@ -143,12 +142,6 @@ fun StatsScreen(modifier: Modifier) {
             p.tagMinutes.forEach { (t, m) -> HBar(t, Rules.formatMinutes(m), m.toFloat() / max, Lavender) }
         }
 
-        if (c.beaten + c.lost > 0) SectionCard("Cravings") {
-            LabeledRow("Ridden out", "${c.beaten} of ${c.beaten + c.lost}")
-            c.topTriggers.firstOrNull()?.let { (t, n) -> LabeledRow("Most common trigger", "$t ($n)") }
-            val avg = c.intensity7.mapNotNull { it.second }
-            if (avg.isNotEmpty()) LabeledRow("Average strength this week", "%.1f / 5".format(avg.average()))
-        }
     }
 }
 

@@ -202,3 +202,26 @@ class MilestoneTest {
         org.junit.Assert.assertEquals("45m", M.formatLeft(java.time.Duration.ofMinutes(45)))
     }
 }
+
+class AutoBackupTest {
+    private val A = com.malluwayne.batbloom.data.AutoBackup
+
+    @org.junit.Test fun due() {
+        val week = A.WEEK_MS
+        org.junit.Assert.assertTrue(A.isDue(true, true, 0, 1_000))
+        org.junit.Assert.assertFalse(A.isDue(true, true, 1_000, 1_000 + week - 1))
+        org.junit.Assert.assertTrue(A.isDue(true, true, 1_000, 1_000 + week))
+        org.junit.Assert.assertFalse(A.isDue(false, true, 0, 1_000))
+        org.junit.Assert.assertFalse(A.isDue(true, false, 0, 1_000))
+    }
+
+    @org.junit.Test fun pruneKeepsNewestFour() {
+        val names = listOf(
+            "batbloom-auto-2026-11-01.json", "batbloom-auto-2026-11-08.json", "batbloom-auto-2026-11-15.json",
+            "batbloom-auto-2026-11-22.json", "batbloom-auto-2026-11-29.json", "my-notes.json", "batbloom-backup-2026-11-02.json",
+        )
+        org.junit.Assert.assertEquals(listOf("batbloom-auto-2026-11-01.json"), A.toDelete(names))
+        org.junit.Assert.assertTrue(A.toDelete(names.take(3)).isEmpty())
+        org.junit.Assert.assertEquals("batbloom-auto-2026-11-21.json", A.fileName(java.time.LocalDate.of(2026, 11, 21)))
+    }
+}

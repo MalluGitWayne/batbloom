@@ -66,7 +66,6 @@ class BloomWidget : AppWidgetProvider() {
             app.appScope.launch { update(context) }
             CalendarWidget.update(context)
             SmokeFreeWidget.update(context)
-            CravingWidget.update(context)
         }
 
         internal fun launch(context: Context, action: String, code: Int): PendingIntent = PendingIntent.getActivity(
@@ -222,7 +221,6 @@ class BloomWidget : AppWidgetProvider() {
                     v.setOnClickPendingIntent(R.id.w_dose, com.malluwayne.batbloom.quit.DoseAlarms.takenIntent(context, doseDue.key))
                 } else v.setViewVisibility(R.id.w_dose, View.GONE)
                 // While a session runs, one button that opens it; otherwise quick-start buttons.
-                v.setViewVisibility(R.id.w_craving, if (endAt != null) View.GONE else View.VISIBLE)
                 v.setTextViewText(
                     R.id.w_focus,
                     when {
@@ -238,32 +236,6 @@ class BloomWidget : AppWidgetProvider() {
                 )
                 v.setImageViewBitmap(R.id.w_art, paint(context, wDp, hDp, 24f, box, plantId, growth, false, garden, miniDp = mini))
                 v.setOnClickPendingIntent(R.id.w_root, launch(context, MainActivity.ACTION_OPEN, 10))
-                v.setOnClickPendingIntent(R.id.w_craving, launch(context, MainActivity.ACTION_CRAVING, 11))
-                manager.updateAppWidget(id, v)
-            }
-        }
-    }
-}
-
-/** Small 1x1 "craving" button: one tap starts a 10-minute session. */
-class CravingWidget : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = update(context)
-
-    companion object {
-        fun update(context: Context) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, CravingWidget::class.java))
-            if (ids.isEmpty()) return
-            val running = FocusEngine.isActive
-            val plant = (context.applicationContext as BatbloomApp).prefs.selectedPlant.value
-            for (id in ids) {
-                val (wDp, hDp) = BloomWidget.sizeDp(manager, id, 70, 70)
-                val v = RemoteViews(context.packageName, R.layout.widget_craving)
-                v.setTextViewText(R.id.wc_label, if (running) "Growing…" else "Craving")
-                val side = min(wDp, hDp) * 0.62f
-                val box = floatArrayOf(wDp / 2f - side / 2, 4f, wDp / 2f + side / 2, 4f + side)
-                v.setImageViewBitmap(R.id.wc_art, BloomWidget.paint(context, wDp, hDp, 20f, box, plant, 1f, false))
-                v.setOnClickPendingIntent(R.id.wc_root, BloomWidget.launch(context, MainActivity.ACTION_CRAVING, 13))
                 manager.updateAppWidget(id, v)
             }
         }

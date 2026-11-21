@@ -6,7 +6,6 @@ import kotlin.math.ceil
 object Rules {
     const val MIN_MINUTES = 10
     const val MAX_MINUTES = 120
-    const val CRAVING_MINUTES = 10
     const val GRACE_MS = 10_000L
 
     fun clampMinutes(minutes: Int): Int = minutes.coerceIn(MIN_MINUTES, MAX_MINUTES)

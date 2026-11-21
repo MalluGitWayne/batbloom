@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
         setContent { BatbloomTheme { AppRoot() } }
         Updates.load(this)
         lifecycleScope.launch { Updates.dailyCheck(this@MainActivity) }
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { com.malluwayne.batbloom.data.AutoBackup.runIfDue(this@MainActivity) }
         handle(intent)
     }
 
@@ -70,7 +71,6 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent?) {
         when (intent?.action) {
-            ACTION_CRAVING -> Starter.craving(this)
             ACTION_FOCUS -> Starter.fromPrefs(this)
             ACTION_QUIT -> Nav.tab.value = 2
             ACTION_OPEN -> Nav.tab.value = 0
@@ -82,13 +82,12 @@ class MainActivity : ComponentActivity() {
                 Nav.tab.value = 0
             }
         }
-        if (intent?.action == ACTION_CRAVING || intent?.action == ACTION_FOCUS) Nav.tab.value = 0
+        if (intent?.action == ACTION_FOCUS) Nav.tab.value = 0
         intent?.action = null
     }
 
     companion object {
         const val ACTION_OPEN = "batbloom.OPEN"
-        const val ACTION_CRAVING = "batbloom.CRAVING"
         const val ACTION_FOCUS = "batbloom.FOCUS"
         const val ACTION_QUIT = "batbloom.QUIT"
         const val ACTION_FMGE = "batbloom.FMGE"
@@ -115,10 +114,6 @@ object Starter {
         )
     }
 
-    fun craving(context: Context) {
-        val p = BatbloomApp.instance.prefs
-        FocusEngine.start(context, FocusEngine.Request(Rules.CRAVING_MINUTES, Tags.CRAVING, null, p.selectedPlant.value))
-    }
 }
 
 /** Which tab is showing, and whether the shop is open. Widgets and notifications switch tabs through this. */

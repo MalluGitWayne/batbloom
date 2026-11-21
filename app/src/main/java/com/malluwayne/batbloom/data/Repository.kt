@@ -40,7 +40,6 @@ class Repository(private val db: AppDatabase) {
         db.sessions().finish(id, if (success) Status.DONE else Status.FAILED, endedAt, coins, reason)
         return coins
     }
-    suspend fun setCraving(id: Long, intensity: Int?, trigger: String?) = db.sessions().setCraving(id, intensity, trigger)
     suspend fun clearWilted() = db.sessions().clearWilted()
     suspend fun removeWilted(id: Long) = db.sessions().removeWilted(id)
     suspend fun failStaleRunning() = db.sessions().failStaleRunning()
@@ -90,7 +89,7 @@ class Repository(private val db: AppDatabase) {
 
     /** Awards any badges now earned and returns the new ones. */
     suspend fun awardBadges(today: LocalDate, schedule: DoseSchedule, quitDate: LocalDate?): List<String> {
-        val earned = Badges.earned(today, schedule, quitDate, quit.cravingsBeaten())
+        val earned = Badges.earned(today, schedule, quitDate)
         return earned.filter { id ->
             quit.award(BadgeEntity(id, System.currentTimeMillis(), Badges.byId(id).coins)) != -1L
         }

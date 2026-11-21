@@ -75,18 +75,4 @@ class StatsTest {
         assertEquals(0, before.notSmoked)
     }
 
-    @Test fun cravingSummary() {
-        val list = listOf(
-            s(today, 10, Tags.CRAVING, intensity = 4, trigger = "Coffee/tea"),
-            s(today, 10, Tags.CRAVING, intensity = 2, trigger = "Coffee/tea"),
-            s(today.minusDays(1), 10, Tags.CRAVING, ok = false, trigger = "Stress"),
-            s(today, 25),
-        )
-        val c = Stats.cravings(list, today, zone)
-        assertEquals(2, c.beaten)
-        assertEquals(1, c.lost)
-        assertEquals(3.0, c.intensity7.last().second!!, 0.001)
-        assertNull(c.intensity7[5].second)
-        assertEquals("Coffee/tea" to 2, c.topTriggers.first())
-    }
 }

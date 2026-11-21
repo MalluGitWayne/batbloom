@@ -8,9 +8,7 @@ object Tags {
     const val CRAVING = "Craving"
     const val EXERCISE = "Exercise"
     const val OTHER = "Other"
-    val all = listOf(FMGE, STUDY, WORK, READING, CRAVING, EXERCISE, OTHER)
-
-    val cravingTriggers = listOf("Coffee/tea", "After a meal", "Stress", "Boredom", "Waking up", "Friends", "Alcohol", "Study break", "Other")
+    val all = listOf(FMGE, STUDY, WORK, READING, EXERCISE, OTHER)
 
     /** Question practice and grand tests: tracked like a subject, but not part of spaced revision. */
     const val MCQ = "MCQ practice"

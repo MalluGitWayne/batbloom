@@ -30,6 +30,7 @@ object Reminders {
     const val ACTION_GUARD = "batbloom.GUARD_CHECK"
     const val ACTION_FMGE = "batbloom.FMGE_REMINDER"
     const val ACTION_MILESTONE = "batbloom.MILESTONE"
+    const val ACTION_BACKUP = "batbloom.AUTO_BACKUP"
     private const val CH_MILESTONE = "milestones"
     private const val NOTIF_STUDY = 40
 
@@ -62,6 +63,11 @@ object Reminders {
         if (prefs.guard.value.isEmpty()) am.cancel(guard)
         else am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60_000, AlarmManager.INTERVAL_FIFTEEN_MINUTES, guard)
         scheduleMilestone(c)
+        // Weekly backup: checked daily (cheap), writes only when a week has passed.
+        val backup = pi(c, ACTION_BACKUP, 206)
+        if (com.malluwayne.batbloom.data.AutoBackup.enabled(c)) {
+            am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + AlarmManager.INTERVAL_HOUR, AlarmManager.INTERVAL_DAY, backup)
+        } else am.cancel(backup)
         // FMGE reminder: once a day at the chosen time.
         val study = pi(c, ACTION_FMGE, 201)
         if (!prefs.fmgeReminder.value) { am.cancel(study); return }
@@ -204,6 +210,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     Reminders.ACTION_GUARD -> Reminders.checkGuard(context)
                     Reminders.ACTION_FMGE -> { Reminders.notifyStudy(context); Reminders.scheduleAll(context) }
+                    Reminders.ACTION_BACKUP -> com.malluwayne.batbloom.data.AutoBackup.runIfDue(context)
                     Reminders.ACTION_MILESTONE -> {
                         Reminders.notifyMilestone(context)
                         Reminders.scheduleMilestone(context)

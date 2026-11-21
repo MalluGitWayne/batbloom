@@ -108,13 +108,6 @@ fun QuitScreen(modifier: Modifier) {
         )
         if (day in 1..schedule.courseDays) LinearProgressIndicator({ day.toFloat() / schedule.courseDays }, Modifier.fillMaxWidth())
 
-        // SOS
-        Button(
-            onClick = { Starter.craving(ctx); Nav.tab.value = 0 },
-            modifier = Modifier.fillMaxWidth().height(60.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = MaterialTheme.colorScheme.onTertiary),
-        ) { Text("Craving SOS · 10 minutes", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
-
         // Health milestones, front and centre
         quit?.let { MilestoneHero(it, java.time.Duration.between(it.atStartOfDay(zone), now)) }
 
@@ -205,28 +198,6 @@ fun QuitScreen(modifier: Modifier) {
         // Everything below folds up: tap a section to open it.
         androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Cravings chart
-        val cravings = remember(sessions) { sessions.filter { it.tag == com.malluwayne.batbloom.data.Tags.CRAVING } }
-        SectionCard("Cravings, last 14 days") {
-            val days = (13 downTo 0).map { today.minusDays(it.toLong()) }
-            val byDay = cravings.groupBy { Stats.dayOf(it.startedAt, zone) }
-            val max = days.maxOf { byDay[it]?.size ?: 0 }.coerceAtLeast(1)
-            Canvas(Modifier.fillMaxWidth().height(90.dp)) {
-                val gap = size.width / days.size
-                days.forEachIndexed { i, d ->
-                    val list = byDay[d].orEmpty()
-                    val won = list.count { it.status == com.malluwayne.batbloom.data.Status.DONE }
-                    val lost = list.size - won
-                    val unit = size.height / max
-                    val x = i * gap + gap * 0.2f
-                    val w = gap * 0.6f
-                    drawRect(Gold, androidx.compose.ui.geometry.Offset(x, size.height - won * unit), androidx.compose.ui.geometry.Size(w, won * unit))
-                    drawRect(Muted, androidx.compose.ui.geometry.Offset(x, size.height - (won + lost) * unit), androidx.compose.ui.geometry.Size(w, lost * unit))
-                }
-            }
-            Text("Gold: resisted · grey: not resisted. Total ${cravings.size}, resisted ${cravings.count { it.status == com.malluwayne.batbloom.data.Status.DONE }}.", color = Muted, fontSize = 12.sp)
-        }
-
         // Slips
         SectionCard("Slips") {
             OutlinedButton({ slipDialog = true }) { Text("Log a slip") }

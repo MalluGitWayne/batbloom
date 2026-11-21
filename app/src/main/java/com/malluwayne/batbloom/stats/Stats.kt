@@ -24,7 +24,6 @@ data class StatsSummary(
     val failed: Int,
     val successRate: Int,
     val streakDays: Int,
-    val cravingsBeaten: Int,
 )
 
 data class SmokingProfile(val perDay: Int, val packSize: Int, val packPrice: Double)
@@ -32,13 +31,6 @@ data class Treat(val name: String, val price: Double)
 
 data class SmokeFree(val days: Double, val notSmoked: Int, val moneySaved: Double)
 
-data class CravingSummary(
-    val beaten: Int,
-    val lost: Int,
-    /** Average intensity per day for the last 7 days (null where no cravings were logged), oldest first. */
-    val intensity7: List<Pair<LocalDate, Double?>>,
-    val topTriggers: List<Pair<String, Int>>,
-)
 
 object Stats {
     data class SmokeFreeView(val started: Boolean, val notSmoked: Int, val moneySaved: Double)
@@ -52,18 +44,6 @@ object Stats {
         return SmokeFree(days, cigs, money)
     }
 
-    fun cravings(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId): CravingSummary {
-        val c = sessions.filter { it.tag == Tags.CRAVING }
-        val byDay = c.filter { it.cravingIntensity != null }.groupBy { dayOf(it.startedAt, zone) }
-        return CravingSummary(
-            beaten = c.count { it.status == Status.DONE },
-            lost = c.count { it.status == Status.FAILED },
-            intensity7 = (6 downTo 0).map { today.minusDays(it.toLong()) }.map { d ->
-                d to byDay[d]?.mapNotNull { it.cravingIntensity }?.average()
-            },
-            topTriggers = c.mapNotNull { it.cravingTrigger }.groupingBy { it }.eachCount().toList().sortedByDescending { it.second }.take(5),
-        )
-    }
 
     fun dayOf(millis: Long, zone: ZoneId): LocalDate = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
 
@@ -98,7 +78,6 @@ object Stats {
             failed = failed,
             successRate = if (total == 0) 0 else (done.size * 100 + total / 2) / total,
             streakDays = streak,
-            cravingsBeaten = done.count { it.tag == Tags.CRAVING },
         )
     }
 

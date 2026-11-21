@@ -179,10 +179,57 @@ fun BackupSection() {
         }
     }
 
+    // Automatic weekly backup
+    val auto = com.malluwayne.batbloom.data.AutoBackup
+    var autoOn by remember { mutableStateOf(auto.enabled(ctx)) }
+    var folderName by remember { mutableStateOf(auto.folderName(ctx)) }
+    var last by remember { mutableStateOf(auto.lastMs(ctx)) }
+    var autoError by remember { mutableStateOf(auto.lastError(ctx)) }
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        auto.setFolder(ctx, uri)
+        autoOn = true
+        folderName = auto.folderName(ctx)
+        Reminders.scheduleAll(ctx)
+        scope.launch {
+            withContext(Dispatchers.IO) { auto.runNow(ctx) }
+            last = auto.lastMs(ctx); autoError = auto.lastError(ctx)
+        }
+    }
+
     SectionCard("Backup") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ save.launch("batbloom-backup-${LocalDate.now()}.json") }) { Text("Save backup") }
-            OutlinedButton({ open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Restore") }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Weekly automatic backup", Modifier.weight(1f))
+            Switch(autoOn, { on ->
+                if (on && auto.folder(ctx) == null) pickFolder.launch(null)
+                else { auto.setEnabled(ctx, on); autoOn = on; Reminders.scheduleAll(ctx) }
+            })
+        }
+        if (autoOn) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Folder", Modifier.weight(1f), color = Muted)
+                TextButton({ pickFolder.launch(null) }) { Text((folderName ?: "Choose") + "  \u203A") }
+            }
+            val fmt = remember { java.time.format.DateTimeFormatter.ofPattern("EEE d MMM, h:mm a") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (last > 0) "Last: " + fmt.format(java.time.Instant.ofEpochMilli(last).atZone(java.time.ZoneId.systemDefault())) else "No backup yet",
+                    Modifier.weight(1f), color = Muted, fontSize = 13.sp,
+                )
+                TextButton({
+                    scope.launch {
+                        withContext(Dispatchers.IO) { auto.runNow(ctx) }
+                        last = auto.lastMs(ctx); autoError = auto.lastError(ctx)
+                    }
+                }) { Text("Back up now") }
+            }
+            autoError?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+        }
+        SubSection("Manual") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton({ save.launch("batbloom-backup-${LocalDate.now()}.json") }) { Text("Save file") }
+                OutlinedButton({ open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Restore") }
+            }
         }
         message?.let { Text(it, fontSize = 13.sp, color = Teal) }
     }

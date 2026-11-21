@@ -103,11 +103,10 @@ class CourseTest {
 
     @Test fun badges() {
         val quit = d(11, 28)
-        assertEquals(emptySet<String>(), Badges.earned(d(11, 27), s, quit, 0))
-        assertEquals(setOf("quit_day"), Badges.earned(quit, s, quit, 0))
-        assertEquals(setOf("quit_day", "week1"), Badges.earned(d(12, 5), s, quit, 3))
-        assertTrue("halfway" in Badges.earned(s.start.plusDays(41), s, quit, 0))
-        assertTrue("course" in Badges.earned(d(2, 12), s, quit, 0))
-        assertTrue("cravings10" in Badges.earned(d(11, 22), s, quit, 10))
+        assertEquals(emptySet<String>(), Badges.earned(d(11, 27), s, quit))
+        assertEquals(setOf("quit_day"), Badges.earned(quit, s, quit))
+        assertEquals(setOf("quit_day", "week1"), Badges.earned(d(12, 5), s, quit))
+        assertTrue("halfway" in Badges.earned(s.start.plusDays(41), s, quit))
+        assertTrue("course" in Badges.earned(d(2, 12), s, quit))
     }
 }

@@ -316,10 +316,6 @@ private fun DrawScope.drawMushroom(
 /** Night sky with stars, a crescent moon and a couple of bats crossing. */
 @Composable
 fun NightSky(modifier: Modifier = Modifier, animate: Boolean = true) {
-    val stars = remember {
-        val r = Random(42)
-        List(46) { Triple(r.nextFloat(), r.nextFloat() * 0.75f, r.nextFloat()) }
-    }
     val fly = if (animate) {
         val t = rememberInfiniteTransition(label = "sky")
         t.animateFloat(0f, 1f, infiniteRepeatable(tween(16000, easing = LinearEasing)), label = "bats").value
@@ -328,27 +324,31 @@ fun NightSky(modifier: Modifier = Modifier, animate: Boolean = true) {
         val t = rememberInfiniteTransition(label = "twinkle")
         t.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(5000, easing = LinearEasing)), label = "tw").value
     } else 0f
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        drawRect(Brush.verticalGradient(listOf(Color(0xFF070A18), Color(0xFF141A38), Color(0xFF221B3D))))
-        stars.forEach { (x, y, s) ->
-            val a = 0.35f + 0.5f * ((sin(twinkle + s * 9f) + 1f) / 2f)
-            drawCircle(Color.White.copy(alpha = a), 1f + s * 2.2f, Offset(x * w, y * h))
-        }
-        val moonC = Offset(w * 0.80f, h * 0.16f)
-        val moonR = min(w, h) * 0.075f
-        drawCircle(Brush.radialGradient(listOf(Color(0x33FFF3C4), Color.Transparent), moonC, moonR * 3f), moonR * 3f, moonC)
-        val moon = Path().apply { addOval(Rect(moonC, moonR)) }
-        val bite = Path().apply { addOval(Rect(moonC + Offset(moonR * 0.45f, -moonR * 0.2f), moonR * 0.9f)) }
-        drawPath(Path.combine(PathOperation.Difference, moon, bite), Color(0xFFFFF3C4))
-        // Bats
-        listOf(0f to 0.22f, 0.45f to 0.34f).forEachIndexed { i, (offset, y) ->
-            val p = (fly + offset) % 1f
-            val x = -0.1f * w + p * 1.2f * w
-            val flap = sin(p * 60f + i) * 0.35f
-            drawBat(Offset(x, h * y + sin(p * 12f) * h * 0.02f), min(w, h) * (0.035f - i * 0.008f), flap)
-        }
+    Canvas(modifier) { drawSky(fly, twinkle) }
+}
+
+private val skyStars = Random(42).let { r -> List(46) { Triple(r.nextFloat(), r.nextFloat() * 0.75f, r.nextFloat()) } }
+
+/** The night sky: gradient, stars, crescent moon and two bats. Also used to paint the home-screen widget. */
+fun DrawScope.drawSky(fly: Float = 0.3f, twinkle: Float = 0f, moonAt: Offset = Offset(0.80f, 0.16f), bats: Boolean = true) {
+    val w = size.width
+    val h = size.height
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF070A18), Color(0xFF141A38), Color(0xFF221B3D))))
+    skyStars.forEach { (x, y, s) ->
+        val a = 0.35f + 0.5f * ((sin(twinkle + s * 9f) + 1f) / 2f)
+        drawCircle(Color.White.copy(alpha = a), (1f + s * 2.2f) * (min(w, h) / 600f).coerceAtLeast(0.6f), Offset(x * w, y * h))
+    }
+    val moonC = Offset(w * moonAt.x, h * moonAt.y)
+    val moonR = min(w, h) * 0.075f
+    drawCircle(Brush.radialGradient(listOf(Color(0x33FFF3C4), Color.Transparent), moonC, moonR * 3f), moonR * 3f, moonC)
+    val moon = Path().apply { addOval(Rect(moonC, moonR)) }
+    val bite = Path().apply { addOval(Rect(moonC + Offset(moonR * 0.45f, -moonR * 0.2f), moonR * 0.9f)) }
+    drawPath(Path.combine(PathOperation.Difference, moon, bite), Color(0xFFFFF3C4))
+    if (bats) listOf(0f to 0.22f, 0.45f to 0.34f).forEachIndexed { i, (offset, y) ->
+        val p = (fly + offset) % 1f
+        val x = -0.1f * w + p * 1.2f * w
+        val flap = sin(p * 60f + i) * 0.35f
+        drawBat(Offset(x, h * y + sin(p * 12f) * h * 0.02f), min(w, h) * (0.035f - i * 0.008f), flap)
     }
 }
 

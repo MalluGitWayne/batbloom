@@ -2,7 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- No INTERNET permission: Batbloom never goes online. -->
+    <!-- Internet is used only to check Batbloom's GitHub releases and download updates. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 12+: once Batbloom installed itself, later updates can go in without the "Update" prompt. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -57,6 +61,7 @@
 
         <receiver android:name=".focus.SessionAlarmReceiver" android:exported="false" />
         <receiver android:name=".quit.DoseReceiver" android:exported="false" />
+        <receiver android:name=".update.InstallReceiver" android:exported="false" />
         <receiver android:name=".quit.RescheduleReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

@@ -35,6 +35,10 @@ import com.malluwayne.batbloom.ui.BatbloomTheme
 import com.malluwayne.batbloom.ui.FocusScreen
 import com.malluwayne.batbloom.ui.GardenScreen
 import com.malluwayne.batbloom.ui.QuitScreen
+import com.malluwayne.batbloom.ui.InstallConfirmLauncher
+import com.malluwayne.batbloom.update.Updates
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.malluwayne.batbloom.ui.SettingsScreen
 import com.malluwayne.batbloom.ui.ShopScreen
@@ -48,6 +52,8 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         setContent { BatbloomTheme { AppRoot() } }
+        Updates.load(this)
+        lifecycleScope.launch { Updates.dailyCheck(this@MainActivity) }
         handle(intent)
     }
 
@@ -61,6 +67,7 @@ class MainActivity : ComponentActivity() {
             ACTION_CRAVING -> Starter.craving(this)
             ACTION_FOCUS -> Starter.fromPrefs(this)
             ACTION_QUIT -> Nav.tab.value = 2
+            ACTION_OPEN -> { Nav.tab.value = 0; Nav.shop.value = false }
         }
         if (intent?.action == ACTION_CRAVING || intent?.action == ACTION_FOCUS) Nav.tab.value = 0
         intent?.action = null
@@ -116,6 +123,7 @@ private fun AppRoot() {
     val tab by Nav.tab.collectAsState()
     val shop by Nav.shop.collectAsState()
     BackHandler(shop) { Nav.shop.value = false }
+    InstallConfirmLauncher()
     Scaffold(
         bottomBar = {
             NavigationBar {

@@ -110,6 +110,8 @@ fun SettingsScreen(modifier: Modifier) {
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
+        UpdateSection()
+
         SectionCard("Leave detection") {
             Text(
                 "During a session Batbloom checks which app is on screen. Opening an app that is not allowed gives you " +
@@ -203,7 +205,7 @@ fun SettingsScreen(modifier: Modifier) {
 
         SectionCard("About") {
             Text(
-                "Batbloom has no ads and no internet permission. Everything stays on this phone. Coins are earned by focusing and badges only. " +
+                "Batbloom has no ads and no accounts. Your data stays on this phone; the internet is used only to check GitHub for updates. Coins are earned by focusing and badges only. " +
                     "The quit and medication features help you keep track; they do not replace medical advice from your doctor or pharmacist.",
                 fontSize = 13.sp, color = Muted,
             )

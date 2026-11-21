@@ -14,8 +14,22 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
   - Badges that pay coins. Finishing the course unlocks the Dawnbreath Lily.
   - It's a tracker and **does not replace medical advice**.
 - **Coins** unlock seven original night plants. There is nothing to buy.
-- **Widgets:** a 4×2 widget with the live countdown or today's focus, your FMGE goal and countdowns, plus Craving and Focus buttons. There's also a 1×1 one-tap craving button.
-- Dark theme, no ads, **no internet permission**. Everything is stored on the phone with Room.
+- **Widgets:** the big widget paints the night sky with your plant at the widget's size. It grows live during a session, and when you're idle it grows toward your daily goal. There's also a 1×1 craving button.
+- Dark theme, no ads, no accounts. Everything is stored on the phone with Room. The internet is used only to check GitHub for updates.
+
+## Updates
+
+Settings › Updates checks this repo's latest GitHub release, downloads its APK, checks that it's signed with Batbloom's key and installs it.
+
+To publish a new version, bump `versionCode` and `versionName` in `app/build.gradle.kts`, then run:
+
+```
+./release.sh "What changed"
+```
+
+This builds the signed release (tests run first) and creates the GitHub release with the APK.
+
+The signing key lives outside the repo in `~/.batbloom/` and `~/.gradle/gradle.properties`. Keep a backup: without it, updates can't be installed over the existing app.
 
 ## Build
 

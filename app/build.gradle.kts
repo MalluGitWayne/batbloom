@@ -12,8 +12,26 @@ android {
         applicationId = "com.malluwayne.batbloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    // Release key: kept outside the project (path and password in ~/.gradle/gradle.properties, never in git).
+    // Every update must be signed with it, or Android refuses to install it over the old version.
+    val releaseKey = providers.gradleProperty("BATBLOOM_STORE_FILE").orNull?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKey != null) create("release") {
+            storeFile = releaseKey
+            storePassword = providers.gradleProperty("BATBLOOM_STORE_PASSWORD").get()
+            keyAlias = providers.gradleProperty("BATBLOOM_KEY_ALIAS").get()
+            keyPassword = providers.gradleProperty("BATBLOOM_KEY_PASSWORD").get()
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName(if (releaseKey != null) "release" else "debug")
+        }
     }
 
     compileOptions {
@@ -43,3 +61,6 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.5")
     testImplementation("junit:junit:4.13.2")
 }
+
+// The logic tests run before every release build, so a broken one stops the release.
+tasks.matching { it.name == "assembleRelease" }.configureEach { dependsOn("testDebugUnitTest") }

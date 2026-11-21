@@ -124,6 +124,7 @@ private fun SetupView() {
             Text("Batbloom", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("● $coins  Shop", color = Gold, fontWeight = FontWeight.Bold) }
         }
+        UpdateBanner { com.malluwayne.batbloom.Nav.tab.value = 4 }
         SkyWithPlant(plant, 1f, false, 220)
 
         QuitCard(now)
@@ -278,7 +279,7 @@ private fun UsageAccessCard() {
     SectionCard("Turn on leave detection", container = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)) {
         Text(
             "To know when you switch to another app during a session, Batbloom needs Usage access. " +
-                "It only checks which app is on screen while a plant is growing, on this phone. Nothing is sent anywhere: the app has no internet permission.",
+                "It only checks which app is on screen while a plant is growing, on this phone. Which apps you use never leaves your phone.",
             fontSize = 13.sp,
         )
         Button({ ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) { Text("Open Usage access") }

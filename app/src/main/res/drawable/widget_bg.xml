@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Shown only until the sky picture is drawn (and behind it on very old launchers). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient android:angle="270" android:startColor="#F0141A38" android:endColor="#F0221B3D" />
-    <corners android:radius="22dp" />
+    <gradient android:angle="270" android:startColor="#FF0B0F22" android:endColor="#FF221B3D" />
+    <corners android:radius="24dp" />
 </shape>

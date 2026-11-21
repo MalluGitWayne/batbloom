@@ -112,8 +112,12 @@ class FocusService : Service() {
         }
     }
 
+    private var lastWidget = 0L
+
     private fun tick() {
         val now = System.currentTimeMillis()
+        // The widget's plant grows with the timer: redraw it once a minute.
+        if (now - lastWidget >= 60_000) { lastWidget = now; BloomWidget.refresh(this) }
         when (val s = FocusEngine.state.value) {
             is State.Break -> if (now >= s.endAt) startRound(s.request, s.nextRound, s.blooms, s.coins)
             is State.Running -> {

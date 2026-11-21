@@ -139,9 +139,13 @@ fun GardenTab(modifier: Modifier) {
     val sub by com.malluwayne.batbloom.Nav.garden.collectAsState()
     Column(modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (sub == 0) "Garden" else "Stats", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            PillTabs(listOf("Garden", "Stats"), sub) { com.malluwayne.batbloom.Nav.garden.value = it }
+            Text(listOf("Garden", "Stats", "Awards").getOrElse(sub) { "Garden" }, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            PillTabs(listOf("Garden", "Stats", "Awards"), sub) { com.malluwayne.batbloom.Nav.garden.value = it }
         }
-        if (sub == 0) GardenScreen(Modifier.weight(1f)) else StatsScreen(Modifier.weight(1f))
+        when (sub) {
+            1 -> StatsScreen(Modifier.weight(1f))
+            2 -> AchievementsScreen(Modifier.weight(1f))
+            else -> GardenScreen(Modifier.weight(1f))
+        }
     }
 }

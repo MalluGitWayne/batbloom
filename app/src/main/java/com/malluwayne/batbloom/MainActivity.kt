@@ -143,6 +143,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 private fun AppRoot() {
     val tab by Nav.tab.collectAsState()
     InstallConfirmLauncher()
+    com.malluwayne.batbloom.ui.AchievementCelebrations()
     Scaffold(
         bottomBar = {
             NavigationBar {

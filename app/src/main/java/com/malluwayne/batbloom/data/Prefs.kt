@@ -18,6 +18,14 @@ class Prefs(context: Context) {
     val selectedPlant: StateFlow<String> = _selectedPlant
     fun setSelectedPlant(id: String) { sp.edit().putString("plant", id).apply(); _selectedPlant.value = id }
 
+    /** Achievements whose unlock celebration has been shown. Null until first set (then everything already earned counts as seen). */
+    private val _seenBadges = MutableStateFlow(sp.getStringSet("seen_badges", null)?.toSet())
+    val seenBadges: StateFlow<Set<String>?> = _seenBadges
+    fun markBadgesSeen(ids: Collection<String>) {
+        val s = (_seenBadges.value ?: emptySet()) + ids
+        sp.edit().putStringSet("seen_badges", s).apply(); _seenBadges.value = s
+    }
+
     private val _minutes = MutableStateFlow(sp.getInt("minutes", 25))
     val minutes: StateFlow<Int> = _minutes
     fun setMinutes(m: Int) { sp.edit().putInt("minutes", m).apply(); _minutes.value = m }

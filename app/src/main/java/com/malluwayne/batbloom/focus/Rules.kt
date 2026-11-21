@@ -23,6 +23,16 @@ object Rules {
 
     fun canUnlock(balance: Int, cost: Int, alreadyOwned: Boolean): Boolean = !alreadyOwned && balance >= cost
 
+    /** Stopwatch sessions: the longest run (it stops itself here) and when the plant is in full bloom. */
+    const val STOPWATCH_MAX_MINUTES = 180
+    const val STOPWATCH_BLOOM_MINUTES = 60
+
+    fun stopwatchGrowth(elapsedMs: Long): Float = (elapsedMs / (STOPWATCH_BLOOM_MINUTES * 60_000f)).coerceIn(0f, 1f)
+
+    /** A stopwatch session counts if it ran at least [MIN_MINUTES]; it's credited with the whole minutes it ran. */
+    fun stopwatchMinutes(elapsedMs: Long): Int = (elapsedMs / 60_000).toInt().coerceAtMost(STOPWATCH_MAX_MINUTES)
+    fun stopwatchCounts(elapsedMs: Long): Boolean = stopwatchMinutes(elapsedMs) >= MIN_MINUTES
+
     /** "1h 05m", "25m", "0m". */
     fun formatMinutes(total: Int): String {
         val h = total / 60

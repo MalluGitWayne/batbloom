@@ -104,11 +104,13 @@ fun SettingsScreen(modifier: Modifier) {
     var pickTime by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(schedule) { DoseAlarms.scheduleNext(ctx) }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Settings", style = MaterialTheme.typography.headlineMedium)
+        Text("Tap a section to open it.", color = Muted, fontSize = 13.sp)
 
         UpdateSection()
 
@@ -188,6 +190,14 @@ fun SettingsScreen(modifier: Modifier) {
             TextButton({ prefs.setSchedule(com.malluwayne.batbloom.quit.DoseSchedule()); DoseAlarms.scheduleNext(ctx) }) { Text("Reset to my original plan") }
         }
 
+        StudyReminderSection()
+
+        TimeGuardSection(now)
+
+        BackupSection()
+
+        BackgroundSection(now)
+
         SectionCard("Custom tags") {
             if (custom.isEmpty()) Text("Add your own from the tag row on the Focus screen.", color = Muted, fontSize = 13.sp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -215,6 +225,7 @@ fun SettingsScreen(modifier: Modifier) {
         }
     }
 
+    }
     if (showApps) AllowListDialog(allowed) { showApps = false }
 
     pickTime?.let { which ->

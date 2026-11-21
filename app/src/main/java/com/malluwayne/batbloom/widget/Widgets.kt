@@ -127,7 +127,8 @@ class BloomWidget : AppWidgetProvider() {
                 else -> null to null
             }
             val (plantId, growth) = when (st) {
-                is FocusEngine.State.Running -> st.plantId to Rules.progress(st.startAt, st.endAt, now)
+                is FocusEngine.State.Running -> st.plantId to
+                    if (st.request.stopwatch) Rules.stopwatchGrowth(now - st.startAt) else Rules.progress(st.startAt, st.endAt, now)
                 is FocusEngine.State.Break -> st.request.plantId to 1f
                 else -> prefs.selectedPlant.value to if (goal > 0) (s.todayMinutes.toFloat() / goal).coerceIn(0f, 1f) else 0f
             }
@@ -143,8 +144,11 @@ class BloomWidget : AppWidgetProvider() {
                 if (endAt != null) {
                     v.setViewVisibility(R.id.w_timer, View.VISIBLE)
                     v.setViewVisibility(R.id.w_main, View.GONE)
-                    v.setChronometer(R.id.w_timer, SystemClock.elapsedRealtime() + (endAt - now), null, true)
-                    v.setChronometerCountDown(R.id.w_timer, true)
+                    val up = (st as? FocusEngine.State.Running)?.request?.stopwatch == true
+                    val base = if (up) SystemClock.elapsedRealtime() - (now - (st as FocusEngine.State.Running).startAt)
+                    else SystemClock.elapsedRealtime() + (endAt - now)
+                    v.setChronometer(R.id.w_timer, base, null, true)
+                    v.setChronometerCountDown(R.id.w_timer, !up)
                     v.setTextViewText(R.id.w_title, title)
                 } else {
                     v.setViewVisibility(R.id.w_timer, View.GONE)

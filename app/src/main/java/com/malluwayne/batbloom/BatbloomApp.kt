@@ -13,6 +13,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class BatbloomApp : Application() {
+    lateinit var db: AppDatabase private set
     lateinit var repo: Repository private set
     lateinit var prefs: Prefs private set
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -20,7 +21,8 @@ class BatbloomApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        repo = Repository(AppDatabase.create(this))
+        db = AppDatabase.create(this)
+        repo = Repository(db)
         prefs = Prefs(this)
         // A fresh process cannot have a live session, so a row still RUNNING was cut off (phone restart, app killed).
         if (FocusEngine.state.value is FocusEngine.State.Idle) appScope.launch {
@@ -29,6 +31,8 @@ class BatbloomApp : Application() {
         }
         DoseAlarms.ensureChannels(this)
         DoseAlarms.scheduleNext(this)
+        com.malluwayne.batbloom.guard.Reminders.ensureChannels(this)
+        com.malluwayne.batbloom.guard.Reminders.scheduleAll(this)
         appScope.launch { DoseAlarms.checkBadges(this@BatbloomApp) }
     }
 

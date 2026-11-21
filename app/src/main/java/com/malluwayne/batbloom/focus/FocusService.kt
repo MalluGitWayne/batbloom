@@ -65,6 +65,7 @@ class FocusService : Service() {
                     else -> { showPlaceholder(); stop() }
                 }
             }
+            ACTION_STOP -> (FocusEngine.state.value as? State.Running)?.let { stopStopwatch(it) }
             ACTION_GIVE_UP -> when (val s = FocusEngine.state.value) {
                 is State.Running -> roundOver(s, success = false, reason = "gave up")
                 is State.Break -> finishAll(State.Finished(s.blooms > 0, s.request, s.request.plan?.focusMinutes ?: 0, s.coins, null, s.blooms, s.request.plan?.rounds))
@@ -88,7 +89,7 @@ class FocusService : Service() {
     }
 
     private fun startRound(req: FocusEngine.Request, round: Int?, blooms: Int, coins: Int) {
-        val minutes = Rules.clampMinutes(req.plan?.focusMinutes ?: req.minutes)
+        val minutes = if (req.stopwatch) Rules.STOPWATCH_MAX_MINUTES else Rules.clampMinutes(req.plan?.focusMinutes ?: req.minutes)
         val start = System.currentTimeMillis()
         val r = State.Running(-1, req, minutes, start, start + minutes * 60_000L, round, blooms, coins)
         guard = LeaveGuard()
@@ -121,7 +122,10 @@ class FocusService : Service() {
         when (val s = FocusEngine.state.value) {
             is State.Break -> if (now >= s.endAt) startRound(s.request, s.nextRound, s.blooms, s.coins)
             is State.Running -> {
-                if (now >= s.endAt) { roundOver(s, success = true, reason = null); return }
+                if (now >= s.endAt) {
+                    if (s.request.stopwatch) stopStopwatch(s) else roundOver(s, success = true, reason = null)
+                    return
+                }
                 val rd = reader ?: return
                 val pkg = rd.poll(now)
                 val policy = AllowPolicy(packageName, systemAllowed, userAllowed)
@@ -143,14 +147,21 @@ class FocusService : Service() {
         }
     }
 
-    private fun roundOver(r: State.Running, success: Boolean, reason: String?) {
+    private fun stopStopwatch(r: State.Running) {
+        val elapsed = (System.currentTimeMillis().coerceAtMost(r.endAt)) - r.startAt
+        val ok = Rules.stopwatchCounts(elapsed)
+        roundOver(r, ok, if (ok) null else "too short", Rules.stopwatchMinutes(elapsed))
+    }
+
+    private fun roundOver(r: State.Running, success: Boolean, reason: String?, actualMinutes: Int? = null) {
         cancelAlarm()
         NotificationManagerCompat.from(this).cancel(NOTIF_WARN)
-        val endedAt = if (success) r.endAt else System.currentTimeMillis()
-        val coins = r.coins + Rules.coinsFor(r.minutes, success)
+        val minutes = actualMinutes ?: r.minutes
+        val endedAt = if (actualMinutes != null) System.currentTimeMillis().coerceAtMost(r.endAt) else if (success) r.endAt else System.currentTimeMillis()
+        val coins = r.coins + Rules.coinsFor(minutes, success)
         val blooms = r.blooms + if (success) 1 else 0
         if (r.sessionId >= 0) app.appScope.launch {
-            app.repo.finishSession(r.sessionId, success, endedAt, reason)
+            app.repo.finishSession(r.sessionId, success, endedAt, reason, actualMinutes)
             BloomWidget.refresh(app)
         }
         val plan = r.request.plan
@@ -165,7 +176,7 @@ class FocusService : Service() {
             BloomWidget.refresh(this)
             return
         }
-        finishAll(State.Finished(success, r.request, r.minutes, coins, reason, blooms, plan?.rounds))
+        finishAll(State.Finished(success, r.request, minutes, coins, reason, blooms, plan?.rounds))
     }
 
     private fun finishAll(f: State.Finished) {
@@ -181,6 +192,7 @@ class FocusService : Service() {
         val text = when (f.reason) {
             null -> if (f.success) "${f.minutes} min of ${label(f.request)} done." else "Session ended."
             "gave up" -> "You gave up this session. Try a shorter one next time."
+            "too short" -> "A stopwatch session needs at least ${Rules.MIN_MINUTES} minutes to grow a plant."
             else -> "You opened ${f.reason}. Add it to allowed apps if you need it while focusing."
         }
         notifyResult(title, text)
@@ -220,8 +232,8 @@ class FocusService : Service() {
         val (title, text, endAt) = when (val s = FocusEngine.state.value) {
             is State.Running -> Triple(
                 "Growing your ${PlantCatalog.byId(s.plantId).name}" + (s.round?.let { " · round $it/${s.request.plan?.rounds}" } ?: ""),
-                "${label(s.request)} · stay with it",
-                s.endAt,
+                "${label(s.request)} · " + if (s.request.stopwatch) "stopwatch, stop when you're done" else "stay with it",
+                if (s.request.stopwatch) s.startAt else s.endAt,
             )
             is State.Break -> Triple(
                 if (s.long) "Long break" else "Short break",
@@ -240,12 +252,18 @@ class FocusService : Service() {
             .setWhen(endAt)
             .setShowWhen(true)
             .setUsesChronometer(true)
-            .setChronometerCountDown(true)
+            .setChronometerCountDown((FocusEngine.state.value as? State.Running)?.request?.stopwatch != true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(openApp())
             .addAction(0, if (FocusEngine.state.value is State.Break) "End cycle" else "Give up", giveUp)
+            .apply {
+                if ((FocusEngine.state.value as? State.Running)?.request?.stopwatch == true) addAction(
+                    0, "Stop",
+                    PendingIntent.getService(this@FocusService, 4, Intent(this@FocusService, FocusService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE),
+                )
+            }
             .build()
         startFg(n)
     }
@@ -297,6 +315,7 @@ class FocusService : Service() {
     companion object {
         const val ACTION_START = "batbloom.START"
         const val ACTION_GIVE_UP = "batbloom.GIVE_UP"
+        const val ACTION_STOP = "batbloom.STOP"
         const val CH_SESSION = "session"
         const val CH_ALERTS = "alerts"
         const val NOTIF_SESSION = 1

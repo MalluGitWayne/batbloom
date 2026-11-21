@@ -57,6 +57,12 @@ class MainActivity : ComponentActivity() {
         handle(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Time Guard also checks whenever you open Batbloom (besides its 15-minute timer).
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { com.malluwayne.batbloom.guard.Reminders.checkGuard(this@MainActivity) }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handle(intent)
@@ -68,6 +74,12 @@ class MainActivity : ComponentActivity() {
             ACTION_FOCUS -> Starter.fromPrefs(this)
             ACTION_QUIT -> Nav.tab.value = 2
             ACTION_OPEN -> { Nav.tab.value = 0; Nav.shop.value = false }
+            ACTION_FMGE -> {
+                val p = BatbloomApp.instance.prefs
+                p.setTag(Tags.FMGE)
+                intent.getStringExtra(EXTRA_SUBJECT)?.let { p.setSubject(it) }
+                Nav.tab.value = 0; Nav.shop.value = false
+            }
         }
         if (intent?.action == ACTION_CRAVING || intent?.action == ACTION_FOCUS) Nav.tab.value = 0
         intent?.action = null
@@ -78,6 +90,8 @@ class MainActivity : ComponentActivity() {
         const val ACTION_CRAVING = "batbloom.CRAVING"
         const val ACTION_FOCUS = "batbloom.FOCUS"
         const val ACTION_QUIT = "batbloom.QUIT"
+        const val ACTION_FMGE = "batbloom.FMGE"
+        const val EXTRA_SUBJECT = "subject"
     }
 }
 
@@ -93,7 +107,8 @@ object Starter {
                 tag = tag,
                 subject = if (tag == Tags.FMGE) p.subject.value else null,
                 plantId = p.selectedPlant.value,
-                plan = if (p.pomodoro.value) p.plan.value else null,
+                plan = if (p.pomodoro.value && !p.stopwatch.value) p.plan.value else null,
+                stopwatch = p.stopwatch.value,
             ),
         )
     }
@@ -139,12 +154,14 @@ private fun AppRoot() {
         },
     ) { pad ->
         val m = Modifier.padding(pad)
-        if (shop) ShopScreen(m) else when (Tab.entries[tab]) {
-            Tab.Focus -> FocusScreen(m)
-            Tab.Garden -> GardenScreen(m)
-            Tab.Quit -> QuitScreen(m)
-            Tab.Stats -> StatsScreen(m)
-            Tab.Settings -> SettingsScreen(m)
+        androidx.compose.animation.Crossfade(if (shop) -1 else tab, animationSpec = androidx.compose.animation.core.tween(260), label = "tab") { t ->
+            if (t == -1) ShopScreen(m) else when (Tab.entries[t]) {
+                Tab.Focus -> FocusScreen(m)
+                Tab.Garden -> GardenScreen(m)
+                Tab.Quit -> QuitScreen(m)
+                Tab.Stats -> StatsScreen(m)
+                Tab.Settings -> SettingsScreen(m)
+            }
         }
     }
 }

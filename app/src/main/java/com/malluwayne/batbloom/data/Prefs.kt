@@ -43,9 +43,16 @@ class Prefs(context: Context) {
     val dailyGoal: StateFlow<Int> = _dailyGoal
     fun setDailyGoal(m: Int) { sp.edit().putInt("daily_goal", m).apply(); _dailyGoal.value = m }
 
+    private val _stopwatch = MutableStateFlow(sp.getBoolean("stopwatch", false))
+    val stopwatch: StateFlow<Boolean> = _stopwatch
+    fun setStopwatch(on: Boolean) { sp.edit().putBoolean("stopwatch", on).apply(); _stopwatch.value = on; if (on) setPomodoro(false) }
+
     private val _pomodoro = MutableStateFlow(sp.getBoolean("pomodoro", false))
     val pomodoro: StateFlow<Boolean> = _pomodoro
-    fun setPomodoro(on: Boolean) { sp.edit().putBoolean("pomodoro", on).apply(); _pomodoro.value = on }
+    fun setPomodoro(on: Boolean) {
+        sp.edit().putBoolean("pomodoro", on).apply(); _pomodoro.value = on
+        if (on && _stopwatch.value) { sp.edit().putBoolean("stopwatch", false).apply(); _stopwatch.value = false }
+    }
 
     private val _plan = MutableStateFlow(
         PomodoroPlan(sp.getInt("p_focus", 25), sp.getInt("p_short", 5), sp.getInt("p_long", 15), sp.getInt("p_rounds", 4)),
@@ -154,6 +161,30 @@ class Prefs(context: Context) {
     var lastStockWarning: String
         get() = sp.getString("stock_warn", "")!!
         set(v) { sp.edit().putString("stock_warn", v).apply() }
+
+    // --- Time Guard and reminders ---
+
+    /** Daily limits in minutes per app package. */
+    private val _guard = MutableStateFlow(com.malluwayne.batbloom.guard.TimeGuard.parse(sp.getString("guard", "")!!))
+    val guard: StateFlow<Map<String, Int>> = _guard
+    fun setGuard(m: Map<String, Int>) {
+        sp.edit().putString("guard", com.malluwayne.batbloom.guard.TimeGuard.format(m)).apply(); _guard.value = m
+    }
+    fun guardReminded(day: String, pkg: String): Int = sp.getInt("gl_${day}_$pkg", 0)
+    fun setGuardReminded(day: String, pkg: String, level: Int) {
+        // Old days' entries are dropped so this doesn't grow forever.
+        val e = sp.edit()
+        sp.all.keys.filter { it.startsWith("gl_") && !it.startsWith("gl_${day}_") }.forEach { e.remove(it) }
+        e.putInt("gl_${day}_$pkg", level).apply()
+    }
+
+    private val _fmgeReminder = MutableStateFlow(sp.getBoolean("fmge_rem", true))
+    val fmgeReminder: StateFlow<Boolean> = _fmgeReminder
+    fun setFmgeReminder(on: Boolean) { sp.edit().putBoolean("fmge_rem", on).apply(); _fmgeReminder.value = on }
+
+    private val _fmgeTime = MutableStateFlow(LocalTime.ofSecondOfDay(sp.getInt("fmge_time", 9 * 3600).toLong()))
+    val fmgeTime: StateFlow<LocalTime> = _fmgeTime
+    fun setFmgeTime(t: LocalTime) { sp.edit().putInt("fmge_time", t.toSecondOfDay()).apply(); _fmgeTime.value = t }
 
     private fun date(key: String, default: String?): LocalDate? {
         val s = if (sp.contains(key)) sp.getString(key, null) else default

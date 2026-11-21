@@ -19,7 +19,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -62,9 +65,22 @@ private val scheme = darkColorScheme(
     outlineVariant = Color(0xFF2C3352),
 )
 
+private val type = androidx.compose.material3.Typography().let { t ->
+    t.copy(
+        headlineMedium = t.headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+        headlineSmall = t.headlineSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
+        titleMedium = t.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+        bodyMedium = t.bodyMedium.copy(lineHeight = 20.sp),
+        labelLarge = t.labelLarge.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp),
+    )
+}
+
+/** Inside Settings, titled cards fold up so the screen is a tidy list of sections. */
+val LocalCollapsibleCards = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 @Composable
 fun BatbloomTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme) {
+    MaterialTheme(colorScheme = scheme, typography = type) {
         Surface(color = MaterialTheme.colorScheme.background, content = content)
     }
 }
@@ -76,14 +92,26 @@ fun SectionCard(
     container: Color = MaterialTheme.colorScheme.surfaceContainer,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val collapsible = title != null && LocalCollapsibleCards.current
+    var open by androidx.compose.runtime.saveable.rememberSaveable(title) { androidx.compose.runtime.mutableStateOf(!collapsible) }
     Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.fillMaxWidth().animateContentSize(),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = container),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (title != null) Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            content()
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (title != null) Row(
+                Modifier.fillMaxWidth().then(if (collapsible) Modifier.clickable { open = !open } else Modifier),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (collapsible) {
+                    val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 180f else 0f, label = "chev")
+                    Text("⌄", color = Muted, fontSize = 20.sp, modifier = Modifier.rotate(turn))
+                }
+            }
+            if (open) content()
         }
     }
 }

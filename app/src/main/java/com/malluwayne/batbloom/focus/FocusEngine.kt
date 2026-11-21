@@ -16,6 +16,8 @@ object FocusEngine {
         val plan: PomodoroPlan? = null,
         val cravingIntensity: Int? = null,
         val trigger: String? = null,
+        /** Counts up instead of down; you stop it when you're done. */
+        val stopwatch: Boolean = false,
     )
 
     sealed interface State {
@@ -79,6 +81,12 @@ object FocusEngine {
     fun giveUp(context: Context) {
         if (!isActive) return
         context.startService(Intent(context, FocusService::class.java).setAction(FocusService.ACTION_GIVE_UP))
+    }
+
+    /** Ends a stopwatch session (it counts if it ran at least 10 minutes). */
+    fun stop(context: Context) {
+        if (state.value !is State.Running) return
+        context.startService(Intent(context, FocusService::class.java).setAction(FocusService.ACTION_STOP))
     }
 
     fun dismiss() {

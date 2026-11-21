@@ -2,6 +2,8 @@
 
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.animation.togetherWith
+
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.background
@@ -72,24 +74,39 @@ import kotlin.math.roundToInt
 @Composable
 fun FocusScreen(modifier: Modifier) {
     val state by FocusEngine.state.collectAsState()
-    Box(modifier.fillMaxSize()) {
-        when (val s = state) {
+    // Smooth hand-over between setup, running, break and result (keyed by screen, not by every tick).
+    androidx.compose.animation.AnimatedContent(
+        targetState = state,
+        contentKey = { it::class },
+        transitionSpec = {
+            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(380)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(380), initialScale = 0.96f))
+                .togetherWith(androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(220)))
+        },
+        modifier = modifier.fillMaxSize(),
+        label = "focus",
+    ) { st ->
+        when (st) {
             State.Idle -> SetupView()
-            is State.Running -> RunningView(s)
-            is State.Break -> BreakView(s)
-            is State.Finished -> ResultView(s)
+            is State.Running -> RunningView(st)
+            is State.Break -> BreakView(st)
+            is State.Finished -> ResultView(st)
         }
     }
 }
 
 @Composable
-private fun SkyWithPlant(plantId: String, growth: Float, withered: Boolean, height: Int) {
+private fun SkyWithPlant(plantId: String, growth: Float, withered: Boolean, height: Int, burst: Boolean = false) {
+    val spec = PlantCatalog.byId(plantId)
     Box(
-        Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(28.dp)),
+        Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(28.dp))
+            .border(1.dp, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Lavender.copy(alpha = 0.35f), Color.Transparent)), RoundedCornerShape(28.dp)),
         contentAlignment = Alignment.BottomCenter,
     ) {
         NightSky(Modifier.fillMaxSize())
-        PlantArt(PlantCatalog.byId(plantId), growth, withered, Modifier.fillMaxSize())
+        PlantArt(spec, growth, withered, Modifier.fillMaxSize())
+        if (!withered) StagePulse(stageFor(growth), Modifier.fillMaxSize(), spec.glow)
+        if (burst) BloomBurst(Modifier.fillMaxSize(), spec.glow)
     }
 }
 
@@ -106,6 +123,7 @@ private fun SetupView() {
     val subject by prefs.subject.collectAsState()
     val plant by prefs.selectedPlant.collectAsState()
     val pomodoro by prefs.pomodoro.collectAsState()
+    val stopwatch by prefs.stopwatch.collectAsState()
     val plan by prefs.plan.collectAsState()
     val custom by prefs.customTags.collectAsState()
     val now = rememberNow(60_000)
@@ -134,16 +152,26 @@ private fun SetupView() {
 
         // Mode
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(!pomodoro, { prefs.setPomodoro(false) }, { Text("Single session") })
+            FilterChip(!pomodoro && !stopwatch, { prefs.setPomodoro(false); prefs.setStopwatch(false) }, { Text("Timer") })
             FilterChip(pomodoro, { prefs.setPomodoro(true) }, { Text("Pomodoro") })
+            FilterChip(stopwatch, { prefs.setStopwatch(true) }, { Text("Stopwatch") })
         }
-        if (!pomodoro) {
+        if (stopwatch) {
+            Text(
+                "Counts up until you stop it. Your plant is in full bloom after ${Rules.STOPWATCH_BLOOM_MINUTES} min; it needs at least " +
+                    "${Rules.MIN_MINUTES} min to count, and stops by itself at ${Rules.STOPWATCH_MAX_MINUTES / 60} hours.",
+                color = Muted, fontSize = 13.sp,
+            )
+        } else if (!pomodoro) {
             Text("$minutes min", fontSize = 40.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             Slider(
                 value = minutes.toFloat(),
                 onValueChange = { prefs.setMinutes((it / 5).roundToInt() * 5) },
                 valueRange = Rules.MIN_MINUTES.toFloat()..Rules.MAX_MINUTES.toFloat(),
                 steps = (Rules.MAX_MINUTES - Rules.MIN_MINUTES) / 5 - 1,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent,
+                ),
             )
         } else {
             SectionCard {
@@ -181,7 +209,7 @@ private fun SetupView() {
         }
 
         Button(onClick = { Starter.fromPrefs(ctx) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-            Text(if (pomodoro) "Start Pomodoro" else "Plant & focus", fontSize = 18.sp)
+            Text(if (stopwatch) "Start stopwatch" else if (pomodoro) "Start Pomodoro" else "Plant & focus", fontSize = 18.sp)
         }
         Button(
             onClick = { Starter.craving(ctx) },
@@ -270,6 +298,17 @@ private fun FmgeCard(todayMinutes: Int) {
         }
         LinearProgressIndicator({ if (goal > 0) (todayMinutes.toFloat() / goal).coerceAtMost(1f) else 0f }, Modifier.fillMaxWidth(), color = Teal)
         exam?.let { Text(Stats.examLine(it, LocalDate.now()), color = Muted, fontSize = 13.sp) }
+        val sessions by BatbloomApp.instance.repo.sessions.collectAsState(emptyList())
+        val today = LocalDate.now()
+        val due = remember(sessions, today) { com.malluwayne.batbloom.stats.Revision.due(sessions, today, ZoneId.systemDefault()) }
+        if (due.isNotEmpty()) {
+            Text("Due for revision", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                due.take(6).forEach { d ->
+                    FilterChip(false, { prefs.setTag(Tags.FMGE); prefs.setSubject(d.subject) }, { Text(com.malluwayne.batbloom.stats.Revision.label(d, today), fontSize = 12.sp) })
+                }
+            }
+        }
     }
 }
 
@@ -300,7 +339,8 @@ private val cravingTips = listOf(
 private fun RunningView(s: State.Running) {
     val ctx = LocalContext.current
     val now = rememberNow()
-    val progress = Rules.progress(s.startAt, s.endAt, now)
+    val sw = s.request.stopwatch
+    val progress = if (sw) Rules.stopwatchGrowth(now - s.startAt) else Rules.progress(s.startAt, s.endAt, now)
     var confirm by remember { mutableStateOf(false) }
     val hasUsage = remember { Device.hasUsageAccess(ctx) }
     val reason by BatbloomApp.instance.prefs.quitReason.collectAsState()
@@ -312,7 +352,11 @@ private fun RunningView(s: State.Running) {
         val head = listOfNotNull(s.tag, s.subject).joinToString(" · ") + (s.round?.let { "  ·  round $it/${s.request.plan?.rounds}" } ?: "")
         Text(head, color = Muted)
         SkyWithPlant(s.plantId, progress, false, 340)
-        Text(clock(s.endAt - now), fontSize = 56.sp, fontWeight = FontWeight.Bold)
+        Text(clock(if (sw) now - s.startAt else s.endAt - now), fontSize = 56.sp, fontWeight = FontWeight.Bold)
+        if (sw) {
+            val enough = Rules.stopwatchCounts(now - s.startAt)
+            Button({ FocusEngine.stop(ctx) }, Modifier.fillMaxWidth()) { Text(if (enough) "Stop & plant it" else "Stop (needs ${Rules.MIN_MINUTES} min)") }
+        }
         Text("${PlantCatalog.byId(s.plantId).name} · ${stageFor(progress).label}", color = Lavender)
         LinearProgressIndicator({ progress }, Modifier.fillMaxWidth())
 
@@ -385,7 +429,7 @@ private fun ResultView(s: State.Finished) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         val name = PlantCatalog.byId(s.request.plantId).name
-        SkyWithPlant(s.request.plantId, 1f, !s.success, 340)
+        SkyWithPlant(s.request.plantId, 1f, !s.success, 340, burst = s.success)
         Text(
             when {
                 s.rounds != null -> "${s.blooms} of ${s.rounds} rounds bloomed"
@@ -394,11 +438,12 @@ private fun ResultView(s: State.Finished) {
             },
             style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
         )
-        if (s.coins > 0) Text("+${s.coins} coins", color = Gold, fontSize = 20.sp)
+        if (s.coins > 0) CountUpText(s.coins, "+", MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), Gold, " coins")
         val detail = when {
             s.reason == null && s.request.tag == Tags.CRAVING && s.success -> "Craving beaten. That's one more win."
             s.reason == null -> "${s.minutes} min of ${listOfNotNull(s.request.tag, s.request.subject).joinToString(" · ")}"
             s.reason == "gave up" -> "You gave up. A shorter session next time?"
+            s.reason == "too short" -> "Stopped before ${Rules.MIN_MINUTES} minutes, so nothing was planted this time."
             s.reason == "interrupted" -> "The session was interrupted."
             else -> "You opened ${s.reason}. If you need it while focusing, add it to the allowed apps in Settings."
         }

@@ -212,5 +212,6 @@ class RescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         DoseAlarms.ensureChannels(context)
         DoseAlarms.scheduleNext(context)
+        com.malluwayne.batbloom.guard.Reminders.scheduleAll(context)
     }
 }

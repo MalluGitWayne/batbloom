@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon version: one flat shape (Android tints it). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M72.5,24.5a10.5,10.5 0,1 0,7 18.8a8.4,8.4 0,1 1,-7 -18.8z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M54,85Q51,72 54,58" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M53,77Q44,76 40,68Q49,68 53,77z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,71Q62,71 67,63Q58,63 54,71z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,56C47,47 39,41 30,39Q34,44 34,49Q38,48 41,51Q43,54 46,58Q50,56.5 54,59z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,56C61,47 69,41 78,39Q74,44 74,49Q70,48 67,51Q65,54 62,58Q58,56.5 54,59z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,40Q59,48 54,56Q49,48 54,40z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,58Q46,61 42,69Q49,67 54,62z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,58Q62,61 66,69Q59,67 54,62z" />
+</vector>

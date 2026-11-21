@@ -2,9 +2,12 @@
 
 A night-garden focus timer for Android. Start a session and a plant grows under the moon. Leave for a distracting app and it wilts.
 
-- **Focus sessions** of 10–120 min, or **Pomodoro** cycles (focus rounds with short and long breaks that start on their own).
+- **Focus sessions** of 10–120 min, **Pomodoro** cycles (focus rounds with short and long breaks that start on their own), or a **stopwatch** that counts up until you stop it (at least 10 min to count).
 - **Leave detection.** With Usage access on, opening an app that isn't on your allow list gives you 10 seconds to come back. After that the plant wilts. The home screen, phone calls and the lock screen are always allowed.
 - **Garden** of every session, **stats** (today, this week, streak, success rate, minutes per tag), and **FMGE** tracking: a subject picker, minutes per subject (subjects not started yet are listed), a daily goal and an exam countdown.
+- **Spaced revision for FMGE:** each subject is due again 1, 3, 7, 14 and then every 30 days after you study it. Due subjects show on the Focus screen and in a **daily FMGE reminder** at a time you choose.
+- **Time Guard:** daily limits for apps you pick, with a nudge when you pass one (and another at 1.5×).
+- **Backup:** save everything to a file and restore it on a new phone. **Background** settings help keep reminders on time on phones with aggressive battery savers.
 - **Craving button:** a 10-minute session with coping tips. You can log how strong the craving was and what set it off. It sits next to a smoke-free card showing your quit day, cigarettes not smoked, money saved, your reason for quitting and a treat you're saving for.
 - **Quit tab** for a varenicline course. Defaults: a 12-week plan, 0.5 mg in the morning on Days 1–3, 0.5 mg twice a day on Days 4–7, then 1 mg twice a day to Day 84. Everything is editable in Settings.
   - Dose reminders use exact alarms that are set again after a reboot. Each one has Taken / Skip / Snooze buttons and the right mg for that day.

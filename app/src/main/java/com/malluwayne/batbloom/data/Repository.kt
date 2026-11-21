@@ -29,9 +29,11 @@ class Repository(private val db: AppDatabase) {
     val sideEffects: Flow<List<SideEffectEntity>> = quit.sideEffects()
 
     suspend fun startSession(s: SessionEntity): Long = db.sessions().insert(s)
-    suspend fun finishSession(id: Long, success: Boolean, endedAt: Long, reason: String?): Int {
+    /** [actualMinutes]: for stopwatch sessions, the minutes it really ran (replaces the planned length). */
+    suspend fun finishSession(id: Long, success: Boolean, endedAt: Long, reason: String?, actualMinutes: Int? = null): Int {
         val s = db.sessions().get(id) ?: return 0
-        val coins = Rules.coinsFor(s.plannedMinutes, success)
+        if (actualMinutes != null) db.sessions().setMinutes(id, actualMinutes)
+        val coins = Rules.coinsFor(actualMinutes ?: s.plannedMinutes, success)
         db.sessions().finish(id, if (success) Status.DONE else Status.FAILED, endedAt, coins, reason)
         return coins
     }

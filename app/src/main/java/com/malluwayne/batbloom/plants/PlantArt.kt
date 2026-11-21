@@ -324,10 +324,29 @@ fun NightSky(modifier: Modifier = Modifier, animate: Boolean = true) {
         val t = rememberInfiniteTransition(label = "twinkle")
         t.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(5000, easing = LinearEasing)), label = "tw").value
     } else 0f
-    Canvas(modifier) { drawSky(fly, twinkle) }
+    Canvas(modifier) {
+        drawSky(fly, twinkle)
+        if (animate) drawFireflies(twinkle)
+    }
 }
 
 private val skyStars = Random(42).let { r -> List(46) { Triple(r.nextFloat(), r.nextFloat() * 0.75f, r.nextFloat()) } }
+
+private val fireflies = Random(7).let { r -> List(9) { floatArrayOf(r.nextFloat(), 0.45f + r.nextFloat() * 0.4f, r.nextFloat() * 6.28f, 0.6f + r.nextFloat()) } }
+
+/** Small glowing fireflies drifting low over the garden. */
+fun DrawScope.drawFireflies(phase: Float) {
+    val w = size.width
+    val h = size.height
+    fireflies.forEach { (x, y, p, speed) ->
+        val t = phase * speed + p
+        val c = Offset((x + 0.04f * sin(t)) * w, (y + 0.03f * sin(t * 1.7f)) * h)
+        val a = 0.25f + 0.55f * ((sin(t * 2.3f) + 1f) / 2f)
+        val r = min(w, h) * 0.035f
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFFFF4A8).copy(alpha = a * 0.6f), Color.Transparent), c, r), r, c)
+        drawCircle(Color(0xFFFFF8C8).copy(alpha = a), r * 0.14f, c)
+    }
+}
 
 /** The night sky: gradient, stars, crescent moon and two bats. Also used to paint the home-screen widget. */
 fun DrawScope.drawSky(fly: Float = 0.3f, twinkle: Float = 0f, moonAt: Offset = Offset(0.80f, 0.16f), bats: Boolean = true) {

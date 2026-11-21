@@ -16,6 +16,8 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id") suspend fun get(id: Long): SessionEntity?
     @Query("UPDATE sessions SET status = :status, endedAt = :endedAt, coins = :coins, failReason = :reason WHERE id = :id")
     suspend fun finish(id: Long, status: String, endedAt: Long, coins: Int, reason: String?)
+    @Query("UPDATE sessions SET plannedMinutes = :minutes WHERE id = :id")
+    suspend fun setMinutes(id: Long, minutes: Int)
     @Query("UPDATE sessions SET cravingIntensity = :intensity, cravingTrigger = :trigger WHERE id = :id")
     suspend fun setCraving(id: Long, intensity: Int?, trigger: String?)
     @Query("UPDATE sessions SET status = 'FAILED', endedAt = startedAt, failReason = 'interrupted' WHERE status = 'RUNNING'")
@@ -53,6 +55,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun unlocks(): UnlockDao
     abstract fun allowed(): AllowedDao
     abstract fun quit(): QuitDao
+    abstract fun backup(): BackupDao
 
     companion object {
         fun create(context: Context): AppDatabase =

@@ -72,7 +72,6 @@ fun StatsScreen(modifier: Modifier) {
                     )
                 }
                 Text("No sessions yet", style = MaterialTheme.typography.titleMedium)
-                Text("Finish your first focus session and your time, streak and subjects show up here.", color = Muted, fontSize = 13.sp)
             }
             return@Column
         }

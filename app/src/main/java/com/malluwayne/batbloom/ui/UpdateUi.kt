@@ -94,7 +94,6 @@ fun UpdateSection() {
                 Text("Batbloom ${r.version} is available.", fontWeight = FontWeight.SemiBold, color = Teal)
                 if (r.notes.isNotBlank()) Text(r.notes.take(600), fontSize = 13.sp, color = Muted)
                 if (!SelfUpdate.canInstall(ctx)) {
-                    Text("First allow Batbloom to install updates (a one-time Android switch).", fontSize = 13.sp)
                     OutlinedButton({ SelfUpdate.openInstallPermission(ctx) }) { Text("Allow installing updates") }
                 } else if (r.apkUrl != null && SelfUpdate.trusted(r.apkUrl)) {
                     Button({ SelfUpdate.start(ctx, r.apkUrl, r.version) }) { Text("Update to ${r.version}") }
@@ -109,6 +108,5 @@ fun UpdateSection() {
         }
         (state as? SelfUpdate.State.Failed)?.let { Text(it.message, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
         message?.let { Text(it, color = Muted, fontSize = 13.sp) }
-        Text("Updates come only from Batbloom's GitHub releases. Checking is the app's only use of the internet.", color = Muted, fontSize = 11.sp)
     }
 }

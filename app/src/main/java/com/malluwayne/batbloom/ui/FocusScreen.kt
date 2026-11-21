@@ -190,7 +190,7 @@ private fun SetupView() {
         when {
             stopwatch -> {
                 Text("Count up", fontSize = 44.sp, fontWeight = FontWeight.Bold)
-                Text("Stop when you\u2019re done \u00B7 at least ${Rules.MIN_MINUTES} min", color = Muted, fontSize = 13.sp)
+                Text("at least ${Rules.MIN_MINUTES} min", color = Muted, fontSize = 13.sp)
             }
             pomodoro -> {
                 Text("${plan.rounds} \u00D7 ${plan.focusMinutes} min", fontSize = 44.sp, fontWeight = FontWeight.Bold)
@@ -242,7 +242,7 @@ private fun SetupView() {
                 Stepper("Long break", plan.longBreak, 5, 40, 5, "min") { prefs.setPlan(plan.copy(longBreak = it)) }
                 Stepper("Rounds", plan.rounds, 1, 8, 1, "") { prefs.setPlan(plan.copy(rounds = it)) }
                 Text(
-                    "Long break after every ${plan.longEvery} rounds. Breaks start and end by themselves. Total ${Rules.formatMinutes(plan.totalMinutes())}.",
+                    "Total ${Rules.formatMinutes(plan.totalMinutes())}",
                     color = Muted, fontSize = 12.sp,
                 )
             }

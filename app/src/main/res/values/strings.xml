@@ -5,6 +5,8 @@
     <string name="widget_craving_desc">One tap: a 10-minute craving session</string>
     <string name="widget_bloom_label">Batbloom</string>
     <string name="widget_craving_label">Batbloom craving</string>
-    <string name="widget_calendar_label">Batbloom calendar</string>
-    <string name="widget_calendar_desc">This month\'s bloom days, focus time and streak</string>
+    <string name="widget_calendar_label">Batbloom study calendar</string>
+    <string name="widget_calendar_desc">Days you studied this month, with your streak</string>
+    <string name="widget_smokefree_label">Batbloom smoke-free calendar</string>
+    <string name="widget_smokefree_desc">Every smoke-free day since your quit day</string>
 </resources>

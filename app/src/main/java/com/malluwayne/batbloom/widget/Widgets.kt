@@ -63,7 +63,9 @@ class BloomWidget : AppWidgetProvider() {
     companion object {
         fun refresh(context: Context) {
             val app = context.applicationContext as BatbloomApp
-            app.appScope.launch { update(context); CalendarWidget.update(context) }
+            app.appScope.launch { update(context) }
+            CalendarWidget.update(context)
+            SmokeFreeWidget.update(context)
             CravingWidget.update(context)
         }
 
@@ -114,8 +116,10 @@ class BloomWidget : AppWidgetProvider() {
                         // Recent plants in a row to the left of today's, newest nearest, sized to stay below the text.
                         val mini = (miniDp * scale).coerceAtMost((r - l) * 0.42f)
                         if (mini > 8f) garden.forEachIndexed { i, (id, wilted) ->
-                            val x = l + (r - l) * 0.12f - (i + 1) * mini * 0.86f
-                            if (x < 4f * scale) return@forEachIndexed
+                            val k = i / 2 + 1
+                            val x = if (i % 2 == 0) l + (r - l) * 0.12f - k * mini * 0.86f
+                            else r - (r - l) * 0.12f + (k - 1) * mini * 0.86f
+                            if (x < 4f * scale || x + mini > size.width - 4f * scale) return@forEachIndexed
                             inset(x, b - mini, size.width - x - mini, size.height - b) {
                                 drawPlant(PlantCatalog.byId(id), 1f, wilted, 0f, 0.8f)
                             }
@@ -200,15 +204,27 @@ class BloomWidget : AppWidgetProvider() {
                 val tall = hDp >= 170
                 v.setTextViewText(R.id.w_sub, lines.joinToString(if (tall) "\n" else "  ·  "))
                 val bottom = hDp - 54f
-                val side = (bottom - 16f).coerceIn(56f, wDp * 0.46f)
-                val cx = wDp * 0.72f
+                // Expanded (tall): today's plant stands big in the middle under the text, the garden around it.
+                // Otherwise it stands on the right beside the text.
+                val expanded = hDp >= 250
+                val textTop = 14f + 18f + 40f + lines.size * 17f + 10f
+                val side = if (expanded) (bottom - textTop).coerceIn(56f, wDp * 0.62f) else (bottom - 16f).coerceIn(56f, wDp * 0.46f)
+                val cx = if (expanded) wDp / 2f else wDp * 0.72f
                 val box = floatArrayOf(cx - side / 2, bottom - side, cx + side / 2, bottom)
                 // The text block's height (title, big number, the lines below) decides how tall the small plants can be.
                 val textBottom = 14f + 18f + 40f + (if (tall) lines.size else 1) * 17f + 6f
-                val mini = (bottom - textBottom).coerceIn(0f, 64f)
+                val mini = if (expanded) (side * 0.42f).coerceAtMost(80f) else (bottom - textBottom).coerceIn(0f, 64f)
                 // While a session runs, one button that opens it; otherwise quick-start buttons.
                 v.setViewVisibility(R.id.w_craving, if (endAt != null) View.GONE else View.VISIBLE)
-                v.setTextViewText(R.id.w_focus, if (endAt != null) "Open session" else "Focus")
+                v.setTextViewText(
+                    R.id.w_focus,
+                    when {
+                        endAt != null -> "Open session"
+                        prefs.stopwatch.value -> "Stopwatch"
+                        prefs.pomodoro.value -> "Pomodoro ${prefs.plan.value.rounds}\u00D7${prefs.plan.value.focusMinutes}"
+                        else -> "Focus ${prefs.minutes.value}m"
+                    },
+                )
                 v.setOnClickPendingIntent(
                     R.id.w_focus,
                     launch(context, if (endAt != null) MainActivity.ACTION_OPEN else MainActivity.ACTION_FOCUS, if (endAt != null) 14 else 12),

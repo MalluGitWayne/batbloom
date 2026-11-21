@@ -157,7 +157,6 @@ fun QuitScreen(modifier: Modifier) {
                     )
                 }
             }
-            Text("Take after food with a full glass of water.", color = Muted, fontSize = 12.sp)
             schedule.nextSlot(now)?.let {
                 Text("Next: ${it.label.lowercase()} ${Doses.formatMg(it.mg)}, ${dateFmt.format(it.date)} at ${timeFmt.format(schedule.timeOf(it, zone))}", fontSize = 13.sp)
             }
@@ -166,7 +165,6 @@ fun QuitScreen(modifier: Modifier) {
         // Stock
         SectionCard("Tablet stock") {
             if (stockLeft < 0) {
-                Text("Enter how many tablets you have to get a warning before they run out.", color = Muted, fontSize = 13.sp)
             } else {
                 val logged = todaySlots.filter { it.key in logByKey }.map { it.key }.toSet()
                 val st = Doses.stock(schedule, stockLeft, strength, today, logged)
@@ -200,7 +198,6 @@ fun QuitScreen(modifier: Modifier) {
                         StatTile("Saved", rupees(p.moneySaved), Modifier.weight(1f), Teal)
                         StatTile("Life regained", QuitMath.formatDuration(p.lifeRegained), Modifier.weight(1f), Lavender)
                     }
-                    Text("Life regained is a rough estimate (about ${QuitMath.MINUTES_PER_CIGARETTE} min per cigarette).", color = Muted, fontSize = 11.sp)
                 }
             }
         }
@@ -232,10 +229,6 @@ fun QuitScreen(modifier: Modifier) {
 
         // Slips
         SectionCard("Slips") {
-            Text(
-                "Smoked one? It happens to most people who quit. Log it honestly, keep taking your tablets and carry on. Your timer keeps running.",
-                fontSize = 13.sp, color = Muted,
-            )
             OutlinedButton({ slipDialog = true }) { Text("Log a slip") }
             slips.take(5).forEach { s ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -293,11 +286,6 @@ fun QuitScreen(modifier: Modifier) {
 
         }
         }
-        Text(
-            "Batbloom helps you keep track. It does not replace advice from your doctor or pharmacist; follow their instructions for your tablets. " +
-                "All of this stays on your phone.",
-            color = Muted, fontSize = 11.sp,
-        )
     }
 
     // First-run setup for the tracker
@@ -310,7 +298,6 @@ fun QuitScreen(modifier: Modifier) {
             title = { Text("Set up your quit tracker") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Used to count cigarettes not smoked and money saved. You can change these in Settings.", fontSize = 13.sp)
                     NumberInput("Cigarettes a day (before quitting)", perDay) { perDay = it }
                     NumberInput("Cigarettes per pack", pack) { pack = it }
                     NumberInput("Price per pack (₹)", price) { price = it }

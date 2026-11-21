@@ -107,7 +107,6 @@ fun GardenScreen(modifier: Modifier) {
                     Text("$blooms bloomed · ${shown.size - blooms} wilted", color = Muted, modifier = Modifier.weight(1f))
                     if (wilted > 0) androidx.compose.material3.TextButton({ confirmClear = wilted }) { Text("Clear wilted") }
                 }
-                if (wilted > 0) Text("Tip: long-press a wilted plant to remove just that one.", color = Muted, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("All", "Today", "This week").forEachIndexed { i, l -> FilterChip(filter == i, { filter = i }, { Text(l) }) }
                 }
@@ -115,7 +114,7 @@ fun GardenScreen(modifier: Modifier) {
         }
         if (shown.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Text(
-                "Nothing here yet. Finish a focus session and its plant is planted here.",
+                "No plants yet.",
                 color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(32.dp),
             )
         }

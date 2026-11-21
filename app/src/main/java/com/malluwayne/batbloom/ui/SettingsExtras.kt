@@ -67,11 +67,7 @@ fun TimeGuardSection(refreshKey: Long) {
     fun save(m: Map<String, Int>) { prefs.setGuard(m); Reminders.scheduleAll(ctx) }
 
     SubSection("Time Guard") {
-        Text(
-            "Daily limits for apps that eat your time. You get a nudge when you pass one.",
-            fontSize = 13.sp, color = Muted,
-        )
-        if (!Device.hasUsageAccess(ctx)) Text("Usage access is off, so Time Guard can't see app time yet.", color = Gold, fontSize = 13.sp)
+        if (!Device.hasUsageAccess(ctx)) Text("Needs Usage access", color = Gold, fontSize = 13.sp)
         limits.forEach { (pkg, limit) ->
             val used = usage[pkg] ?: 0
             Column {
@@ -184,11 +180,6 @@ fun BackupSection() {
     }
 
     SectionCard("Backup") {
-        Text(
-            "Everything lives only on this phone. Save a backup file (sessions, garden, doses, diary, settings) to your phone or Google Drive, " +
-                "and restore it after a reinstall or on a new phone.",
-            fontSize = 13.sp, color = Muted,
-        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ save.launch("batbloom-backup-${LocalDate.now()}.json") }) { Text("Save backup") }
             OutlinedButton({ open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Restore") }
@@ -228,10 +219,6 @@ fun BackgroundSection(refreshKey: Long) {
     val unrestricted = remember(refreshKey) { ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName) }
     val maker = Build.MANUFACTURER.lowercase()
     SubSection("Battery") {
-        Text(
-            "Keeps dose reminders and sessions on time on phones with strict battery savers.",
-            fontSize = 13.sp, color = Muted,
-        )
         StatusRow("Run freely in the background", unrestricted, "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")))
         }

@@ -12,8 +12,8 @@ android {
         applicationId = "com.malluwayne.batbloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = 9
+        versionName = "1.8"
     }
 
     // Release key: kept outside the project (path and password in ~/.gradle/gradle.properties, never in git).

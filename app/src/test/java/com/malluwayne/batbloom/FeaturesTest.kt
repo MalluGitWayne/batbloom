@@ -103,24 +103,40 @@ class FeaturesTest {
 }
 
 class CalendarWidgetTest {
-    @org.junit.Test fun monthTotals() {
-        val zone = java.time.ZoneId.of("Asia/Kolkata")
-        val today = java.time.LocalDate.of(2026, 11, 21)
-        fun s(d: Int, min: Int, ok: Boolean = true, month: Int = 11) = com.malluwayne.batbloom.data.SessionEntity(
-            startedAt = java.time.LocalDate.of(2026, month, d).atTime(9, 0).atZone(zone).toInstant().toEpochMilli(),
-            plannedMinutes = min, tag = "Study", plantId = "moonflower",
-            status = if (ok) com.malluwayne.batbloom.data.Status.DONE else com.malluwayne.batbloom.data.Status.FAILED,
+    private val zone = java.time.ZoneId.of("Asia/Kolkata")
+    private val today = java.time.LocalDate.of(2026, 11, 21)
+    private fun s(d: Int, min: Int, ok: Boolean = true, month: Int = 11, tag: String = "Study") = com.malluwayne.batbloom.data.SessionEntity(
+        startedAt = java.time.LocalDate.of(2026, month, d).atTime(9, 0).atZone(zone).toInstant().toEpochMilli(),
+        plannedMinutes = min, tag = tag, plantId = "moonflower",
+        status = if (ok) com.malluwayne.batbloom.data.Status.DONE else com.malluwayne.batbloom.data.Status.FAILED,
+    )
+
+    @org.junit.Test fun studyMonth() {
+        val c = com.malluwayne.batbloom.widget.Calendars.study(
+            listOf(s(21, 25), s(21, 95), s(20, 30), s(3, 10), s(4, 60, ok = false), s(30, 99, month = 10), s(19, 10, tag = "Craving")),
+            today, zone, goal = 120,
         )
-        val m = com.malluwayne.batbloom.widget.CalendarWidget.month(
-            listOf(s(21, 25), s(21, 50), s(20, 30), s(3, 10), s(4, 60, ok = false), s(30, 99, month = 10)), today, zone,
-        )
-        org.junit.Assert.assertEquals(mapOf(21 to 75, 20 to 30, 3 to 10), m.minutesByDay)
-        org.junit.Assert.assertEquals(3, m.bloomDays)
-        org.junit.Assert.assertEquals(115, m.totalMinutes)
-        org.junit.Assert.assertEquals(2, m.streak)
+        org.junit.Assert.assertEquals(setOf(21, 20, 3), c.level.keys)
+        org.junit.Assert.assertEquals(1f, c.level[21]!!, 0.001f)
+        org.junit.Assert.assertEquals("3" to "study days", c.figures[0])
+        org.junit.Assert.assertEquals("2h 40m" to "this month", c.figures[1])
+        org.junit.Assert.assertEquals("2" to "day streak", c.figures[2])
+    }
+
+    @org.junit.Test fun smokeFreeMonth() {
+        val quit = java.time.LocalDate.of(2026, 11, 10)
+        val slip = com.malluwayne.batbloom.data.SlipEntity(1, java.time.LocalDate.of(2026, 11, 15).atTime(20, 0).atZone(zone).toInstant().toEpochMilli(), 1)
+        val c = com.malluwayne.batbloom.widget.Calendars.smokeFree(quit, listOf(slip), today, zone, 10, 20, 340.0)
+        org.junit.Assert.assertEquals((10..21).toSet() - 15, c.level.keys)
+        org.junit.Assert.assertEquals(setOf(15), c.flagged)
+        org.junit.Assert.assertEquals(10, c.special)
+        org.junit.Assert.assertEquals("12" to "days smoke-free", c.figures[0])
+        org.junit.Assert.assertEquals("6" to "clean in a row", c.figures[1])
+        val before = com.malluwayne.batbloom.widget.Calendars.smokeFree(java.time.LocalDate.of(2026, 11, 28), emptyList(), today, zone, 10, 20, 340.0)
+        org.junit.Assert.assertTrue(before.level.isEmpty())
+        org.junit.Assert.assertEquals("7" to "days to quit day", before.figures[0])
     }
 }
-
 
 class PeriodsTest {
     private val zone = java.time.ZoneId.of("Asia/Kolkata")

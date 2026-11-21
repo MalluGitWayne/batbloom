@@ -99,6 +99,18 @@
         </receiver>
 
         <receiver
+            android:name=".widget.SmokeFreeWidget"
+            android:exported="false"
+            android:label="@string/widget_smokefree_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_smokefree_info" />
+        </receiver>
+
+        <receiver
             android:name=".widget.CravingWidget"
             android:exported="false"
             android:label="@string/widget_craving_label">

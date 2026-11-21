@@ -165,10 +165,7 @@ fun MilestoneHero(quitDay: LocalDate, sinceQuit: Duration) {
                         }
                     }
                 }
-                Text("Approximate, based on commonly cited public-health guidance. Everyone's body is different.", color = Muted, fontSize = 11.sp)
             }
-        } else {
-            Text("Tap to see all milestones", color = Muted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         }
     }
 }

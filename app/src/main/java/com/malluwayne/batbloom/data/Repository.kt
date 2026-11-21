@@ -73,8 +73,14 @@ class Repository(private val db: AppDatabase) {
 
     // --- Slips and side effects ---
 
-    suspend fun addSlip(count: Int, note: String?) = quit.addSlip(SlipEntity(at = System.currentTimeMillis(), count = count, note = note))
-    suspend fun deleteSlip(id: Long) = quit.deleteSlip(id)
+    suspend fun addSlip(count: Int, note: String?) {
+        quit.addSlip(SlipEntity(at = System.currentTimeMillis(), count = count, note = note))
+        com.malluwayne.batbloom.widget.SmokeFreeWidget.update(com.malluwayne.batbloom.BatbloomApp.instance)
+    }
+    suspend fun deleteSlip(id: Long) {
+        quit.deleteSlip(id)
+        com.malluwayne.batbloom.widget.SmokeFreeWidget.update(com.malluwayne.batbloom.BatbloomApp.instance)
+    }
     suspend fun addSideEffect(kind: String, severity: Int, note: String?) =
         quit.addSideEffect(SideEffectEntity(at = System.currentTimeMillis(), kind = kind, severity = severity, note = note))
     suspend fun deleteSideEffect(id: Long) = quit.deleteSideEffect(id)

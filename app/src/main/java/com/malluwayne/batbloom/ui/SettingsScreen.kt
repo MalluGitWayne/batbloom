@@ -122,18 +122,12 @@ fun SettingsScreen(modifier: Modifier) {
         }
 
         SectionCard("Focus") {
-            Text(
-                "Open a non-allowed app during a session and you have ${Rules.GRACE_MS / 1000} seconds to come back before the plant wilts. " +
-                    "Home screen, calls and the lock screen are always fine.",
-                fontSize = 13.sp, color = Muted,
-            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Allowed apps", Modifier.weight(1f))
                 TextButton({ showApps = true }) { Text(if (allowed.isEmpty()) "Choose" else "${allowed.size} chosen  \u203A") }
             }
             TimeGuardSection(now)
-            SubSection("Custom tags") {
-                if (custom.isEmpty()) Text("Add your own from the tag line on the Focus screen.", color = Muted, fontSize = 13.sp)
+            if (custom.isNotEmpty()) SubSection("Custom tags") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     custom.forEach { t -> InputChip(false, { prefs.removeTag(t) }, { Text("$t  \u2715") }) }
                 }
@@ -173,7 +167,6 @@ fun SettingsScreen(modifier: Modifier) {
         }
 
         SectionCard("Varenicline course") {
-            Text("Set this to match your prescription. Batbloom only reminds you; follow your doctor's instructions.", fontSize = 13.sp, color = Muted)
             LabeledRow("Day 1", fmt.format(schedule.start))
             LabeledRow("Last day", "Day ${schedule.courseDays}, ${fmt.format(schedule.endDate)}")
             OutlinedButton({ pickDate = "course" }) { Text("Change start date") }
@@ -211,12 +204,7 @@ fun SettingsScreen(modifier: Modifier) {
                 }
             }
             Text(
-                "Batbloom has no ads and no accounts. Your data stays on this phone; the internet is used only to check GitHub for updates. Coins are earned by focusing and badges only. " +
-                    "The quit and medication features help you keep track; they do not replace medical advice from your doctor or pharmacist.",
-                fontSize = 13.sp, color = Muted,
-            )
-            Text(
-                "Widgets: long-press your home screen › Widgets › Batbloom. There is a bloom widget, a calendar and a one-tap craving button.",
+                "Data stays on this phone. Not a substitute for medical advice.",
                 fontSize = 13.sp, color = Muted,
             )
             TextButton({

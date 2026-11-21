@@ -20,7 +20,7 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
   - It's a tracker and **does not replace medical advice**.
 - **Garden:** clear wilted plants all at once, or long-press one to remove it.
 - **Coins** unlock seven original night plants. There is nothing to buy.
-- **Widgets:** a **calendar widget** of this month's bloom days (shaded by how close you came to your goal) with totals and streak. The big widget paints the night sky with today's plant and your recent plants on a hill, at the widget's size. It grows live during a session, and when you're idle it grows toward your daily goal. There's also a 1×1 craving button.
+- **Widgets:** the bloom widget paints the night sky with today's plant and your recent plants (centred and larger when you make it tall), and its Focus button names the mode it starts. Two Hevy-style calendars show your consistency: a **study calendar** (days you studied, shaded by your goal) and a **smoke-free calendar** (every clean day since the quit day, slips ringed in red). Both show more weeks as you make them taller. There is also a 1×1 craving button.
 - Dark theme, no ads, no accounts. Everything is stored on the phone with Room. The internet is used only to check GitHub for updates.
 
 ## Updates

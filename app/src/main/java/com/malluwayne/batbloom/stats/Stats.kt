@@ -126,3 +126,49 @@ object Stats {
         }
     }
 }
+
+/** One period (the last 7 or 30 days, ending today) for the Stats screen. */
+data class PeriodSummary(
+    val days: List<Pair<LocalDate, Int>>,
+    val totalMinutes: Int,
+    val avgPerDay: Int,
+    val sessions: Int,
+    val avgSession: Int,
+    val successRate: Int,
+    val tagMinutes: List<Pair<String, Int>>,
+    /** Minutes by part of day: Morning, Afternoon, Evening, Night. Only parts with time in them. */
+    val timeOfDay: List<Pair<String, Int>>,
+    val bestDay: Pair<LocalDate, Int>?,
+)
+
+object Periods {
+    /** Morning 5–12, afternoon 12–17, evening 17–21, night 21–5. */
+    fun partOfDay(hour: Int): String = when (hour) {
+        in 5..11 -> "Morning"
+        in 12..16 -> "Afternoon"
+        in 17..20 -> "Evening"
+        else -> "Night"
+    }
+
+    fun summary(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId, length: Int): PeriodSummary {
+        val first = today.minusDays(length - 1L)
+        val inPeriod = sessions.filter { val d = Stats.dayOf(it.startedAt, zone); !d.isBefore(first) && !d.isAfter(today) }
+        val done = inPeriod.filter { it.status == Status.DONE }
+        val byDay = done.groupBy { Stats.dayOf(it.startedAt, zone) }.mapValues { (_, l) -> l.sumOf { it.plannedMinutes } }
+        val total = done.sumOf { it.plannedMinutes }
+        val order = listOf("Morning", "Afternoon", "Evening", "Night")
+        val tod = done.groupBy { partOfDay(java.time.Instant.ofEpochMilli(it.startedAt).atZone(zone).hour) }
+            .mapValues { (_, l) -> l.sumOf { it.plannedMinutes } }
+        return PeriodSummary(
+            days = (length - 1 downTo 0).map { today.minusDays(it.toLong()) }.map { it to (byDay[it] ?: 0) },
+            totalMinutes = total,
+            avgPerDay = total / length,
+            sessions = done.size,
+            avgSession = if (done.isEmpty()) 0 else total / done.size,
+            successRate = if (inPeriod.isEmpty()) 0 else (done.size * 100 + inPeriod.size / 2) / inPeriod.size,
+            tagMinutes = done.groupBy { it.tag }.map { (t, l) -> t to l.sumOf { it.plannedMinutes } }.sortedByDescending { it.second },
+            timeOfDay = order.mapNotNull { p -> tod[p]?.let { p to it } },
+            bestDay = byDay.maxByOrNull { it.value }?.toPair(),
+        )
+    }
+}

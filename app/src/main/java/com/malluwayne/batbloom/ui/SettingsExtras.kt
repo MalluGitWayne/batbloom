@@ -66,9 +66,9 @@ fun TimeGuardSection(refreshKey: Long) {
     var picking by remember { mutableStateOf(false) }
     fun save(m: Map<String, Int>) { prefs.setGuard(m); Reminders.scheduleAll(ctx) }
 
-    SectionCard("Time Guard") {
+    SubSection("Time Guard") {
         Text(
-            "Set a daily limit for apps that eat your time. When one passes its limit you get a nudge (and another at 1.5×). Needs Usage access.",
+            "Daily limits for apps that eat your time. You get a nudge when you pass one.",
             fontSize = 13.sp, color = Muted,
         )
         if (!Device.hasUsageAccess(ctx)) Text("Usage access is off, so Time Guard can't see app time yet.", color = Gold, fontSize = 13.sp)
@@ -134,8 +134,7 @@ fun StudyReminderSection() {
     val time by prefs.fmgeTime.collectAsState()
     var pick by remember { mutableStateOf(false) }
     val fmt = remember { DateTimeFormatter.ofPattern("h:mm a") }
-    SectionCard("Daily FMGE reminder") {
-        Text("A daily nudge with your goal, the exam countdown and the subjects due for revision.", fontSize = 13.sp, color = Muted)
+    SubSection("Daily reminder") {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Remind me", Modifier.weight(1f))
             Switch(on, { prefs.setFmgeReminder(it); Reminders.scheduleAll(ctx) })
@@ -228,15 +227,14 @@ fun BackgroundSection(refreshKey: Long) {
     val ctx = LocalContext.current
     val unrestricted = remember(refreshKey) { ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName) }
     val maker = Build.MANUFACTURER.lowercase()
-    SectionCard("Background") {
+    SubSection("Battery") {
         Text(
-            "Some phones pause apps in the background, which can delay dose reminders and stop a session from finishing on time.",
+            "Keeps dose reminders and sessions on time on phones with strict battery savers.",
             fontSize = 13.sp, color = Muted,
         )
-        LabeledRow("Battery optimisation", if (unrestricted) "Off (good)" else "On")
-        if (!unrestricted) Button({
+        StatusRow("Run freely in the background", unrestricted, "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")))
-        }) { Text("Don't restrict Batbloom") }
+        }
         val tip = when {
             listOf("oneplus", "oppo", "realme").any { it in maker } ->
                 "On ${Build.MANUFACTURER}: App info › Battery › allow background activity and auto-launch, and lock Batbloom in Recents."

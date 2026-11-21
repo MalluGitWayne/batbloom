@@ -121,3 +121,41 @@ class CalendarWidgetTest {
     }
 }
 
+
+class PeriodsTest {
+    private val zone = java.time.ZoneId.of("Asia/Kolkata")
+    private val today = java.time.LocalDate.of(2026, 11, 25)
+    private fun s(daysAgo: Long, hour: Int, min: Int, ok: Boolean = true, tag: String = "Study") = com.malluwayne.batbloom.data.SessionEntity(
+        startedAt = today.minusDays(daysAgo).atTime(hour, 0).atZone(zone).toInstant().toEpochMilli(),
+        plannedMinutes = min, tag = tag, plantId = "moonflower",
+        status = if (ok) com.malluwayne.batbloom.data.Status.DONE else com.malluwayne.batbloom.data.Status.FAILED,
+    )
+
+    @org.junit.Test fun weekSummary() {
+        val list = listOf(
+            s(0, 9, 30), s(0, 19, 60, tag = "FMGE"), s(1, 22, 25), s(3, 14, 25, ok = false),
+            s(6, 8, 45), s(7, 9, 100), // 7 days ago is outside a 7-day week
+        )
+        val p = com.malluwayne.batbloom.stats.Periods.summary(list, today, zone, 7)
+        org.junit.Assert.assertEquals(7, p.days.size)
+        org.junit.Assert.assertEquals(today to 90, p.days.last())
+        org.junit.Assert.assertEquals(160, p.totalMinutes)
+        org.junit.Assert.assertEquals(22, p.avgPerDay)
+        org.junit.Assert.assertEquals(4, p.sessions)
+        org.junit.Assert.assertEquals(40, p.avgSession)
+        org.junit.Assert.assertEquals(80, p.successRate)
+        org.junit.Assert.assertEquals(listOf("Morning" to 75, "Evening" to 60, "Night" to 25), p.timeOfDay)
+        org.junit.Assert.assertEquals(today to 90, p.bestDay)
+        org.junit.Assert.assertEquals("Study" to 100, p.tagMinutes.first())
+        val month = com.malluwayne.batbloom.stats.Periods.summary(list, today, zone, 30)
+        org.junit.Assert.assertEquals(260, month.totalMinutes)
+    }
+
+    @org.junit.Test fun emptyPeriod() {
+        val p = com.malluwayne.batbloom.stats.Periods.summary(emptyList(), today, zone, 7)
+        org.junit.Assert.assertEquals(0, p.totalMinutes)
+        org.junit.Assert.assertEquals(0, p.successRate)
+        org.junit.Assert.assertNull(p.bestDay)
+        org.junit.Assert.assertTrue(p.timeOfDay.isEmpty())
+    }
+}

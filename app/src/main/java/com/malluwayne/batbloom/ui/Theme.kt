@@ -20,9 +20,11 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -160,3 +162,42 @@ fun clock(ms: Long): String {
 }
 
 fun rupees(v: Double): String = "₹" + "%,.0f".format(v)
+
+/** A small row of pill-shaped tabs. */
+@Composable
+fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceContainer).padding(3.dp),
+    ) {
+        labels.forEachIndexed { i, l ->
+            Text(
+                l, fontSize = 13.sp,
+                color = if (i == selected) MaterialTheme.colorScheme.onSurface else Muted,
+                fontWeight = if (i == selected) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                    .background(if (i == selected) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent)
+                    .clickable { onSelect(i) }.padding(horizontal = 14.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/** A titled part of a settings group: a thin line above, a small coloured heading. */
+@Composable
+fun SubSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        androidx.compose.material3.HorizontalDivider(color = Color.White.copy(alpha = 0.06f), modifier = Modifier.padding(vertical = 4.dp))
+        Text(title, color = Lavender, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        content()
+    }
+}
+
+/** A status row: label, then "On" in teal or a small fix button. */
+@Composable
+fun StatusRow(label: String, ok: Boolean, fixLabel: String, onFix: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        if (ok) Text("On", color = Teal, fontWeight = FontWeight.SemiBold)
+        else androidx.compose.material3.FilledTonalButton(onFix) { Text(fixLabel, fontSize = 13.sp) }
+    }
+}

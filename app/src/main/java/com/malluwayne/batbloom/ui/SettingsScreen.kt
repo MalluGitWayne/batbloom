@@ -110,40 +110,50 @@ fun SettingsScreen(modifier: Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
-        Text("Tap a section to open it.", color = Muted, fontSize = 13.sp)
 
         UpdateSection()
 
-        SectionCard("Leave detection") {
-            Text(
-                "During a session Batbloom checks which app is on screen. Opening an app that is not allowed gives you " +
-                    "${Rules.GRACE_MS / 1000} seconds to come back, then the plant wilts. Home screen, phone calls and the lock screen are always fine. " +
-                    "This needs Usage access, and only runs while a plant is growing.",
-                fontSize = 13.sp, color = Muted,
-            )
-            LabeledRow("Usage access", if (hasUsage) "On" else "Off")
-            if (!hasUsage) Button({ ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) { Text("Turn on Usage access") }
-            LabeledRow("Allowed apps", "${allowed.size}")
-            OutlinedButton({ showApps = true }) { Text("Choose allowed apps") }
+        SectionCard("Permissions") {
+            StatusRow("Usage access (leave detection)", hasUsage, "Turn on") { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+            StatusRow("Notifications", hasNotif, "Allow") {
+                ctx.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName))
+            }
+            BackgroundSection(now)
         }
 
-        SectionCard("Notifications") {
-            LabeledRow("Countdown and alerts", if (hasNotif) "On" else "Off")
-            if (!hasNotif) Button({
-                ctx.startActivity(
-                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName),
-                )
-            }) { Text("Allow notifications") }
+        SectionCard("Focus") {
+            Text(
+                "Open a non-allowed app during a session and you have ${Rules.GRACE_MS / 1000} seconds to come back before the plant wilts. " +
+                    "Home screen, calls and the lock screen are always fine.",
+                fontSize = 13.sp, color = Muted,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Allowed apps", Modifier.weight(1f))
+                TextButton({ showApps = true }) { Text(if (allowed.isEmpty()) "Choose" else "${allowed.size} chosen  \u203A") }
+            }
+            TimeGuardSection(now)
+            SubSection("Custom tags") {
+                if (custom.isEmpty()) Text("Add your own from the tag line on the Focus screen.", color = Muted, fontSize = 13.sp)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    custom.forEach { t -> InputChip(false, { prefs.removeTag(t) }, { Text("$t  \u2715") }) }
+                }
+            }
         }
 
         SectionCard("FMGE") {
-            LabeledRow("Exam date", exam?.let { fmt.format(it) } ?: "Not set")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton({ pickDate = "exam" }) { Text(if (exam == null) "Set date" else "Change") }
-                if (exam != null) TextButton({ prefs.setExamDate(null) }) { Text("Clear") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Exam date", Modifier.weight(1f))
+                TextButton({ pickDate = "exam" }) { Text(exam?.let { fmt.format(it) } ?: "Set") }
+                if (exam != null) TextButton({ prefs.setExamDate(null) }) { Text("\u2715", color = Muted) }
             }
-            Text("Daily study goal: ${Rules.formatMinutes(goal)}")
-            Slider(goal.toFloat(), { prefs.setDailyGoal(((it / 30).roundToInt() * 30).coerceAtLeast(30)) }, valueRange = 30f..720f, steps = 22)
+            Text("Daily goal: ${Rules.formatMinutes(goal)}")
+            Slider(
+                goal.toFloat(), { prefs.setDailyGoal(((it / 30).roundToInt() * 30).coerceAtLeast(30)) }, valueRange = 30f..720f, steps = 22,
+                colors = androidx.compose.material3.SliderDefaults.colors(
+                    activeTickColor = androidx.compose.ui.graphics.Color.Transparent, inactiveTickColor = androidx.compose.ui.graphics.Color.Transparent,
+                ),
+            )
+            StudyReminderSection()
         }
 
         SectionCard("Quit smoking") {
@@ -190,29 +200,7 @@ fun SettingsScreen(modifier: Modifier) {
             TextButton({ prefs.setSchedule(com.malluwayne.batbloom.quit.DoseSchedule()); DoseAlarms.scheduleNext(ctx) }) { Text("Reset to my original plan") }
         }
 
-        StudyReminderSection()
-
-        TimeGuardSection(now)
-
         BackupSection()
-
-        BackgroundSection(now)
-
-        SectionCard("Custom tags") {
-            if (custom.isEmpty()) Text("Add your own from the tag row on the Focus screen.", color = Muted, fontSize = 13.sp)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                custom.forEach { t -> InputChip(false, { prefs.removeTag(t) }, { Text("$t  ✕") }) }
-            }
-        }
-
-        SectionCard("Widgets") {
-            Text(
-                "Long-press your home screen, tap Widgets and find Batbloom. The big widget shows the live countdown or today's focus, " +
-                    "your FMGE goal and countdowns, with Craving and Focus buttons. The calendar widget shows this month's bloom days. " +
-                    "The small one is a one-tap craving button.",
-                fontSize = 13.sp, color = Muted,
-            )
-        }
 
         SectionCard("About") {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -225,6 +213,10 @@ fun SettingsScreen(modifier: Modifier) {
             Text(
                 "Batbloom has no ads and no accounts. Your data stays on this phone; the internet is used only to check GitHub for updates. Coins are earned by focusing and badges only. " +
                     "The quit and medication features help you keep track; they do not replace medical advice from your doctor or pharmacist.",
+                fontSize = 13.sp, color = Muted,
+            )
+            Text(
+                "Widgets: long-press your home screen › Widgets › Batbloom. There is a bloom widget, a calendar and a one-tap craving button.",
                 fontSize = 13.sp, color = Muted,
             )
             TextButton({

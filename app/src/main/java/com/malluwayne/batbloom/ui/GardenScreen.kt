@@ -1,6 +1,15 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +66,28 @@ fun GardenScreen(modifier: Modifier) {
         }
     }
     val fmt = remember { DateTimeFormatter.ofPattern("d MMM, HH:mm") }
+    var confirmClear by remember { mutableStateOf<Int?>(null) }
+    var removeOne by remember { mutableStateOf<Long?>(null) }
+    val scope = rememberCoroutineScope()
+    val repo = BatbloomApp.instance.repo
+    confirmClear?.let { n ->
+        AlertDialog(
+            onDismissRequest = { confirmClear = null },
+            title = { Text("Clear wilted plants?") },
+            text = { Text("Removes $n wilted plant${if (n == 1) "" else "s"} from your garden and stats. Your blooms and coins stay.") },
+            confirmButton = { TextButton({ confirmClear = null; scope.launch { repo.clearWilted() } }) { Text("Clear") } },
+            dismissButton = { TextButton({ confirmClear = null }) { Text("Cancel") } },
+        )
+    }
+    removeOne?.let { id ->
+        AlertDialog(
+            onDismissRequest = { removeOne = null },
+            title = { Text("Remove this wilted plant?") },
+            text = { Text("It disappears from your garden and stats.") },
+            confirmButton = { TextButton({ removeOne = null; scope.launch { repo.removeWilted(id) } }) { Text("Remove") } },
+            dismissButton = { TextButton({ removeOne = null }) { Text("Cancel") } },
+        )
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(104.dp),
         modifier = modifier.fillMaxSize(),
@@ -71,7 +102,12 @@ fun GardenScreen(modifier: Modifier) {
                     androidx.compose.material3.OutlinedButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("Seed shop") }
                 }
                 val blooms = shown.count { it.status == Status.DONE }
-                Text("$blooms bloomed · ${shown.size - blooms} wilted", color = Muted)
+                val wilted = sessions.count { it.status == Status.FAILED }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("$blooms bloomed · ${shown.size - blooms} wilted", color = Muted, modifier = Modifier.weight(1f))
+                    if (wilted > 0) androidx.compose.material3.TextButton({ confirmClear = wilted }) { Text("Clear wilted") }
+                }
+                if (wilted > 0) Text("Tip: long-press a wilted plant to remove just that one.", color = Muted, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("All", "Today", "This week").forEachIndexed { i, l -> FilterChip(filter == i, { filter = i }, { Text(l) }) }
                 }
@@ -86,7 +122,9 @@ fun GardenScreen(modifier: Modifier) {
         items(shown, key = { it.id }) { s ->
             val ok = s.status == Status.DONE
             Column(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Panel).padding(8.dp),
+                Modifier.clip(RoundedCornerShape(16.dp)).background(Panel)
+                    .combinedClickable(onClick = {}, onLongClick = { if (!ok) removeOne = s.id })
+                    .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(Modifier.fillMaxWidth().height(84.dp)) {

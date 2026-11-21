@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
             ACTION_FOCUS -> Starter.fromPrefs(this)
             ACTION_QUIT -> Nav.tab.value = 2
             ACTION_OPEN -> { Nav.tab.value = 0; Nav.shop.value = false }
+            ACTION_STATS -> { Nav.tab.value = 3; Nav.shop.value = false }
             ACTION_FMGE -> {
                 val p = BatbloomApp.instance.prefs
                 p.setTag(Tags.FMGE)
@@ -91,6 +92,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_FOCUS = "batbloom.FOCUS"
         const val ACTION_QUIT = "batbloom.QUIT"
         const val ACTION_FMGE = "batbloom.FMGE"
+        const val ACTION_STATS = "batbloom.STATS"
         const val EXTRA_SUBJECT = "subject"
     }
 }

@@ -12,8 +12,12 @@ object Tags {
 
     val cravingTriggers = listOf("Coffee/tea", "After a meal", "Stress", "Boredom", "Waking up", "Friends", "Alcohol", "Study break", "Other")
 
-    /** The 19 FMGE subjects. */
+    /** Question practice and grand tests: tracked like a subject, but not part of spaced revision. */
+    const val MCQ = "MCQ practice"
+
+    /** MCQ practice plus the 19 FMGE subjects. */
     val fmgeSubjects = listOf(
+        MCQ,
         "Anatomy", "Physiology", "Biochemistry",
         "Pathology", "Pharmacology", "Microbiology", "Forensic Medicine",
         "Community Medicine", "ENT", "Ophthalmology",

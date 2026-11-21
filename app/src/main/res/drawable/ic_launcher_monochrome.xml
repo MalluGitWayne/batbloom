@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Themed-icon version: one flat shape (Android tints it). -->
+<!-- Themed-icon version: the bloom as one flat shape in front of a moon ring (Android tints it). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M72.5,24.5a10.5,10.5 0,1 0,7 18.8a8.4,8.4 0,1 1,-7 -18.8z" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.4" android:strokeLineCap="round" android:pathData="M54,85Q51,72 54,58" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M53,77Q44,76 40,68Q49,68 53,77z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,71Q62,71 67,63Q58,63 54,71z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,56C47,47 39,41 30,39Q34,44 34,49Q38,48 41,51Q43,54 46,58Q50,56.5 54,59z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,56C61,47 69,41 78,39Q74,44 74,49Q70,48 67,51Q65,54 62,58Q58,56.5 54,59z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,40Q59,48 54,56Q49,48 54,40z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,58Q46,61 42,69Q49,67 54,62z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,58Q62,61 66,69Q59,67 54,62z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2" android:fillColor="#00000000"
+        android:pathData="M54,42m-17,0a17,17 0,1 1,34 0a17,17 0,1 1,-34 0" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.8" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M54,60Q51.5,70 54,81" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M53,75Q43,75 38,66Q48,65 53,75z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54.5,70Q64,70 69,61Q59,60 54.5,70z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,55Q43,58 38,68Q48,66 54,60z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,55Q65,58 70,68Q60,66 54,60z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,54C46,42 34,33 22,30Q28,37 26,45Q31,42 34,48Q38,45 42,52Q47,50 54,58z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,54C62,42 74,33 86,30Q80,37 82,45Q77,42 74,48Q70,45 66,52Q61,50 54,58z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,30Q62,43 54,56Q46,43 54,30z" />
 </vector>

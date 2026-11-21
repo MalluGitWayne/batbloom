@@ -21,7 +21,7 @@ object Revision {
     /** Subjects due for revision today (overdue first). A subject studied today is not due. */
     fun due(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId): List<Due> {
         val days = sessions
-            .filter { it.tag == Tags.FMGE && it.status == Status.DONE && it.subject != null }
+            .filter { it.tag == Tags.FMGE && it.status == Status.DONE && it.subject != null && it.subject != Tags.MCQ }
             .groupBy({ it.subject!! }, { Stats.dayOf(it.startedAt, zone) })
             .mapValues { (_, d) -> d.toSortedSet() }
         return days.mapNotNull { (subject, studied) ->

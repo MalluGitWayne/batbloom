@@ -45,6 +45,8 @@ class FeaturesTest {
         // After the 5th step it's every 30 days.
         val five = (0 until 5).map { study("Pathology", 200L - it * 30) }
         assertEquals(1, Revision.due(five, today, zone).size)
+        // MCQ practice is tracked but never "due".
+        assertTrue(Revision.due(listOf(study(Tags.MCQ, 1)), today, zone).isEmpty())
         assertEquals("Anatomy · yesterday", Revision.label(Revision.due(listOf(study("Anatomy", 1)), today, zone).first(), today))
     }
 
@@ -97,5 +99,24 @@ class FeaturesTest {
 
     @Test(expected = Backup.BadBackup::class) fun rejectsOtherFiles() {
         Backup.fromJson("""{"hello": 1}""")
+    }
+}
+
+class CalendarWidgetTest {
+    @org.junit.Test fun monthTotals() {
+        val zone = java.time.ZoneId.of("Asia/Kolkata")
+        val today = java.time.LocalDate.of(2026, 11, 21)
+        fun s(d: Int, min: Int, ok: Boolean = true, month: Int = 11) = com.malluwayne.batbloom.data.SessionEntity(
+            startedAt = java.time.LocalDate.of(2026, month, d).atTime(9, 0).atZone(zone).toInstant().toEpochMilli(),
+            plannedMinutes = min, tag = "Study", plantId = "moonflower",
+            status = if (ok) com.malluwayne.batbloom.data.Status.DONE else com.malluwayne.batbloom.data.Status.FAILED,
+        )
+        val m = com.malluwayne.batbloom.widget.CalendarWidget.month(
+            listOf(s(21, 25), s(21, 50), s(20, 30), s(3, 10), s(4, 60, ok = false), s(30, 99, month = 10)), today, zone,
+        )
+        org.junit.Assert.assertEquals(mapOf(21 to 75, 20 to 30, 3 to 10), m.minutesByDay)
+        org.junit.Assert.assertEquals(3, m.bloomDays)
+        org.junit.Assert.assertEquals(115, m.totalMinutes)
+        org.junit.Assert.assertEquals(2, m.streak)
     }
 }

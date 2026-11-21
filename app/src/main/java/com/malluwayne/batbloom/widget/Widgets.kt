@@ -15,7 +15,9 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -32,6 +34,8 @@ import com.malluwayne.batbloom.focus.Rules
 import com.malluwayne.batbloom.plants.PlantCatalog
 import com.malluwayne.batbloom.plants.drawPlant
 import com.malluwayne.batbloom.plants.drawSky
+import com.malluwayne.batbloom.plants.drawFireflies
+import kotlinx.coroutines.flow.first
 import com.malluwayne.batbloom.stats.Stats
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -59,7 +63,7 @@ class BloomWidget : AppWidgetProvider() {
     companion object {
         fun refresh(context: Context) {
             val app = context.applicationContext as BatbloomApp
-            app.appScope.launch { update(context) }
+            app.appScope.launch { update(context); CalendarWidget.update(context) }
             CravingWidget.update(context)
         }
 
@@ -85,6 +89,8 @@ class BloomWidget : AppWidgetProvider() {
         internal fun paint(
             context: Context, wDp: Int, hDp: Int, radiusDp: Float,
             plantBox: FloatArray?, plantId: String?, growth: Float, withered: Boolean,
+            garden: List<Pair<String, Boolean>> = emptyList(),
+            miniDp: Float = 0f,
         ): Bitmap {
             val density = context.resources.displayMetrics.density
             val scale = min(density, sqrt(600_000f / (wDp * hDp).coerceAtLeast(1)))
@@ -94,9 +100,26 @@ class BloomWidget : AppWidgetProvider() {
             CanvasDrawScope().draw(Density(scale), LayoutDirection.Ltr, Canvas(bmp), Size(wPx.toFloat(), hPx.toFloat())) {
                 val clip = Path().apply { addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(radiusDp * scale))) }
                 clipPath(clip) {
-                    drawSky(fly = 0.62f, twinkle = (System.currentTimeMillis() / 60_000 % 7).toFloat(), moonAt = Offset(0.86f, 0.2f))
+                    val phase = (System.currentTimeMillis() / 60_000 % 7).toFloat()
+                    drawSky(fly = 0.62f, twinkle = phase, moonAt = Offset(0.9f, 0.15f))
+                    drawFireflies(phase)
                     if (plantBox != null && plantId != null) {
                         val (l, t, r, b) = plantBox.map { it * scale }
+                        // A low hill for the garden to stand on.
+                        val hillTop = b - (b - t) * 0.12f
+                        drawOval(
+                            Brush.verticalGradient(listOf(Color(0xFF2E2552), Color(0xFF17122E)), hillTop, size.height),
+                            Offset(-size.width * 0.15f, hillTop), Size(size.width * 1.3f, (size.height - hillTop) * 2f),
+                        )
+                        // Recent plants in a row to the left of today's, newest nearest, sized to stay below the text.
+                        val mini = (miniDp * scale).coerceAtMost((r - l) * 0.42f)
+                        if (mini > 8f) garden.forEachIndexed { i, (id, wilted) ->
+                            val x = l + (r - l) * 0.12f - (i + 1) * mini * 0.86f
+                            if (x < 4f * scale) return@forEachIndexed
+                            inset(x, b - mini, size.width - x - mini, size.height - b) {
+                                drawPlant(PlantCatalog.byId(id), 1f, wilted, 0f, 0.8f)
+                            }
+                        }
                         inset(l, t, size.width - r, size.height - b) {
                             drawPlant(PlantCatalog.byId(plantId), growth, withered, 0f, 1f)
                         }
@@ -130,9 +153,21 @@ class BloomWidget : AppWidgetProvider() {
                 is FocusEngine.State.Running -> st.plantId to
                     if (st.request.stopwatch) Rules.stopwatchGrowth(now - st.startAt) else Rules.progress(st.startAt, st.endAt, now)
                 is FocusEngine.State.Break -> st.request.plantId to 1f
-                else -> prefs.selectedPlant.value to if (goal > 0) (s.todayMinutes.toFloat() / goal).coerceIn(0f, 1f) else 0f
+                // Today's bloom: a sapling to start with, in full flower when the daily goal is met.
+                else -> prefs.selectedPlant.value to (0.62f + 0.38f * if (goal > 0) (s.todayMinutes.toFloat() / goal).coerceIn(0f, 1f) else 0f)
             }
+            val all = app.repo.sessions.first()
+            val garden = all.take(6).map { it.plantId to (it.status != com.malluwayne.batbloom.data.Status.DONE) }
+            val allStats = Stats.compute(all, today, zone)
+            val due = com.malluwayne.batbloom.stats.Revision.due(all, today, zone)
             val lines = buildList {
+                if (allStats.streakDays > 0 || s.completed > 0) {
+                    add(listOfNotNull(
+                        if (allStats.streakDays > 0) "Streak ${allStats.streakDays} day${if (allStats.streakDays == 1) "" else "s"}" else null,
+                        "${s.completed} bloom${if (s.completed == 1) "" else "s"} today",
+                    ).joinToString(" · "))
+                }
+                if (due.isNotEmpty()) add("Revise: " + due.take(3).joinToString(", ") { it.subject })
                 if (goal > 0) add("FMGE ${Rules.formatMinutes(s.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}")
                 prefs.examDate.value?.let { add(Stats.examLine(it, today)) }
                 prefs.quitDate.value?.let { add(Stats.quitLine(it, today)) }
@@ -157,16 +192,17 @@ class BloomWidget : AppWidgetProvider() {
                     v.setTextViewText(R.id.w_title, "Batbloom · today's bloom")
                     v.setTextViewText(R.id.w_main, "${Rules.formatMinutes(s.todayMinutes)} focused")
                 }
-                // Tall widget: plant in the open sky between the text and the buttons. Short: on the right.
-                val tall = hDp >= 200
+                // Today's plant stands on the right, as tall as the space above the buttons allows; the text
+                // keeps the left. Taller widgets also get the little garden of recent plants along the hill.
+                val tall = hDp >= 170
                 v.setTextViewText(R.id.w_sub, lines.joinToString(if (tall) "\n" else "  ·  "))
-                val box = if (tall) {
-                    val side = min(wDp * 0.62f, hDp - 150f - 60f).coerceAtLeast(60f)
-                    floatArrayOf(wDp / 2f - side / 2, hDp - 60f - side, wDp / 2f + side / 2, hDp - 60f)
-                } else {
-                    val side = (hDp - 60f).coerceIn(50f, 110f)
-                    floatArrayOf(wDp - side - 6f, hDp - 56f - side, wDp - 6f, hDp - 56f)
-                }
+                val bottom = hDp - 54f
+                val side = (bottom - 16f).coerceIn(56f, wDp * 0.46f)
+                val cx = wDp * 0.72f
+                val box = floatArrayOf(cx - side / 2, bottom - side, cx + side / 2, bottom)
+                // The text block's height (title, big number, the lines below) decides how tall the small plants can be.
+                val textBottom = 14f + 18f + 40f + (if (tall) lines.size else 1) * 17f + 6f
+                val mini = (bottom - textBottom).coerceIn(0f, 64f)
                 // While a session runs, one button that opens it; otherwise quick-start buttons.
                 v.setViewVisibility(R.id.w_craving, if (endAt != null) View.GONE else View.VISIBLE)
                 v.setTextViewText(R.id.w_focus, if (endAt != null) "Open session" else "Focus")
@@ -174,7 +210,7 @@ class BloomWidget : AppWidgetProvider() {
                     R.id.w_focus,
                     launch(context, if (endAt != null) MainActivity.ACTION_OPEN else MainActivity.ACTION_FOCUS, if (endAt != null) 14 else 12),
                 )
-                v.setImageViewBitmap(R.id.w_art, paint(context, wDp, hDp, 24f, box, plantId, growth, false))
+                v.setImageViewBitmap(R.id.w_art, paint(context, wDp, hDp, 24f, box, plantId, growth, false, garden, miniDp = mini))
                 v.setOnClickPendingIntent(R.id.w_root, launch(context, MainActivity.ACTION_OPEN, 10))
                 v.setOnClickPendingIntent(R.id.w_craving, launch(context, MainActivity.ACTION_CRAVING, 11))
                 manager.updateAppWidget(id, v)

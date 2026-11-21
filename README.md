@@ -5,6 +5,7 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
 - **Focus sessions** of 10–120 min, **Pomodoro** cycles (focus rounds with short and long breaks that start on their own), or a **stopwatch** that counts up until you stop it (at least 10 min to count).
 - **Leave detection.** With Usage access on, opening an app that isn't on your allow list gives you 10 seconds to come back. After that the plant wilts. The home screen, phone calls and the lock screen are always allowed.
 - **Garden** of every session, **stats** (today, this week, streak, success rate, minutes per tag), and **FMGE** tracking: a subject picker, minutes per subject (subjects not started yet are listed), a daily goal and an exam countdown.
+- **MCQ practice** is a subject of its own (tracked in stats, not in spaced revision).
 - **Spaced revision for FMGE:** each subject is due again 1, 3, 7, 14 and then every 30 days after you study it. Due subjects show on the Focus screen and in a **daily FMGE reminder** at a time you choose.
 - **Time Guard:** daily limits for apps you pick, with a nudge when you pass one (and another at 1.5×).
 - **Backup:** save everything to a file and restore it on a new phone. **Background** settings help keep reminders on time on phones with aggressive battery savers.
@@ -16,8 +17,9 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
   - Craving SOS, a craving chart, a kind slip log and a side-effect diary with clear "contact your doctor" warnings.
   - Badges that pay coins. Finishing the course unlocks the Dawnbreath Lily.
   - It's a tracker and **does not replace medical advice**.
+- **Garden:** clear wilted plants all at once, or long-press one to remove it.
 - **Coins** unlock seven original night plants. There is nothing to buy.
-- **Widgets:** the big widget paints the night sky with your plant at the widget's size. It grows live during a session, and when you're idle it grows toward your daily goal. There's also a 1×1 craving button.
+- **Widgets:** a **calendar widget** of this month's bloom days (shaded by how close you came to your goal) with totals and streak. The big widget paints the night sky with today's plant and your recent plants on a hill, at the widget's size. It grows live during a session, and when you're idle it grows toward your daily goal. There's also a 1×1 craving button.
 - Dark theme, no ads, no accounts. Everything is stored on the phone with Room. The internet is used only to check GitHub for updates.
 
 ## Updates

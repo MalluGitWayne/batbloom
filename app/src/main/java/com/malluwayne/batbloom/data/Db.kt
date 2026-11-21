@@ -16,6 +16,9 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id") suspend fun get(id: Long): SessionEntity?
     @Query("UPDATE sessions SET status = :status, endedAt = :endedAt, coins = :coins, failReason = :reason WHERE id = :id")
     suspend fun finish(id: Long, status: String, endedAt: Long, coins: Int, reason: String?)
+    /** Wilted plants can be cleared from the garden (they earned no coins, so nothing else changes). */
+    @Query("DELETE FROM sessions WHERE status = 'FAILED'") suspend fun clearWilted(): Int
+    @Query("DELETE FROM sessions WHERE id = :id AND status = 'FAILED'") suspend fun removeWilted(id: Long): Int
     @Query("UPDATE sessions SET plannedMinutes = :minutes WHERE id = :id")
     suspend fun setMinutes(id: Long, minutes: Int)
     @Query("UPDATE sessions SET cravingIntensity = :intensity, cravingTrigger = :trigger WHERE id = :id")

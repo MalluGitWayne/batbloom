@@ -1,67 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Batbloom: a night bloom whose upper petals are bat wings, glowing under a crescent moon. -->
+<!--
+  Batbloom: a glowing night bloom whose two great upper petals are bat wings (sharp leading edge,
+  scalloped trailing edge), in front of a golden moon. Everything sits inside the 66dp safe zone.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
 
-    <!-- glow -->
-    <path android:pathData="M54,52m-27,0a27,27 0,1 1,54 0a27,27 0,1 1,-54 0">
+    <!-- moon glow and moon, behind the bloom -->
+    <path android:pathData="M54,44m-26,0a26,26 0,1 1,52 0a26,26 0,1 1,-52 0">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="radial" android:centerX="54" android:centerY="52" android:gradientRadius="27"
-                android:startColor="#66B48CFF" android:endColor="#00B48CFF" />
+            <gradient android:type="radial" android:centerX="54" android:centerY="44" android:gradientRadius="26"
+                android:startColor="#55FFE9A8" android:endColor="#00FFE9A8" />
         </aapt:attr>
     </path>
-
-    <!-- crescent moon -->
-    <path android:fillColor="#FFFFF3C4" android:pathData="M72.5,24.5a10.5,10.5 0,1 0,7 18.8a8.4,8.4 0,1 1,-7 -18.8z" />
-    <!-- stars -->
-    <path android:fillColor="#CCFFFFFF" android:pathData="M33,27l0.9,2.1 2.1,0.9 -2.1,0.9 -0.9,2.1 -0.9,-2.1 -2.1,-0.9 2.1,-0.9z" />
-    <path android:fillColor="#99FFFFFF" android:pathData="M80,58m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0" />
-    <path android:fillColor="#88FFFFFF" android:pathData="M27,62m-0.9,0a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0" />
-
-    <!-- stem and leaves -->
-    <path android:strokeColor="#FF5FA882" android:strokeWidth="2.4" android:strokeLineCap="round"
-        android:pathData="M54,85Q51,72 54,58" />
-    <path android:pathData="M53,77Q44,76 40,68Q49,68 53,77z">
+    <path android:pathData="M54,42m-17,0a17,17 0,1 1,34 0a17,17 0,1 1,-34 0">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="40" android:startY="68" android:endX="53" android:endY="77"
-                android:startColor="#FF7FD3A4" android:endColor="#FF3F7A5E" />
+            <gradient android:type="linear" android:startX="44" android:startY="26" android:endX="64" android:endY="58"
+                android:startColor="#FFFFF6D2" android:endColor="#FFF2C46B" />
         </aapt:attr>
     </path>
-    <path android:pathData="M54,71Q62,71 67,63Q58,63 54,71z">
+    <!-- craters -->
+    <path android:fillColor="#22B8873A" android:pathData="M47,35m-2.6,0a2.6,2.6 0,1 1,5.2 0a2.6,2.6 0,1 1,-5.2 0" />
+    <path android:fillColor="#1AB8873A" android:pathData="M61,31m-1.8,0a1.8,1.8 0,1 1,3.6 0a1.8,1.8 0,1 1,-3.6 0" />
+
+    <!-- stem -->
+    <path android:strokeWidth="2.8" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M54,60Q51.5,70 54,81">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:type="linear" android:startX="54" android:startY="60" android:endX="54" android:endY="81"
+                android:startColor="#FF4E9E78" android:endColor="#FF2F6B52" />
+        </aapt:attr>
+    </path>
+    <!-- leaves -->
+    <path android:pathData="M53,75Q43,75 38,66Q48,65 53,75z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="67" android:startY="63" android:endX="54" android:endY="71"
-                android:startColor="#FF7FD3A4" android:endColor="#FF3F7A5E" />
+            <gradient android:type="linear" android:startX="38" android:startY="66" android:endX="53" android:endY="75"
+                android:startColor="#FF8BE0B0" android:endColor="#FF3C8462" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M54.5,70Q64,70 69,61Q59,60 54.5,70z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="69" android:startY="61" android:endX="54.5" android:endY="70"
+                android:startColor="#FF8BE0B0" android:endColor="#FF3C8462" />
         </aapt:attr>
     </path>
 
     <!-- lower petals -->
-    <path android:fillColor="#FF7A4CC6" android:pathData="M54,58Q46,61 42,69Q49,67 54,62z" />
-    <path android:fillColor="#FF7A4CC6" android:pathData="M54,58Q62,61 66,69Q59,67 54,62z" />
+    <path android:pathData="M54,55Q43,58 38,68Q48,66 54,60z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="38" android:startY="68" android:endX="54" android:endY="56"
+                android:startColor="#FF4A2C8A" android:endColor="#FF8A5BE0" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M54,55Q65,58 70,68Q60,66 54,60z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="70" android:startY="68" android:endX="54" android:endY="56"
+                android:startColor="#FF4A2C8A" android:endColor="#FF8A5BE0" />
+        </aapt:attr>
+    </path>
 
-    <!-- bat-wing petals: sharp leading edge, scalloped trailing edge -->
-    <path android:pathData="M54,56C47,47 39,41 30,39Q34,44 34,49Q38,48 41,51Q43,54 46,58Q50,56.5 54,59z">
+    <!-- left bat wing -->
+    <path android:pathData="M54,54C46,42 34,33 22,30Q28,37 26,45Q31,42 34,48Q38,45 42,52Q47,50 54,58z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="30" android:startY="39" android:endX="54" android:endY="58"
-                android:startColor="#FF4B2A86" android:endColor="#FF9C6BF0" />
+            <gradient android:type="linear" android:startX="22" android:startY="30" android:endX="54" android:endY="56"
+                android:startColor="#FF5B37B0" android:endColor="#FFA77BFF" />
         </aapt:attr>
     </path>
-    <path android:pathData="M54,56C61,47 69,41 78,39Q74,44 74,49Q70,48 67,51Q65,54 62,58Q58,56.5 54,59z">
+    <!-- right bat wing -->
+    <path android:pathData="M54,54C62,42 74,33 86,30Q80,37 82,45Q77,42 74,48Q70,45 66,52Q61,50 54,58z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="78" android:startY="39" android:endX="54" android:endY="58"
-                android:startColor="#FF4B2A86" android:endColor="#FF9C6BF0" />
+            <gradient android:type="linear" android:startX="86" android:startY="30" android:endX="54" android:endY="56"
+                android:startColor="#FF5B37B0" android:endColor="#FFA77BFF" />
         </aapt:attr>
     </path>
+    <!-- wing "fingers" catching the light -->
+    <path android:strokeColor="#55E8DCFF" android:strokeWidth="0.7" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M53,54L26,45M53,55L34,48M53,56L42,52M55,54L82,45M55,55L74,48M55,56L66,52" />
+    <!-- bright leading edges -->
+    <path android:strokeColor="#88F0E6FF" android:strokeWidth="0.9" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M54,54C46,42 34,33 22,30M54,54C62,42 74,33 86,30" />
 
     <!-- top petal -->
-    <path android:pathData="M54,40Q59,48 54,56Q49,48 54,40z">
+    <path android:pathData="M54,30Q62,43 54,56Q46,43 54,30z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="54" android:startY="40" android:endX="54" android:endY="56"
-                android:startColor="#FFE3D6FF" android:endColor="#FFB48CFF" />
+            <gradient android:type="linear" android:startX="54" android:startY="30" android:endX="54" android:endY="56"
+                android:startColor="#FFF3ECFF" android:endColor="#FFB08AFF" />
         </aapt:attr>
     </path>
 
-    <!-- heart of the flower -->
-    <path android:fillColor="#FFFF8FB1" android:pathData="M54,57m-3.4,0a3.4,3.4 0,1 1,6.8 0a3.4,3.4 0,1 1,-6.8 0" />
-    <path android:fillColor="#CCFFFFFF" android:pathData="M53,56m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0" />
+    <!-- glowing heart -->
+    <path android:pathData="M54,56m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="54" android:centerY="56" android:gradientRadius="9"
+                android:startColor="#88FFB3D0" android:endColor="#00FFB3D0" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M54,56m-4.2,0a4.2,4.2 0,1 1,8.4 0a4.2,4.2 0,1 1,-8.4 0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="53" android:centerY="55" android:gradientRadius="4.6"
+                android:startColor="#FFFFF0F6" android:endColor="#FFFF6FA6" />
+        </aapt:attr>
+    </path>
+
+    <!-- sparkles -->
+    <path android:fillColor="#EEFFFFFF" android:pathData="M30,24l0.9,2.2 2.2,0.9 -2.2,0.9 -0.9,2.2 -0.9,-2.2 -2.2,-0.9 2.2,-0.9z" />
+    <path android:fillColor="#CCFFF4C8" android:pathData="M80,58l0.7,1.6 1.6,0.7 -1.6,0.7 -0.7,1.6 -0.7,-1.6 -1.6,-0.7 1.6,-0.7z" />
+    <path android:fillColor="#AAFFFFFF" android:pathData="M27,57m-0.9,0a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0" />
 </vector>

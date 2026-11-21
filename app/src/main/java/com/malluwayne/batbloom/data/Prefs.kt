@@ -26,7 +26,7 @@ class Prefs(context: Context) {
     val tag: StateFlow<String> = _tag
     fun setTag(t: String) { sp.edit().putString("tag", t).apply(); _tag.value = t }
 
-    private val _subject = MutableStateFlow(sp.getString("subject", Tags.fmgeSubjects.first())!!)
+    private val _subject = MutableStateFlow(sp.getString("subject", "Anatomy")!!)
     val subject: StateFlow<String> = _subject
     fun setSubject(s: String) { sp.edit().putString("subject", s).apply(); _subject.value = s }
 

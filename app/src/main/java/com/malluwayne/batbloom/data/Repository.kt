@@ -38,6 +38,8 @@ class Repository(private val db: AppDatabase) {
         return coins
     }
     suspend fun setCraving(id: Long, intensity: Int?, trigger: String?) = db.sessions().setCraving(id, intensity, trigger)
+    suspend fun clearWilted() = db.sessions().clearWilted()
+    suspend fun removeWilted(id: Long) = db.sessions().removeWilted(id)
     suspend fun failStaleRunning() = db.sessions().failStaleRunning()
     suspend fun finishedSince(since: Long) = db.sessions().finishedSince(since)
 

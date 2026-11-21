@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -139,6 +140,8 @@ private fun SetupView() {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            AppLogo(40)
+            Spacer(Modifier.width(10.dp))
             Text("Batbloom", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("● $coins  Shop", color = Gold, fontWeight = FontWeight.Bold) }
         }
@@ -449,5 +452,16 @@ private fun ResultView(s: State.Finished) {
         }
         Text(detail, color = Muted, textAlign = TextAlign.Center)
         Button({ FocusEngine.dismiss() }, Modifier.fillMaxWidth()) { Text("Done") }
+    }
+}
+
+
+/** The launcher icon, drawn in the app (its adaptive layers, cropped to a circle). */
+@Composable
+fun AppLogo(sizeDp: Int) {
+    Box(Modifier.size(sizeDp.dp).clip(androidx.compose.foundation.shape.CircleShape)) {
+        val m = Modifier.fillMaxSize().graphicsLayer(scaleX = 1.5f, scaleY = 1.5f)
+        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.malluwayne.batbloom.R.drawable.ic_launcher_background), null, m)
+        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.malluwayne.batbloom.R.drawable.ic_launcher_foreground), null, m)
     }
 }

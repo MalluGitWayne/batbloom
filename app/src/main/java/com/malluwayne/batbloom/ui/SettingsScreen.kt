@@ -208,12 +208,20 @@ fun SettingsScreen(modifier: Modifier) {
         SectionCard("Widgets") {
             Text(
                 "Long-press your home screen, tap Widgets and find Batbloom. The big widget shows the live countdown or today's focus, " +
-                    "your FMGE goal and countdowns, with Craving and Focus buttons. The small one is a one-tap craving button.",
+                    "your FMGE goal and countdowns, with Craving and Focus buttons. The calendar widget shows this month's bloom days. " +
+                    "The small one is a one-tap craving button.",
                 fontSize = 13.sp, color = Muted,
             )
         }
 
         SectionCard("About") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AppLogo(96)
+                Column(Modifier.padding(start = 16.dp)) {
+                    Text("Batbloom", style = MaterialTheme.typography.headlineSmall)
+                    Text("Version ${com.malluwayne.batbloom.update.Updates.appVersion(ctx)} · grow a night garden", color = Muted, fontSize = 13.sp)
+                }
+            }
             Text(
                 "Batbloom has no ads and no accounts. Your data stays on this phone; the internet is used only to check GitHub for updates. Coins are earned by focusing and badges only. " +
                     "The quit and medication features help you keep track; they do not replace medical advice from your doctor or pharmacist.",

@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Deep night sky: lighter indigo behind the bloom, fading to near-black at the edges. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
     <path android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="linear" android:startX="54" android:startY="0" android:endX="54" android:endY="108"
-                android:startColor="#FF0B0F26" android:endColor="#FF2A1F4D" />
+            <gradient android:type="radial" android:centerX="54" android:centerY="46" android:gradientRadius="72"
+                android:startColor="#FF33256A" android:centerColor="#FF15123A" android:endColor="#FF07081A" />
         </aapt:attr>
     </path>
-    <path android:fillColor="#99FFFFFF" android:pathData="M23,28a1,1 0,1 1,2 0a1,1 0,1 1,-2 0z" />
-    <path android:fillColor="#77FFFFFF" android:pathData="M33.2,20a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0z" />
-    <path android:fillColor="#88FFFFFF" android:pathData="M81.1,72a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0z" />
-    <path android:fillColor="#66FFFFFF" android:pathData="M27.2,78a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0z" />
+    <!-- faint distant stars -->
+    <path android:fillColor="#55FFFFFF" android:pathData="M20,34m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+    <path android:fillColor="#44FFFFFF" android:pathData="M88,70m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+    <path android:fillColor="#44FFFFFF" android:pathData="M24,76m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#33FFFFFF" android:pathData="M40,18m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
 </vector>

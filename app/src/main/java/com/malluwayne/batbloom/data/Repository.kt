@@ -17,10 +17,13 @@ class Repository(private val db: AppDatabase) {
     val sessions: Flow<List<SessionEntity>> = db.sessions().finished()
     val allowedApps: Flow<Set<String>> = db.allowed().all().map { it.toSet() }
     val badges: Flow<List<BadgeEntity>> = quit.badges()
-    val unlocked: Flow<Set<String>> = combine(db.unlocks().all(), quit.badges()) { list, badges ->
+    /** Finished sessions; plants unlock as this grows. */
+    val bloomCount: Flow<Int> = sessions.map { l -> l.count { it.status == Status.DONE } }
+    val unlocked: Flow<Set<String>> = combine(db.unlocks().all(), quit.badges(), bloomCount) { list, badges, blooms ->
         val earned = badges.map { it.id }.toSet()
-        list.map { it.plantId }.toSet() +
-            PlantCatalog.all.filter { (it.cost == 0 && it.badge == null) || (it.badge != null && it.badge in earned) }.map { it.id }
+        list.map { it.plantId }.toSet() + PlantCatalog.all.filter {
+            if (it.badge != null) it.badge in earned else blooms >= it.cost
+        }.map { it.id }
     }
     val coins: Flow<Int> = combine(db.sessions().earned(), quit.badgeCoins(), db.unlocks().spent()) { e, b, s -> e + b - s }
 

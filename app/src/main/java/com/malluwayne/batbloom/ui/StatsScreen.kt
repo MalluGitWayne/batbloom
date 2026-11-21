@@ -59,7 +59,6 @@ fun StatsScreen(modifier: Modifier) {
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("Stats", style = MaterialTheme.typography.headlineMedium)
 
         if (sessions.isEmpty()) {
             // Nothing yet: one calm card instead of a page of zeros.

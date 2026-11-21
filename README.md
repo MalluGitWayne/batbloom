@@ -4,7 +4,7 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
 
 - **Focus sessions** of 10–120 min, **Pomodoro** cycles (focus rounds with short and long breaks that start on their own), or a **stopwatch** that counts up until you stop it (at least 10 min to count).
 - **Leave detection.** With Usage access on, opening an app that isn't on your allow list gives you 10 seconds to come back. After that the plant wilts. The home screen, phone calls and the lock screen are always allowed.
-- **Garden** of every session, **stats** (today, this week, streak, success rate, minutes per tag), and **FMGE** tracking: a subject picker, minutes per subject (subjects not started yet are listed), a daily goal and an exam countdown.
+- **Garden** of every session with **Stats** beside it (one tab), (today, this week, streak, success rate, minutes per tag), and **FMGE** tracking: a subject picker, minutes per subject (subjects not started yet are listed), a daily goal and an exam countdown.
 - **MCQ practice** is a subject of its own (tracked in stats, not in spaced revision).
 - **Spaced revision for FMGE:** each subject is due again 1, 3, 7, 14 and then every 30 days after you study it. Due subjects show on the Focus screen and in a **daily FMGE reminder** at a time you choose.
 - **Time Guard:** daily limits for apps you pick, with a nudge when you pass one (and another at 1.5×).
@@ -16,11 +16,11 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
   - **Health milestones** front and centre: a progress ring and countdown to the next one, a timeline of all nine, and a notification the moment each is reached. The next one also shows on the Focus screen and widget.
   - A smoke-free tracker: time, cigarettes not smoked, money saved and life regained.
   - Craving SOS, a craving chart, a kind slip log and a side-effect diary with clear "contact your doctor" warnings.
-  - Badges that pay coins. Finishing the course unlocks the Dawnbreath Lily.
+  - Badges for quit milestones. Finishing the course unlocks the Dawnbreath Lily.
   - It's a tracker and **does not replace medical advice**.
 - **Garden:** clear wilted plants all at once, or long-press one to remove it.
-- **Coins** unlock seven original night plants. There is nothing to buy.
-- **Widgets:** the bloom widget paints the night sky with today's plant and your recent plants (centred and larger when you make it tall), and its Focus button names the mode it starts. Two Hevy-style calendars show your consistency: a **study calendar** (days you studied, shaded by your goal) and a **smoke-free calendar** (every clean day since the quit day, slips ringed in red). Both show more weeks as you make them taller. There is also a 1×1 craving button.
+- **Seven original night plants** unlock as you bloom (5, 15, 30, 60 and 100 finished sessions); the Dawnbreath Lily comes with finishing the quit course.
+- **Widgets:** the bloom widget paints the night sky with today's plant and your recent plants (centred and larger when you make it tall), its Focus button names the mode it starts, and a **dose button** appears around your dose times to mark it taken in one tap. Two Hevy-style calendars show your consistency: a **study calendar** (days you studied, shaded by your goal) and a **smoke-free calendar** (every clean day since the quit day, slips ringed in red). Both show more weeks as you make them taller. There is also a 1×1 craving button.
 - Dark theme, no ads, no accounts. Everything is stored on the phone with Room. The internet is used only to check GitHub for updates.
 
 ## Updates

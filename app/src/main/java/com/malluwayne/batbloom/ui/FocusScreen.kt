@@ -116,7 +116,6 @@ private fun SetupView() {
     val app = BatbloomApp.instance
     val prefs = app.prefs
     val ctx = LocalContext.current
-    val coins by app.repo.coins.collectAsState(0)
     val sessions by app.repo.sessions.collectAsState(emptyList())
     val minutes by prefs.minutes.collectAsState()
     val tag by prefs.tag.collectAsState()
@@ -143,14 +142,13 @@ private fun SetupView() {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Header: logo, name, coins (tap for the shop)
+        // Header
         Row(verticalAlignment = Alignment.CenterVertically) {
             AppLogo(32)
             Spacer(Modifier.width(10.dp))
             Text("Batbloom", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("\u25CF $coins", color = Gold, fontWeight = FontWeight.SemiBold) }
         }
-        UpdateBanner { com.malluwayne.batbloom.Nav.tab.value = 4 }
+        UpdateBanner { com.malluwayne.batbloom.Nav.tab.value = 3 }
         Spacer(Modifier.height(8.dp))
 
         // The plant; tap it to choose another
@@ -319,24 +317,33 @@ private fun FocusOnDialog(onClose: () -> Unit) {
 private fun PlantDialog(onClose: () -> Unit) {
     val app = BatbloomApp.instance
     val owned by app.repo.unlocked.collectAsState(setOf("moonflower"))
+    val blooms by app.repo.bloomCount.collectAsState(0)
     val plant by app.prefs.selectedPlant.collectAsState()
     AlertDialog(
         onDismissRequest = onClose,
-        confirmButton = { TextButton({ onClose(); com.malluwayne.batbloom.Nav.shop.value = true }) { Text("Seed shop") } },
-        dismissButton = { TextButton(onClose) { Text("Close") } },
+        confirmButton = { TextButton(onClose) { Text("Close") } },
         title = { Text("Plant") },
         text = {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                PlantCatalog.all.filter { it.id in owned }.forEach { p ->
+                PlantCatalog.all.forEach { p ->
+                    val have = p.id in owned
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.width(76.dp).clickable { app.prefs.setSelectedPlant(p.id); onClose() },
+                        modifier = Modifier.width(76.dp).then(if (have) Modifier.clickable { app.prefs.setSelectedPlant(p.id); onClose() } else Modifier),
                     ) {
                         Box(
                             Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(Panel)
-                                .border(2.dp, if (p.id == plant) Lavender else Color.Transparent, RoundedCornerShape(16.dp)),
+                                .border(2.dp, if (p.id == plant) Lavender else Color.Transparent, RoundedCornerShape(16.dp))
+                                .graphicsLayer(alpha = if (have) 1f else 0.35f),
                         ) { PlantArt(p, 1f, false, Modifier.fillMaxSize(), animate = false) }
-                        Text(p.name, fontSize = 11.sp, maxLines = 1, color = Muted)
+                        Text(
+                            when {
+                                have -> p.name
+                                p.badge != null -> "Finish course"
+                                else -> "${blooms}/${p.cost} blooms"
+                            },
+                            fontSize = 11.sp, maxLines = 1, color = Muted,
+                        )
                     }
                 }
             }
@@ -404,7 +411,7 @@ private fun RunningView(s: State.Running) {
         confirmButton = { TextButton({ confirm = false; FocusEngine.giveUp(ctx) }) { Text("Give up") } },
         dismissButton = { TextButton({ confirm = false }) { Text("Keep going") } },
         title = { Text("Give up?") },
-        text = { Text("Your ${PlantCatalog.byId(s.plantId).name} will wilt and you earn no coins.") },
+        text = { Text("Your ${PlantCatalog.byId(s.plantId).name} will wilt.") },
     )
 }
 
@@ -466,7 +473,6 @@ private fun ResultView(s: State.Finished) {
             },
             style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
         )
-        if (s.coins > 0) CountUpText(s.coins, "+", MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), Gold, " coins")
         val detail = when {
             s.reason == null && s.request.tag == Tags.CRAVING && s.success -> "Craving beaten. That's one more win."
             s.reason == null -> "${s.minutes} min of ${listOfNotNull(s.request.tag, s.request.subject).joinToString(" · ")}"

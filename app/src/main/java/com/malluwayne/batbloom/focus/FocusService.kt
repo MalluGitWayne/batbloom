@@ -184,9 +184,9 @@ class FocusService : Service() {
         FocusEngine.state.value = f
         val name = PlantCatalog.byId(f.request.plantId).name
         val title = when {
-            f.rounds != null && f.success -> "Pomodoro done: ${f.blooms}/${f.rounds} blooms, +${f.coins} coins"
+            f.rounds != null && f.success -> "Pomodoro done: ${f.blooms}/${f.rounds} blooms"
             f.rounds != null -> "Pomodoro ended: ${f.blooms}/${f.rounds} blooms"
-            f.success -> "Your $name bloomed! +${f.coins} coins"
+            f.success -> "Your $name bloomed!"
             else -> "Your $name wilted"
         }
         val text = when (f.reason) {

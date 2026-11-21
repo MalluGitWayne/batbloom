@@ -41,7 +41,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.malluwayne.batbloom.ui.SettingsScreen
-import com.malluwayne.batbloom.ui.ShopScreen
+import com.malluwayne.batbloom.ui.GardenTab
 import com.malluwayne.batbloom.ui.StatsScreen
 
 class MainActivity : ComponentActivity() {
@@ -73,13 +73,13 @@ class MainActivity : ComponentActivity() {
             ACTION_CRAVING -> Starter.craving(this)
             ACTION_FOCUS -> Starter.fromPrefs(this)
             ACTION_QUIT -> Nav.tab.value = 2
-            ACTION_OPEN -> { Nav.tab.value = 0; Nav.shop.value = false }
-            ACTION_STATS -> { Nav.tab.value = 3; Nav.shop.value = false }
+            ACTION_OPEN -> Nav.tab.value = 0
+            ACTION_STATS -> { Nav.tab.value = 1; Nav.garden.value = 1 }
             ACTION_FMGE -> {
                 val p = BatbloomApp.instance.prefs
                 p.setTag(Tags.FMGE)
                 intent.getStringExtra(EXTRA_SUBJECT)?.let { p.setSubject(it) }
-                Nav.tab.value = 0; Nav.shop.value = false
+                Nav.tab.value = 0
             }
         }
         if (intent?.action == ACTION_CRAVING || intent?.action == ACTION_FOCUS) Nav.tab.value = 0
@@ -124,22 +124,20 @@ object Starter {
 /** Which tab is showing, and whether the shop is open. Widgets and notifications switch tabs through this. */
 object Nav {
     val tab = MutableStateFlow(0)
-    val shop = MutableStateFlow(false)
+    /** Inside the Garden tab: 0 = garden, 1 = stats. */
+    val garden = MutableStateFlow(0)
 }
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     Focus("Focus", Icons.Filled.PlayArrow),
     Garden("Garden", Icons.Filled.Home),
     Quit("Quit", Icons.Filled.Favorite),
-    Stats("Stats", Icons.Filled.DateRange),
     Settings("Settings", Icons.Filled.Settings),
 }
 
 @Composable
 private fun AppRoot() {
     val tab by Nav.tab.collectAsState()
-    val shop by Nav.shop.collectAsState()
-    BackHandler(shop) { Nav.shop.value = false }
     InstallConfirmLauncher()
     Scaffold(
         bottomBar = {
@@ -147,7 +145,7 @@ private fun AppRoot() {
                 Tab.entries.forEachIndexed { i, t ->
                     NavigationBarItem(
                         selected = tab == i,
-                        onClick = { Nav.tab.value = i; Nav.shop.value = false },
+                        onClick = { Nav.tab.value = i },
                         icon = { Icon(t.icon, contentDescription = t.label) },
                         label = { Text(t.label) },
                     )
@@ -156,12 +154,11 @@ private fun AppRoot() {
         },
     ) { pad ->
         val m = Modifier.padding(pad)
-        androidx.compose.animation.Crossfade(if (shop) -1 else tab, animationSpec = androidx.compose.animation.core.tween(260), label = "tab") { t ->
-            if (t == -1) ShopScreen(m) else when (Tab.entries[t]) {
+        androidx.compose.animation.Crossfade(tab.coerceIn(0, Tab.entries.size - 1), animationSpec = androidx.compose.animation.core.tween(260), label = "tab") { t ->
+            when (Tab.entries[t]) {
                 Tab.Focus -> FocusScreen(m)
-                Tab.Garden -> GardenScreen(m)
+                Tab.Garden -> GardenTab(m)
                 Tab.Quit -> QuitScreen(m)
-                Tab.Stats -> StatsScreen(m)
                 Tab.Settings -> SettingsScreen(m)
             }
         }

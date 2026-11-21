@@ -197,7 +197,7 @@ object Badges {
         Badge("week3", "3 weeks smoke-free", "Twenty-one days since your quit day.", 150),
         Badge("halfway", "Halfway", "Day 42 of your course.", 200),
         Badge("cravings10", "10 cravings beaten", "Ten craving sessions ridden out.", 100),
-        Badge("course", "Course complete", "You finished the full course. Unlocks the Dawnbreath Lily.", 500),
+        Badge("course", "Course complete", "Full course finished. Unlocks the Dawnbreath Lily.", 500),
     )
 
     fun byId(id: String) = all.first { it.id == id }

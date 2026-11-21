@@ -90,6 +90,20 @@ object DoseAlarms {
         setAlarm(context, at, receiverIntent(context, ACTION_DUE, next.key, RC_NEXT))
     }
 
+    /** Marks [key] taken when tapped (used by the widget's dose button). */
+    fun takenIntent(context: Context, key: String): PendingIntent = receiverIntent(context, ACTION_TAKEN, key, 400 + (key.hashCode() and 0xFF))
+
+    /** Today's dose that is due now (from 1 h before until 4 h after its time) and not yet logged. */
+    suspend fun dueNow(context: Context): DoseSlot? {
+        val a = app(context)
+        val s = a.prefs.schedule.value
+        val now = ZonedDateTime.now()
+        return s.slotsOn(now.toLocalDate()).firstOrNull { slot ->
+            val t = s.timeOf(slot, now.zone)
+            !now.isBefore(t.minusHours(1)) && !now.isAfter(t.plusHours(4)) && a.repo.doseStatus(slot.key) == null
+        }
+    }
+
     fun notifyDose(context: Context, slot: DoseSlot) {
         val prefs = app(context).prefs
         val s = prefs.schedule.value
@@ -141,6 +155,7 @@ object DoseAlarms {
         if (left >= 0 && change != 0.0) a.prefs.setTabletsLeft((left + change).coerceAtLeast(0.0))
         if (status != null) cancelDoseNotification(context, slot.key)
         checkStock(context)
+        com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
     }
 
     suspend fun checkStock(context: Context) {
@@ -173,7 +188,7 @@ object DoseAlarms {
             val n = NotificationCompat.Builder(context, CH_QUIT)
                 .setSmallIcon(R.drawable.ic_stat_bloom)
                 .setContentTitle("Badge earned: ${b.title}")
-                .setContentText("${b.text} +${b.coins} coins")
+                .setContentText(b.text)
                 .setAutoCancel(true)
                 .build()
             runCatching { NotificationManagerCompat.from(context).notify(NOTIF_BADGE + i, n) }
@@ -193,6 +208,7 @@ class DoseReceiver : BroadcastReceiver() {
                     DoseAlarms.ACTION_DUE -> {
                         if (slot != null && app.repo.doseStatus(slot.key) == null) DoseAlarms.notifyDose(context, slot)
                         DoseAlarms.scheduleNext(context)
+                        com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
                         DoseAlarms.checkStock(context)
                         DoseAlarms.checkBadges(context)
                     }

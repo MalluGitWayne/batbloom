@@ -74,7 +74,7 @@ fun GardenScreen(modifier: Modifier) {
         AlertDialog(
             onDismissRequest = { confirmClear = null },
             title = { Text("Clear wilted plants?") },
-            text = { Text("Removes $n wilted plant${if (n == 1) "" else "s"} from your garden and stats. Your blooms and coins stay.") },
+            text = { Text("Removes $n wilted plant${if (n == 1) "" else "s"} from your garden and stats. Your blooms stay.") },
             confirmButton = { TextButton({ confirmClear = null; scope.launch { repo.clearWilted() } }) { Text("Clear") } },
             dismissButton = { TextButton({ confirmClear = null }) { Text("Cancel") } },
         )
@@ -97,10 +97,6 @@ fun GardenScreen(modifier: Modifier) {
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Your garden", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    androidx.compose.material3.OutlinedButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("Seed shop") }
-                }
                 val blooms = shown.count { it.status == Status.DONE }
                 val wilted = sessions.count { it.status == Status.FAILED }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -134,5 +130,18 @@ fun GardenScreen(modifier: Modifier) {
                 Text(fmt.format(java.time.Instant.ofEpochMilli(s.startedAt).atZone(zone)), fontSize = 10.sp, color = Muted)
             }
         }
+    }
+}
+
+/** Garden and Stats share one tab, switched at the top. */
+@Composable
+fun GardenTab(modifier: Modifier) {
+    val sub by com.malluwayne.batbloom.Nav.garden.collectAsState()
+    Column(modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (sub == 0) "Garden" else "Stats", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            PillTabs(listOf("Garden", "Stats"), sub) { com.malluwayne.batbloom.Nav.garden.value = it }
+        }
+        if (sub == 0) GardenScreen(Modifier.weight(1f)) else StatsScreen(Modifier.weight(1f))
     }
 }

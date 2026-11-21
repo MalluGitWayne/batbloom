@@ -160,6 +160,7 @@ class BloomWidget : AppWidgetProvider() {
                 // Today's bloom: a sapling to start with, in full flower when the daily goal is met.
                 else -> prefs.selectedPlant.value to (0.62f + 0.38f * if (goal > 0) (s.todayMinutes.toFloat() / goal).coerceIn(0f, 1f) else 0f)
             }
+            val doseDue = com.malluwayne.batbloom.quit.DoseAlarms.dueNow(context)
             val all = app.repo.sessions.first()
             val garden = all.take(6).map { it.plantId to (it.status != com.malluwayne.batbloom.data.Status.DONE) }
             val allStats = Stats.compute(all, today, zone)
@@ -203,7 +204,7 @@ class BloomWidget : AppWidgetProvider() {
                 // keeps the left. Taller widgets also get the little garden of recent plants along the hill.
                 val tall = hDp >= 170
                 v.setTextViewText(R.id.w_sub, lines.joinToString(if (tall) "\n" else "  ·  "))
-                val bottom = hDp - 54f
+                val bottom = hDp - 54f - (if (doseDue != null) 44f else 0f)
                 // Expanded (tall): today's plant stands big in the middle under the text, the garden around it.
                 // Otherwise it stands on the right beside the text.
                 val expanded = hDp >= 250
@@ -214,6 +215,12 @@ class BloomWidget : AppWidgetProvider() {
                 // The text block's height (title, big number, the lines below) decides how tall the small plants can be.
                 val textBottom = 14f + 18f + 40f + (if (tall) lines.size else 1) * 17f + 6f
                 val mini = if (expanded) (side * 0.42f).coerceAtMost(80f) else (bottom - textBottom).coerceIn(0f, 64f)
+                // A dose that is due now gets its own button: one tap marks it taken.
+                if (doseDue != null) {
+                    v.setViewVisibility(R.id.w_dose, View.VISIBLE)
+                    v.setTextViewText(R.id.w_dose, "\u2713  Took ${doseDue.label.lowercase()} ${com.malluwayne.batbloom.quit.Doses.formatMg(doseDue.mg)}")
+                    v.setOnClickPendingIntent(R.id.w_dose, com.malluwayne.batbloom.quit.DoseAlarms.takenIntent(context, doseDue.key))
+                } else v.setViewVisibility(R.id.w_dose, View.GONE)
                 // While a session runs, one button that opens it; otherwise quick-start buttons.
                 v.setViewVisibility(R.id.w_craving, if (endAt != null) View.GONE else View.VISIBLE)
                 v.setTextViewText(

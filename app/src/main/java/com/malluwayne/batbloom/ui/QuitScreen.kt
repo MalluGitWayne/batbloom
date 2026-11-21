@@ -269,7 +269,6 @@ fun QuitScreen(modifier: Modifier) {
                         Text(b.title, fontWeight = FontWeight.SemiBold, color = if (b.id in have) MaterialTheme.colorScheme.onSurface else Muted)
                         Text(b.text, fontSize = 12.sp, color = Muted)
                     }
-                    Text("+${b.coins}", color = Gold, fontSize = 13.sp)
                 }
             }
         }

@@ -12,8 +12,8 @@ android {
         applicationId = "com.malluwayne.batbloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.12"
+        versionCode = 14
+        versionName = "1.13"
     }
 
     // Release key: kept outside the project (path and password in ~/.gradle/gradle.properties, never in git).
@@ -30,6 +30,10 @@ android {
 
     buildTypes {
         release {
+            // Shrunk and optimised: smaller APK, faster start. Keep rules in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (releaseKey != null) "release" else "debug")
         }
     }

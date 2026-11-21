@@ -94,8 +94,8 @@ private fun lightScheme(p: Palette) = androidx.compose.material3.lightColorSchem
     onPrimaryContainer = Color(0xFF21005D),
     secondary = p.teal,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCDEFE8),
-    onSecondaryContainer = Color(0xFF00201B),
+    secondaryContainer = Color(0xFFE4E1EE),
+    onSecondaryContainer = Color(0xFF1A1B2E),
     tertiary = p.gold,
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFFFE6B3),
@@ -164,7 +164,7 @@ fun SectionCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val collapsible = title != null && LocalCollapsibleCards.current
-    var open by androidx.compose.runtime.saveable.rememberSaveable(title) { androidx.compose.runtime.mutableStateOf(!collapsible) }
+    val open = if (collapsible) OpenSections.open[title] ?: false else true
     Card(
         modifier = modifier.fillMaxWidth().animateContentSize(),
         shape = RoundedCornerShape(22.dp),
@@ -173,7 +173,7 @@ fun SectionCard(
     ) {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (title != null) Row(
-                Modifier.fillMaxWidth().then(if (collapsible) Modifier.clickable { open = !open } else Modifier),
+                Modifier.fillMaxWidth().then(if (collapsible) Modifier.clickable { OpenSections.open[title!!] = !open } else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -269,4 +269,15 @@ fun StatusRow(label: String, ok: Boolean, fixLabel: String, onFix: () -> Unit) {
         if (ok) Text("On", color = Teal, fontWeight = FontWeight.SemiBold)
         else androidx.compose.material3.FilledTonalButton(onFix) { Text(fixLabel, fontSize = 13.sp) }
     }
+}
+
+/** Behind small plant pictures: a dark night tile in every theme, so the glow and pale petals stay visible. */
+@Composable
+fun Modifier.plantTile(): Modifier = this.background(
+    androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF141A38), Color(0xFF221B3D))),
+)
+
+/** Which titled Settings and Quit sections are open, kept while the app runs. */
+object OpenSections {
+    val open = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
 }

@@ -38,7 +38,7 @@ data class CalendarData(
     val title: String,
     /** 0..1 per day; > 0 is drawn filled (stronger = fuller). Days of the current month (tests read these). */
     val level: Map<Int, Float>,
-    /** Days to flag with a red ring (slips), current month. */
+    /** Days to flag with a red ring, current month. */
     val flagged: Set<Int> = emptySet(),
     /** A day to ring in gold (the quit day), current month. */
     val special: Int? = null,
@@ -78,28 +78,26 @@ object Calendars {
         )
     }
 
-    /** Smoke-free consistency: every day since the quit day is filled, slip days are ringed in red. */
+    /** Smoke-free consistency: every day since the quit day is filled. */
     fun smokeFree(
-        quit: LocalDate?, slips: List<com.malluwayne.batbloom.data.SlipEntity>, today: LocalDate, zone: ZoneId,
+        quit: LocalDate?, today: LocalDate, zone: ZoneId,
         perDay: Int, packSize: Int, packPrice: Double,
     ): CalendarData {
         val ym = YearMonth.from(today)
         val name = ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
         if (quit == null) return CalendarData(ym, "Smoke-free", emptyMap(), fill = 0x7FE3D0, figures = listOf("\u2013" to "set a quit day"))
-        val slipDays = slips.map { Stats.dayOf(it.at, zone) }.toSet()
         val level = (1..ym.lengthOfMonth()).mapNotNull { day ->
             val date = ym.atDay(day)
-            if (date.isBefore(quit) || date.isAfter(today) || date in slipDays) null else day to 1f
+            if (date.isBefore(quit) || date.isAfter(today)) null else day to 1f
         }.toMap()
-        val flagged = slipDays.filter { YearMonth.from(it) == ym }.map { it.dayOfMonth }.toSet()
         val started = !today.isBefore(quit)
         val daysFree = if (started) java.time.temporal.ChronoUnit.DAYS.between(quit, today).toInt() + 1 else 0
         // Clean days in a row, counting back from today.
         var d = today
         var clean = 0
-        while (started && !d.isBefore(quit) && d !in slipDays) { clean++; d = d.minusDays(1) }
+        while (started && !d.isBefore(quit)) { clean++; d = d.minusDays(1) }
         val p = com.malluwayne.batbloom.quit.QuitMath.progress(
-            quit.atStartOfDay(zone), java.time.ZonedDateTime.now(zone), perDay, packSize, packPrice, slips.sumOf { it.count },
+            quit.atStartOfDay(zone), java.time.ZonedDateTime.now(zone), perDay, packSize, packPrice,
         )
         val figures = if (!started) listOf(
             "${java.time.temporal.ChronoUnit.DAYS.between(today, quit)}" to "days to quit day",
@@ -110,11 +108,11 @@ object Calendars {
             "\u20B9" + "%,.0f".format(p.moneySaved) to "saved",
         )
         val byDate = if (!started) emptyMap() else
-            generateSequence(quit) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.filter { it !in slipDays }.associateWith { 1f }
+            generateSequence(quit) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.associateWith { 1f }
         return CalendarData(
-            ym, "Smoke-free", level, flagged,
+            ym, "Smoke-free", level,
             special = if (YearMonth.from(quit) == ym) quit.dayOfMonth else null,
-            levelByDate = byDate, flaggedDates = slipDays, specialDate = quit,
+            levelByDate = byDate, specialDate = quit,
             fill = 0x7FE3D0, figures = figures,
         )
     }
@@ -274,7 +272,7 @@ class CalendarWidget : AppWidgetProvider() {
     }
 }
 
-/** Smoke-free calendar: every clean day since the quit day, slips ringed in red. */
+/** Smoke-free calendar: every day since the quit day. */
 class SmokeFreeWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = update(context)
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = update(context)
@@ -282,7 +280,7 @@ class SmokeFreeWidget : AppWidgetProvider() {
     companion object {
         fun update(context: Context) = calendarUpdate(context, SmokeFreeWidget::class.java, { app, today, zone ->
             val sm = app.prefs.smoking.value
-            Calendars.smokeFree(app.prefs.quitDate.value, app.repo.slips.first(), today, zone, sm.perDay, sm.packSize, sm.packPrice)
+            Calendars.smokeFree(app.prefs.quitDate.value, today, zone, sm.perDay, sm.packSize, sm.packPrice)
         }, MainActivity.ACTION_QUIT, 16)
     }
 }

@@ -6,8 +6,6 @@ import com.malluwayne.batbloom.data.BackupData
 import com.malluwayne.batbloom.data.BadgeEntity
 import com.malluwayne.batbloom.data.DoseLogEntity
 import com.malluwayne.batbloom.data.SessionEntity
-import com.malluwayne.batbloom.data.SideEffectEntity
-import com.malluwayne.batbloom.data.SlipEntity
 import com.malluwayne.batbloom.data.Status
 import com.malluwayne.batbloom.data.Tags
 import com.malluwayne.batbloom.data.UnlockEntity
@@ -74,16 +72,14 @@ class FeaturesTest {
     @Test fun backupRoundTrip() {
         val b = BackupData(
             sessions = listOf(
-                study("Anatomy", 1).copy(id = 7, endedAt = 123L, coins = 55),
+                study("Anatomy", 1).copy(id = 7, endedAt = 123L),
                 SessionEntity(id = 8, startedAt = 5, plannedMinutes = 10, tag = Tags.CRAVING, plantId = "glowcap", status = Status.FAILED,
-                    failReason = "Instagram", cravingIntensity = 4, cravingTrigger = "Stress", round = 2),
+                    failReason = "Instagram", round = 2),
             ),
             unlocks = listOf(UnlockEntity("bat_orchid", 150, 99)),
             allowed = listOf(AllowedAppEntity("com.dictionary")),
             doses = listOf(DoseLogEntity("2026-11-21-AM", 1, 0.5, 1.0, "TAKEN", 1000)),
-            slips = listOf(SlipEntity(1, 2000, 2, "party")),
-            effects = listOf(SideEffectEntity(1, 3000, "Nausea", 2, null)),
-            badges = listOf(BadgeEntity("quit_day", 4000, 50)),
+            badges = listOf(BadgeEntity("quit_day", 4000)),
             prefs = mapOf("plant" to "glowcap", "minutes" to 45, "tablet_mg" to 0.5f, "reminders" to true, "custom_tags" to setOf("Revision"), "big" to 5_000_000_000L),
         )
         val back = Backup.fromJson(Backup.toJson(b))
@@ -91,10 +87,17 @@ class FeaturesTest {
         assertEquals(b.unlocks, back.unlocks)
         assertEquals(b.allowed, back.allowed)
         assertEquals(b.doses, back.doses)
-        assertEquals(b.slips, back.slips)
-        assertEquals(b.effects, back.effects)
         assertEquals(b.badges, back.badges)
         assertEquals(b.prefs, back.prefs)
+    }
+
+    @Test fun restoresFormat1Files() {
+        val old = """{"app":"batbloom","format":1,"sessions":[{"id":3,"startedAt":5,"plannedMinutes":25,"endedAt":null,"status":"DONE",
+            "tag":"FMGE","subject":"Anatomy","plantId":"moonflower","coins":30,"failReason":null,"cravingIntensity":null,"cravingTrigger":null,"round":null}],
+            "slips":[{"id":1,"at":2,"count":1,"note":null}],"badges":[{"id":"quit_day","earnedAt":9,"coins":50}],"prefs":{}}"""
+        val b = Backup.fromJson(old)
+        assertEquals(25, b.sessions.single().plannedMinutes)
+        assertEquals("quit_day", b.badges.single().id)
     }
 
     @Test(expected = Backup.BadBackup::class) fun rejectsOtherFiles() {
@@ -125,14 +128,12 @@ class CalendarWidgetTest {
 
     @org.junit.Test fun smokeFreeMonth() {
         val quit = java.time.LocalDate.of(2026, 11, 10)
-        val slip = com.malluwayne.batbloom.data.SlipEntity(1, java.time.LocalDate.of(2026, 11, 15).atTime(20, 0).atZone(zone).toInstant().toEpochMilli(), 1)
-        val c = com.malluwayne.batbloom.widget.Calendars.smokeFree(quit, listOf(slip), today, zone, 10, 20, 340.0)
-        org.junit.Assert.assertEquals((10..21).toSet() - 15, c.level.keys)
-        org.junit.Assert.assertEquals(setOf(15), c.flagged)
+        val c = com.malluwayne.batbloom.widget.Calendars.smokeFree(quit, today, zone, 10, 20, 340.0)
+        org.junit.Assert.assertEquals((10..21).toSet(), c.level.keys)
         org.junit.Assert.assertEquals(10, c.special)
         org.junit.Assert.assertEquals("12" to "days smoke-free", c.figures[0])
-        org.junit.Assert.assertEquals("6" to "clean in a row", c.figures[1])
-        val before = com.malluwayne.batbloom.widget.Calendars.smokeFree(java.time.LocalDate.of(2026, 11, 28), emptyList(), today, zone, 10, 20, 340.0)
+        org.junit.Assert.assertEquals("12" to "clean in a row", c.figures[1])
+        val before = com.malluwayne.batbloom.widget.Calendars.smokeFree(java.time.LocalDate.of(2026, 11, 28), today, zone, 10, 20, 340.0)
         org.junit.Assert.assertTrue(before.level.isEmpty())
         org.junit.Assert.assertEquals("7" to "days to quit day", before.figures[0])
     }

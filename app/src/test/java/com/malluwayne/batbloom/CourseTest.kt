@@ -81,14 +81,14 @@ class CourseTest {
         assertEquals(Doses.Missed.TakeNow, Doses.missedAdvice(now, null, 4))
     }
 
-    @Test fun quitProgressCountsSlipsButNeverResets() {
+    @Test fun quitProgress() {
         val quit = d(11, 28).atStartOfDay(zone)
-        val p = QuitMath.progress(quit, quit.plusDays(3), perDay = 10, packSize = 20, packPrice = 340.0, slipped = 2)
+        val p = QuitMath.progress(quit, quit.plusDays(3), perDay = 10, packSize = 20, packPrice = 340.0)
         assertEquals(Duration.ofDays(3), p.sinceQuit)
-        assertEquals(28, p.notSmoked)
-        assertEquals(28 / 20.0 * 340.0, p.moneySaved, 0.001)
-        assertEquals(Duration.ofMinutes(28 * QuitMath.MINUTES_PER_CIGARETTE), p.lifeRegained)
-        val before = QuitMath.progress(quit, quit.minusDays(1), 10, 20, 340.0, 0)
+        assertEquals(30, p.notSmoked)
+        assertEquals(30 / 20.0 * 340.0, p.moneySaved, 0.001)
+        assertEquals(Duration.ofMinutes(30 * QuitMath.MINUTES_PER_CIGARETTE), p.lifeRegained)
+        val before = QuitMath.progress(quit, quit.minusDays(1), 10, 20, 340.0)
         assertEquals(0, before.notSmoked)
         assertEquals("3d 0h", QuitMath.formatDuration(p.sinceQuit))
     }

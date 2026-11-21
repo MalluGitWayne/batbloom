@@ -14,27 +14,23 @@ import kotlinx.coroutines.flow.Flow
 interface SessionDao {
     @Insert suspend fun insert(s: SessionEntity): Long
     @Query("SELECT * FROM sessions WHERE id = :id") suspend fun get(id: Long): SessionEntity?
-    @Query("UPDATE sessions SET status = :status, endedAt = :endedAt, coins = :coins, failReason = :reason WHERE id = :id")
-    suspend fun finish(id: Long, status: String, endedAt: Long, coins: Int, reason: String?)
-    /** Wilted plants can be cleared from the garden (they earned no coins, so nothing else changes). */
+    @Query("UPDATE sessions SET status = :status, endedAt = :endedAt, failReason = :reason WHERE id = :id")
+    suspend fun finish(id: Long, status: String, endedAt: Long, reason: String?)
+    /** Wilted plants can be cleared from the garden. */
     @Query("DELETE FROM sessions WHERE status = 'FAILED'") suspend fun clearWilted(): Int
     @Query("DELETE FROM sessions WHERE id = :id AND status = 'FAILED'") suspend fun removeWilted(id: Long): Int
     @Query("UPDATE sessions SET plannedMinutes = :minutes WHERE id = :id")
     suspend fun setMinutes(id: Long, minutes: Int)
-    @Query("UPDATE sessions SET cravingIntensity = :intensity, cravingTrigger = :trigger WHERE id = :id")
-    suspend fun setCraving(id: Long, intensity: Int?, trigger: String?)
     @Query("UPDATE sessions SET status = 'FAILED', endedAt = startedAt, failReason = 'interrupted' WHERE status = 'RUNNING'")
     suspend fun failStaleRunning()
     @Query("SELECT * FROM sessions WHERE status != 'RUNNING' ORDER BY startedAt DESC") fun finished(): Flow<List<SessionEntity>>
     @Query("SELECT * FROM sessions WHERE status != 'RUNNING' AND startedAt >= :since") suspend fun finishedSince(since: Long): List<SessionEntity>
-    @Query("SELECT COALESCE(SUM(coins), 0) FROM sessions WHERE status = 'DONE'") fun earned(): Flow<Int>
 }
 
 @Dao
 interface UnlockDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(u: UnlockEntity)
     @Query("SELECT * FROM unlocks") fun all(): Flow<List<UnlockEntity>>
-    @Query("SELECT COALESCE(SUM(cost), 0) FROM unlocks") fun spent(): Flow<Int>
 }
 
 @Dao
@@ -48,9 +44,9 @@ interface AllowedDao {
 @Database(
     entities = [
         SessionEntity::class, UnlockEntity::class, AllowedAppEntity::class,
-        DoseLogEntity::class, SlipEntity::class, SideEffectEntity::class, BadgeEntity::class,
+        DoseLogEntity::class, BadgeEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -62,7 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "batbloom.db").addMigrations(MIGRATION_1_2).build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "batbloom.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 }
 
@@ -73,5 +69,21 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `slips` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, `count` INTEGER NOT NULL, `note` TEXT)")
         db.execSQL("CREATE TABLE IF NOT EXISTS `side_effects` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, `kind` TEXT NOT NULL, `severity` INTEGER NOT NULL, `note` TEXT)")
         db.execSQL("CREATE TABLE IF NOT EXISTS `badges` (`id` TEXT NOT NULL, `earnedAt` INTEGER NOT NULL, `coins` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+    }
+}
+
+/** v2 → v3: drops the slips and side-effect tables and the coin and craving columns (tables rebuilt, data kept). */
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS `slips`")
+        db.execSQL("DROP TABLE IF EXISTS `side_effects`")
+        db.execSQL("CREATE TABLE `sessions_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startedAt` INTEGER NOT NULL, `plannedMinutes` INTEGER NOT NULL, `endedAt` INTEGER, `status` TEXT NOT NULL, `tag` TEXT NOT NULL, `subject` TEXT, `plantId` TEXT NOT NULL, `failReason` TEXT, `round` INTEGER)")
+        db.execSQL("INSERT INTO `sessions_new` (id, startedAt, plannedMinutes, endedAt, status, tag, subject, plantId, failReason, round) SELECT id, startedAt, plannedMinutes, endedAt, status, tag, subject, plantId, failReason, round FROM `sessions`")
+        db.execSQL("DROP TABLE `sessions`")
+        db.execSQL("ALTER TABLE `sessions_new` RENAME TO `sessions`")
+        db.execSQL("CREATE TABLE `badges_new` (`id` TEXT NOT NULL, `earnedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+        db.execSQL("INSERT INTO `badges_new` (id, earnedAt) SELECT id, earnedAt FROM `badges`")
+        db.execSQL("DROP TABLE `badges`")
+        db.execSQL("ALTER TABLE `badges_new` RENAME TO `badges`")
     }
 }

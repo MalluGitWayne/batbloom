@@ -20,12 +20,8 @@ data class SessionEntity(
     /** FMGE subject when tag is FMGE, else null. */
     val subject: String? = null,
     val plantId: String,
-    val coins: Int = 0,
     /** Why it failed: the app that was opened, "gave up", or "interrupted". */
     val failReason: String? = null,
-    /** Craving sessions: how strong it was (1-5) and what set it off. */
-    val cravingIntensity: Int? = null,
-    val cravingTrigger: String? = null,
     /** Pomodoro round number (1-based), or null for a single session. */
     val round: Int? = null,
 )

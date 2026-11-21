@@ -77,7 +77,6 @@ fun QuitScreen(modifier: Modifier) {
     val strength by prefs.tabletStrength.collectAsState()
     val closeHours by prefs.closeHours.collectAsState()
     val doses by app.repo.doses.collectAsState(emptyList())
-    val slips by app.repo.slips.collectAsState(emptyList())
     val badges by app.repo.badges.collectAsState(emptyList())
     val nowMs = rememberNow(30_000)
     val zone = ZoneId.systemDefault()
@@ -169,7 +168,7 @@ fun QuitScreen(modifier: Modifier) {
         // Savings since the quit day
         val q = quit
         if (q != null) {
-            val p = QuitMath.progress(q.atStartOfDay(zone), now, smoking.perDay, smoking.packSize, smoking.packPrice, slips.sumOf { it.count })
+            val p = QuitMath.progress(q.atStartOfDay(zone), now, smoking.perDay, smoking.packSize, smoking.packPrice)
             if (!p.sinceQuit.isNegative) SectionCard {
                 Row(Modifier.fillMaxWidth()) {
                     QuitFigure("${p.notSmoked}", "not smoked", Modifier.weight(1f))

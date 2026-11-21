@@ -10,10 +10,6 @@ object Rules {
 
     fun clampMinutes(minutes: Int): Int = minutes.coerceIn(MIN_MINUTES, MAX_MINUTES)
 
-    /** 1 coin per minute, plus 5 bonus for every full half hour. Failed sessions earn nothing. */
-    fun coinsFor(minutes: Int, success: Boolean): Int =
-        if (!success) 0 else minutes + (minutes / 30) * 5
-
     /** Fraction of the session done, 0..1. */
     fun progress(startAt: Long, endAt: Long, now: Long): Float {
         if (endAt <= startAt) return 1f

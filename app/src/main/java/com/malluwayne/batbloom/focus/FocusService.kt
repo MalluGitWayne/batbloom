@@ -68,7 +68,7 @@ class FocusService : Service() {
             ACTION_STOP -> (FocusEngine.state.value as? State.Running)?.let { stopStopwatch(it) }
             ACTION_GIVE_UP -> when (val s = FocusEngine.state.value) {
                 is State.Running -> roundOver(s, success = false, reason = "gave up")
-                is State.Break -> finishAll(State.Finished(s.blooms > 0, s.request, s.request.plan?.focusMinutes ?: 0, s.coins, null, s.blooms, s.request.plan?.rounds))
+                is State.Break -> finishAll(State.Finished(s.blooms > 0, s.request, s.request.plan?.focusMinutes ?: 0, null, s.blooms, s.request.plan?.rounds))
                 else -> stop()
             }
             else -> if (!FocusEngine.isActive) stop()
@@ -79,7 +79,7 @@ class FocusService : Service() {
     private fun begin(req: FocusEngine.Request) {
         systemAllowed = Device.systemAllowed(this)
         reader = if (Device.hasUsageAccess(this)) ForegroundAppReader(this) else null
-        startRound(req, if (req.plan != null) 1 else null, blooms = 0, coins = 0)
+        startRound(req, if (req.plan != null) 1 else null, blooms = 0)
         if (loop == null) loop = scope.launch {
             while (isActive) {
                 tick()
@@ -88,10 +88,10 @@ class FocusService : Service() {
         }
     }
 
-    private fun startRound(req: FocusEngine.Request, round: Int?, blooms: Int, coins: Int) {
+    private fun startRound(req: FocusEngine.Request, round: Int?, blooms: Int) {
         val minutes = if (req.stopwatch) Rules.STOPWATCH_MAX_MINUTES else Rules.clampMinutes(req.plan?.focusMinutes ?: req.minutes)
         val start = System.currentTimeMillis()
-        val r = State.Running(-1, req, minutes, start, start + minutes * 60_000L, round, blooms, coins)
+        val r = State.Running(-1, req, minutes, start, start + minutes * 60_000L, round, blooms)
         guard = LeaveGuard()
         FocusEngine.state.value = r
         showOngoing()
@@ -101,7 +101,7 @@ class FocusService : Service() {
                 app.repo.startSession(
                     SessionEntity(
                         startedAt = start, plannedMinutes = minutes, tag = req.tag, subject = req.subject,
-                        plantId = req.plantId, cravingIntensity = req.cravingIntensity, cravingTrigger = req.trigger, round = round,
+                        plantId = req.plantId, round = round,
                     ),
                 )
             }
@@ -120,7 +120,7 @@ class FocusService : Service() {
         // The widget's plant grows with the timer: redraw it once a minute.
         if (now - lastWidget >= 60_000) { lastWidget = now; BloomWidget.refresh(this) }
         when (val s = FocusEngine.state.value) {
-            is State.Break -> if (now >= s.endAt) startRound(s.request, s.nextRound, s.blooms, s.coins)
+            is State.Break -> if (now >= s.endAt) startRound(s.request, s.nextRound, s.blooms)
             is State.Running -> {
                 if (now >= s.endAt) {
                     if (s.request.stopwatch) stopStopwatch(s) else roundOver(s, success = true, reason = null)
@@ -158,7 +158,6 @@ class FocusService : Service() {
         NotificationManagerCompat.from(this).cancel(NOTIF_WARN)
         val minutes = actualMinutes ?: r.minutes
         val endedAt = if (actualMinutes != null) System.currentTimeMillis().coerceAtMost(r.endAt) else if (success) r.endAt else System.currentTimeMillis()
-        val coins = r.coins + Rules.coinsFor(minutes, success)
         val blooms = r.blooms + if (success) 1 else 0
         if (r.sessionId >= 0) app.appScope.launch {
             app.repo.finishSession(r.sessionId, success, endedAt, reason, actualMinutes)
@@ -168,7 +167,7 @@ class FocusService : Service() {
         val round = r.round
         if (success && plan != null && round != null && !plan.isLast(round)) {
             val now = System.currentTimeMillis()
-            val b = State.Break(r.request, now, now + plan.breakAfter(round) * 60_000L, round + 1, plan.isLongBreak(round), blooms, coins)
+            val b = State.Break(r.request, now, now + plan.breakAfter(round) * 60_000L, round + 1, plan.isLongBreak(round), blooms)
             FocusEngine.state.value = b
             notifyResult("Round $round bloomed! Break time", "${plan.breakAfter(round)} min break, then round ${round + 1} of ${plan.rounds} starts by itself.")
             showOngoing()
@@ -176,7 +175,7 @@ class FocusService : Service() {
             BloomWidget.refresh(this)
             return
         }
-        finishAll(State.Finished(success, r.request, minutes, coins, reason, blooms, plan?.rounds))
+        finishAll(State.Finished(success, r.request, minutes, reason, blooms, plan?.rounds))
     }
 
     private fun finishAll(f: State.Finished) {

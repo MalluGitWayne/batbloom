@@ -22,7 +22,7 @@ class StatsTest {
         intensity: Int? = null, trigger: String? = null,
     ) = SessionEntity(
         startedAt = at(date), plannedMinutes = minutes, tag = tag, subject = subject, plantId = "moonflower",
-        status = if (ok) Status.DONE else Status.FAILED, cravingIntensity = intensity, cravingTrigger = trigger,
+        status = if (ok) Status.DONE else Status.FAILED,
     )
 
     @Test fun totalsWeekAndStreak() {

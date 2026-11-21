@@ -19,13 +19,6 @@ class RulesTest {
         assertEquals(45, Rules.clampMinutes(45))
     }
 
-    @Test fun coins() {
-        assertEquals(10, Rules.coinsFor(10, true))
-        assertEquals(35, Rules.coinsFor(30, true))
-        assertEquals(140, Rules.coinsFor(120, true))
-        assertEquals(0, Rules.coinsFor(120, false))
-    }
-
     @Test fun progressAndStages() {
         assertEquals(0f, Rules.progress(1000, 2000, 500), 0f)
         assertEquals(0.5f, Rules.progress(1000, 2000, 1500), 0.0001f)

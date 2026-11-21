@@ -14,8 +14,6 @@ object FocusEngine {
         val plantId: String,
         /** Non-null for a Pomodoro cycle; then [minutes] is ignored and the plan's focus length is used. */
         val plan: PomodoroPlan? = null,
-        val cravingIntensity: Int? = null,
-        val trigger: String? = null,
         /** Counts up instead of down; you stop it when you're done. */
         val stopwatch: Boolean = false,
     )
@@ -31,7 +29,6 @@ object FocusEngine {
             /** Pomodoro round (1-based), or null for a single session. */
             val round: Int? = null,
             val blooms: Int = 0,
-            val coins: Int = 0,
             /** Seconds left before the session fails, while the user is in a non-allowed app. */
             val warningSeconds: Int? = null,
             val warningApp: String? = null,
@@ -47,13 +44,11 @@ object FocusEngine {
             val nextRound: Int,
             val long: Boolean,
             val blooms: Int,
-            val coins: Int,
         ) : State
         data class Finished(
             val success: Boolean,
             val request: Request,
             val minutes: Int,
-            val coins: Int,
             val reason: String?,
             /** Pomodoro: how many rounds bloomed out of how many planned. */
             val blooms: Int = if (success) 1 else 0,

@@ -122,7 +122,7 @@ fun GardenScreen(modifier: Modifier) {
                     .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(Modifier.fillMaxWidth().height(84.dp)) {
+                Box(Modifier.fillMaxWidth().height(84.dp).clip(RoundedCornerShape(12.dp)).plantTile()) {
                     PlantArt(PlantCatalog.byId(s.plantId), 1f, !ok, Modifier.fillMaxSize(), animate = false)
                 }
                 Text("${s.plannedMinutes}m · ${s.tag}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)

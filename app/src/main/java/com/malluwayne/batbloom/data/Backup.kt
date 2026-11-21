@@ -14,8 +14,6 @@ data class BackupData(
     val unlocks: List<UnlockEntity>,
     val allowed: List<AllowedAppEntity>,
     val doses: List<DoseLogEntity>,
-    val slips: List<SlipEntity>,
-    val effects: List<SideEffectEntity>,
     val badges: List<BadgeEntity>,
     val prefs: Map<String, Any?>,
 )
@@ -26,27 +24,24 @@ interface BackupDao {
     @Query("SELECT * FROM unlocks") suspend fun unlocks(): List<UnlockEntity>
     @Query("SELECT * FROM allowed_apps") suspend fun allowed(): List<AllowedAppEntity>
     @Query("SELECT * FROM dose_log") suspend fun doses(): List<DoseLogEntity>
-    @Query("SELECT * FROM slips") suspend fun slips(): List<SlipEntity>
-    @Query("SELECT * FROM side_effects") suspend fun effects(): List<SideEffectEntity>
     @Query("SELECT * FROM badges") suspend fun badges(): List<BadgeEntity>
 
     @Insert suspend fun putSessions(l: List<SessionEntity>)
     @Insert suspend fun putUnlocks(l: List<UnlockEntity>)
     @Insert suspend fun putAllowed(l: List<AllowedAppEntity>)
     @Insert suspend fun putDoses(l: List<DoseLogEntity>)
-    @Insert suspend fun putSlips(l: List<SlipEntity>)
-    @Insert suspend fun putEffects(l: List<SideEffectEntity>)
     @Insert suspend fun putBadges(l: List<BadgeEntity>)
 }
 
 object Backup {
-    const val FORMAT = 1
+    /** 2: no coins, cravings, slips or side effects. Older files still restore (extra fields are ignored). */
+    const val FORMAT = 2
     const val PREFS_FILE = "batbloom"
 
     suspend fun collect(context: Context, db: AppDatabase): BackupData {
         val d = db.backup()
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-        return BackupData(d.sessions(), d.unlocks(), d.allowed(), d.doses(), d.slips(), d.effects(), d.badges(), sp.all)
+        return BackupData(d.sessions(), d.unlocks(), d.allowed(), d.doses(), d.badges(), sp.all)
     }
 
     /** Replaces all data with the backup's. Settings are written too; the app restarts to load them. */
@@ -55,7 +50,7 @@ object Backup {
             db.clearAllTables()
             val d = db.backup()
             d.putSessions(b.sessions); d.putUnlocks(b.unlocks); d.putAllowed(b.allowed)
-            d.putDoses(b.doses); d.putSlips(b.slips); d.putEffects(b.effects); d.putBadges(b.badges)
+            d.putDoses(b.doses); d.putBadges(b.badges)
         }
         val e = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit().clear()
         b.prefs.forEach { (k, v) ->
@@ -79,20 +74,15 @@ object Backup {
         put("sessions", JSONArray(b.sessions.map { s ->
             JSONObject().put("id", s.id).put("startedAt", s.startedAt).put("plannedMinutes", s.plannedMinutes)
                 .put("endedAt", s.endedAt ?: JSONObject.NULL).put("status", s.status).put("tag", s.tag)
-                .put("subject", s.subject ?: JSONObject.NULL).put("plantId", s.plantId).put("coins", s.coins)
-                .put("failReason", s.failReason ?: JSONObject.NULL).put("cravingIntensity", s.cravingIntensity ?: JSONObject.NULL)
-                .put("cravingTrigger", s.cravingTrigger ?: JSONObject.NULL).put("round", s.round ?: JSONObject.NULL)
+                .put("subject", s.subject ?: JSONObject.NULL).put("plantId", s.plantId)
+                .put("failReason", s.failReason ?: JSONObject.NULL).put("round", s.round ?: JSONObject.NULL)
         }))
         put("unlocks", JSONArray(b.unlocks.map { JSONObject().put("plantId", it.plantId).put("cost", it.cost).put("unlockedAt", it.unlockedAt) }))
         put("allowed", JSONArray(b.allowed.map { it.packageName }))
         put("doses", JSONArray(b.doses.map {
             JSONObject().put("key", it.key).put("day", it.day).put("mg", it.mg).put("tablets", it.tablets).put("status", it.status).put("actedAt", it.actedAt)
         }))
-        put("slips", JSONArray(b.slips.map { JSONObject().put("id", it.id).put("at", it.at).put("count", it.count).put("note", it.note ?: JSONObject.NULL) }))
-        put("effects", JSONArray(b.effects.map {
-            JSONObject().put("id", it.id).put("at", it.at).put("kind", it.kind).put("severity", it.severity).put("note", it.note ?: JSONObject.NULL)
-        }))
-        put("badges", JSONArray(b.badges.map { JSONObject().put("id", it.id).put("earnedAt", it.earnedAt).put("coins", it.coins) }))
+        put("badges", JSONArray(b.badges.map { JSONObject().put("id", it.id).put("earnedAt", it.earnedAt) }))
         put("prefs", JSONObject().apply {
             b.prefs.forEach { (k, v) ->
                 val (t, value) = when (v) {
@@ -138,8 +128,7 @@ object Backup {
             sessions = arr("sessions").map {
                 SessionEntity(
                     it.getLong("id"), it.getLong("startedAt"), it.getInt("plannedMinutes"), it.long("endedAt"), it.getString("status"),
-                    it.getString("tag"), it.str("subject"), it.getString("plantId"), it.getInt("coins"), it.str("failReason"),
-                    it.int("cravingIntensity"), it.str("cravingTrigger"), it.int("round"),
+                    it.getString("tag"), it.str("subject"), it.getString("plantId"), it.str("failReason"), it.int("round"),
                 )
             },
             unlocks = arr("unlocks").map { UnlockEntity(it.getString("plantId"), it.getInt("cost"), it.getLong("unlockedAt")) },
@@ -147,9 +136,7 @@ object Backup {
             doses = arr("doses").map {
                 DoseLogEntity(it.getString("key"), it.getInt("day"), it.getDouble("mg"), it.getDouble("tablets"), it.getString("status"), it.getLong("actedAt"))
             },
-            slips = arr("slips").map { SlipEntity(it.getLong("id"), it.getLong("at"), it.getInt("count"), it.str("note")) },
-            effects = arr("effects").map { SideEffectEntity(it.getLong("id"), it.getLong("at"), it.getString("kind"), it.getInt("severity"), it.str("note")) },
-            badges = arr("badges").map { BadgeEntity(it.getString("id"), it.getLong("earnedAt"), it.getInt("coins")) },
+            badges = arr("badges").map { BadgeEntity(it.getString("id"), it.getLong("earnedAt")) },
             prefs = prefs,
         )
     }

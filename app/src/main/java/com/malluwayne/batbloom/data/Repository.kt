@@ -25,27 +25,21 @@ class Repository(private val db: AppDatabase) {
             if (it.badge != null) it.badge in earned else blooms >= it.cost
         }.map { it.id }
     }
-    val coins: Flow<Int> = combine(db.sessions().earned(), quit.badgeCoins(), db.unlocks().spent()) { e, b, s -> e + b - s }
 
     val doses: Flow<List<DoseLogEntity>> = quit.doses()
-    val slips: Flow<List<SlipEntity>> = quit.slips()
-    val sideEffects: Flow<List<SideEffectEntity>> = quit.sideEffects()
 
     suspend fun startSession(s: SessionEntity): Long = db.sessions().insert(s)
     /** [actualMinutes]: for stopwatch sessions, the minutes it really ran (replaces the planned length). */
     suspend fun finishSession(id: Long, success: Boolean, endedAt: Long, reason: String?, actualMinutes: Int? = null): Int {
         val s = db.sessions().get(id) ?: return 0
         if (actualMinutes != null) db.sessions().setMinutes(id, actualMinutes)
-        val coins = Rules.coinsFor(actualMinutes ?: s.plannedMinutes, success)
-        db.sessions().finish(id, if (success) Status.DONE else Status.FAILED, endedAt, coins, reason)
-        return coins
+        db.sessions().finish(id, if (success) Status.DONE else Status.FAILED, endedAt, reason)
+        return actualMinutes ?: s.plannedMinutes
     }
     suspend fun clearWilted() = db.sessions().clearWilted()
     suspend fun removeWilted(id: Long) = db.sessions().removeWilted(id)
     suspend fun failStaleRunning() = db.sessions().failStaleRunning()
     suspend fun finishedSince(since: Long) = db.sessions().finishedSince(since)
-
-    suspend fun unlock(plantId: String, cost: Int) = db.unlocks().insert(UnlockEntity(plantId, cost, System.currentTimeMillis()))
 
     suspend fun setAllowed(pkg: String, allowed: Boolean) =
         if (allowed) db.allowed().add(AllowedAppEntity(pkg)) else db.allowed().remove(pkg)
@@ -73,25 +67,11 @@ class Repository(private val db: AppDatabase) {
         }
     }
 
-    // --- Slips and side effects ---
-
-    suspend fun addSlip(count: Int, note: String?) {
-        quit.addSlip(SlipEntity(at = System.currentTimeMillis(), count = count, note = note))
-        com.malluwayne.batbloom.widget.SmokeFreeWidget.update(com.malluwayne.batbloom.BatbloomApp.instance)
-    }
-    suspend fun deleteSlip(id: Long) {
-        quit.deleteSlip(id)
-        com.malluwayne.batbloom.widget.SmokeFreeWidget.update(com.malluwayne.batbloom.BatbloomApp.instance)
-    }
-    suspend fun addSideEffect(kind: String, severity: Int, note: String?) =
-        quit.addSideEffect(SideEffectEntity(at = System.currentTimeMillis(), kind = kind, severity = severity, note = note))
-    suspend fun deleteSideEffect(id: Long) = quit.deleteSideEffect(id)
-
     /** Awards any badges now earned and returns the new ones. */
     suspend fun awardBadges(today: LocalDate, schedule: DoseSchedule, quitDate: LocalDate?): List<String> {
         val earned = Badges.earned(today, schedule, quitDate)
         return earned.filter { id ->
-            quit.award(BadgeEntity(id, System.currentTimeMillis(), Badges.byId(id).coins)) != -1L
+            quit.award(BadgeEntity(id, System.currentTimeMillis())) != -1L
         }
     }
 }

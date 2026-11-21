@@ -165,11 +165,10 @@ object QuitMath {
     /** A rough, commonly quoted estimate of life lost per cigarette. */
     const val MINUTES_PER_CIGARETTE = 20L
 
-    /** Slips are subtracted from cigarettes not smoked but never reset the timer. */
-    fun progress(quitAt: ZonedDateTime, now: ZonedDateTime, perDay: Int, packSize: Int, packPrice: Double, slipped: Int): QuitProgress {
+    fun progress(quitAt: ZonedDateTime, now: ZonedDateTime, perDay: Int, packSize: Int, packPrice: Double): QuitProgress {
         val since = Duration.between(quitAt, now)
         if (since.isNegative) return QuitProgress(since, 0, 0.0, Duration.ZERO)
-        val cigs = ((since.seconds / 86_400.0) * perDay).toInt() - slipped
+        val cigs = ((since.seconds / 86_400.0) * perDay).toInt()
         val notSmoked = cigs.coerceAtLeast(0)
         val money = if (packSize > 0) notSmoked.toDouble() / packSize * packPrice else 0.0
         return QuitProgress(since, notSmoked, money, Duration.ofMinutes(notSmoked * MINUTES_PER_CIGARETTE))
@@ -188,20 +187,19 @@ object QuitMath {
     }
 }
 
-data class Badge(val id: String, val title: String, val text: String, val coins: Int)
+data class Badge(val id: String, val title: String, val text: String)
 
 object Badges {
     val all = listOf(
-        Badge("quit_day", "Quit day", "You reached your quit day.", 50),
-        Badge("week1", "1 week smoke-free", "Seven days since your quit day.", 100),
-        Badge("week3", "3 weeks smoke-free", "Twenty-one days since your quit day.", 150),
-        Badge("halfway", "Halfway", "Day 42 of your course.", 200),
-        Badge("course", "Course complete", "Full course finished. Unlocks the Dawnbreath Lily.", 500),
+        Badge("quit_day", "Quit day", "You reached your quit day."),
+        Badge("week1", "1 week smoke-free", "Seven days since your quit day."),
+        Badge("week3", "3 weeks smoke-free", "Twenty-one days since your quit day."),
+        Badge("halfway", "Halfway", "Day 42 of your course."),
+        Badge("course", "Course complete", "Full course finished. Unlocks the Dawnbreath Lily."),
     )
 
     fun byId(id: String) = all.first { it.id == id }
 
-    /** Time-based badges are never taken away by a slip. */
     fun earned(today: LocalDate, schedule: DoseSchedule, quit: LocalDate?): Set<String> = buildSet {
         if (quit != null) {
             if (!today.isBefore(quit)) add("quit_day")

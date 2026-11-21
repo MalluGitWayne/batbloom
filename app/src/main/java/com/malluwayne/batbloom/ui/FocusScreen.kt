@@ -329,7 +329,7 @@ private fun PlantDialog(onClose: () -> Unit) {
                         modifier = Modifier.width(76.dp).then(if (have) Modifier.clickable { app.prefs.setSelectedPlant(p.id); onClose() } else Modifier),
                     ) {
                         Box(
-                            Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(Panel)
+                            Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).plantTile()
                                 .border(2.dp, if (p.id == plant) Lavender else Color.Transparent, RoundedCornerShape(16.dp))
                                 .graphicsLayer(alpha = if (have) 1f else 0.35f),
                         ) { PlantArt(p, 1f, false, Modifier.fillMaxSize(), animate = false) }

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
@@ -15,7 +16,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -23,9 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.content.ContextCompat
@@ -35,6 +34,8 @@ import com.malluwayne.batbloom.focus.Rules
 import com.malluwayne.batbloom.ui.BatbloomTheme
 import com.malluwayne.batbloom.ui.FocusScreen
 import com.malluwayne.batbloom.ui.GardenScreen
+import com.malluwayne.batbloom.ui.QuitScreen
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.malluwayne.batbloom.ui.SettingsScreen
 import com.malluwayne.batbloom.ui.ShopScreen
 import com.malluwayne.batbloom.ui.StatsScreen
@@ -59,7 +60,9 @@ class MainActivity : ComponentActivity() {
         when (intent?.action) {
             ACTION_CRAVING -> Starter.craving(this)
             ACTION_FOCUS -> Starter.fromPrefs(this)
+            ACTION_QUIT -> Nav.tab.value = 2
         }
+        if (intent?.action == ACTION_CRAVING || intent?.action == ACTION_FOCUS) Nav.tab.value = 0
         intent?.action = null
     }
 
@@ -67,6 +70,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN = "batbloom.OPEN"
         const val ACTION_CRAVING = "batbloom.CRAVING"
         const val ACTION_FOCUS = "batbloom.FOCUS"
+        const val ACTION_QUIT = "batbloom.QUIT"
     }
 }
 
@@ -93,24 +97,32 @@ object Starter {
     }
 }
 
+/** Which tab is showing, and whether the shop is open. Widgets and notifications switch tabs through this. */
+object Nav {
+    val tab = MutableStateFlow(0)
+    val shop = MutableStateFlow(false)
+}
+
 private enum class Tab(val label: String, val icon: ImageVector) {
     Focus("Focus", Icons.Filled.PlayArrow),
     Garden("Garden", Icons.Filled.Home),
+    Quit("Quit", Icons.Filled.Favorite),
     Stats("Stats", Icons.Filled.DateRange),
-    Shop("Shop", Icons.Filled.ShoppingCart),
     Settings("Settings", Icons.Filled.Settings),
 }
 
 @Composable
 private fun AppRoot() {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    val tab by Nav.tab.collectAsState()
+    val shop by Nav.shop.collectAsState()
+    BackHandler(shop) { Nav.shop.value = false }
     Scaffold(
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEachIndexed { i, t ->
                     NavigationBarItem(
                         selected = tab == i,
-                        onClick = { tab = i },
+                        onClick = { Nav.tab.value = i; Nav.shop.value = false },
                         icon = { Icon(t.icon, contentDescription = t.label) },
                         label = { Text(t.label) },
                     )
@@ -119,11 +131,11 @@ private fun AppRoot() {
         },
     ) { pad ->
         val m = Modifier.padding(pad)
-        when (Tab.entries[tab]) {
+        if (shop) ShopScreen(m) else when (Tab.entries[tab]) {
             Tab.Focus -> FocusScreen(m)
             Tab.Garden -> GardenScreen(m)
+            Tab.Quit -> QuitScreen(m)
             Tab.Stats -> StatsScreen(m)
-            Tab.Shop -> ShopScreen(m)
             Tab.Settings -> SettingsScreen(m)
         }
     }

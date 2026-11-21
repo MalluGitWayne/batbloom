@@ -5,6 +5,7 @@ import com.malluwayne.batbloom.data.AppDatabase
 import com.malluwayne.batbloom.data.Prefs
 import com.malluwayne.batbloom.data.Repository
 import com.malluwayne.batbloom.focus.FocusEngine
+import com.malluwayne.batbloom.quit.DoseAlarms
 import com.malluwayne.batbloom.widget.BloomWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,9 @@ class BatbloomApp : Application() {
             repo.failStaleRunning()
             BloomWidget.refresh(this@BatbloomApp)
         }
+        DoseAlarms.ensureChannels(this)
+        DoseAlarms.scheduleNext(this)
+        appScope.launch { DoseAlarms.checkBadges(this@BatbloomApp) }
     }
 
     companion object {

@@ -6,7 +6,9 @@ import com.malluwayne.batbloom.stats.SmokingProfile
 import com.malluwayne.batbloom.stats.Treat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import com.malluwayne.batbloom.quit.DoseSchedule
 import java.time.LocalDate
+import java.time.LocalTime
 
 /** Small settings kept in SharedPreferences, exposed as flows for the UI. */
 class Prefs(context: Context) {
@@ -88,6 +90,70 @@ class Prefs(context: Context) {
     fun setTreat(t: Treat) {
         sp.edit().putString("treat_name", t.name).putFloat("treat_price", t.price.toFloat()).apply(); _treat.value = t
     }
+
+    // --- Varenicline course (defaults: the user's prescribed plan) ---
+
+    private fun readSchedule(): DoseSchedule {
+        val d = DoseSchedule()
+        fun dbl(k: String, v: Double) = sp.getFloat(k, v.toFloat()).toDouble()
+        return DoseSchedule(
+            start = date("course_start", d.start.toString()) ?: d.start,
+            courseDays = sp.getInt("course_days", d.courseDays),
+            phase1End = sp.getInt("p1_end", d.phase1End),
+            phase2End = sp.getInt("p2_end", d.phase2End),
+            mg = listOf(
+                dbl("mg1a", d.mg[0].first) to dbl("mg1p", d.mg[0].second),
+                dbl("mg2a", d.mg[1].first) to dbl("mg2p", d.mg[1].second),
+                dbl("mg3a", d.mg[2].first) to dbl("mg3p", d.mg[2].second),
+            ),
+            amTime = LocalTime.ofSecondOfDay(sp.getInt("am_time", d.amTime.toSecondOfDay()).toLong()),
+            pmTime = LocalTime.ofSecondOfDay(sp.getInt("pm_time", d.pmTime.toSecondOfDay()).toLong()),
+        )
+    }
+    private val _schedule = MutableStateFlow(readSchedule())
+    val schedule: StateFlow<DoseSchedule> = _schedule
+    fun setSchedule(s: DoseSchedule) {
+        sp.edit()
+            .putString("course_start", s.start.toString()).putInt("course_days", s.courseDays)
+            .putInt("p1_end", s.phase1End).putInt("p2_end", s.phase2End)
+            .putFloat("mg1a", s.mg[0].first.toFloat()).putFloat("mg1p", s.mg[0].second.toFloat())
+            .putFloat("mg2a", s.mg[1].first.toFloat()).putFloat("mg2p", s.mg[1].second.toFloat())
+            .putFloat("mg3a", s.mg[2].first.toFloat()).putFloat("mg3p", s.mg[2].second.toFloat())
+            .putInt("am_time", s.amTime.toSecondOfDay()).putInt("pm_time", s.pmTime.toSecondOfDay())
+            .apply()
+        _schedule.value = s
+    }
+
+    /** Tablets left; negative means "not entered yet". */
+    private val _tablets = MutableStateFlow(sp.getFloat("tablets_left", -1f).toDouble())
+    val tabletsLeft: StateFlow<Double> = _tablets
+    fun setTabletsLeft(t: Double) { sp.edit().putFloat("tablets_left", t.toFloat()).apply(); _tablets.value = t }
+
+    private val _strength = MutableStateFlow(sp.getFloat("tablet_mg", 0.5f).toDouble())
+    val tabletStrength: StateFlow<Double> = _strength
+    fun setTabletStrength(mg: Double) { sp.edit().putFloat("tablet_mg", mg.toFloat()).apply(); _strength.value = mg }
+
+    private val _reminders = MutableStateFlow(sp.getBoolean("reminders", true))
+    val reminders: StateFlow<Boolean> = _reminders
+    fun setReminders(on: Boolean) { sp.edit().putBoolean("reminders", on).apply(); _reminders.value = on }
+
+    private val _snooze = MutableStateFlow(sp.getInt("snooze_min", 15))
+    val snoozeMinutes: StateFlow<Int> = _snooze
+    fun setSnoozeMinutes(m: Int) { sp.edit().putInt("snooze_min", m).apply(); _snooze.value = m }
+
+    /** A missed dose is skipped when the next one is this close. */
+    private val _closeHours = MutableStateFlow(sp.getInt("close_hours", 4))
+    val closeHours: StateFlow<Int> = _closeHours
+    fun setCloseHours(h: Int) { sp.edit().putInt("close_hours", h).apply(); _closeHours.value = h }
+
+    private val _smokingSetup = MutableStateFlow(sp.getBoolean("smoking_setup", false))
+    val smokingSetupDone: StateFlow<Boolean> = _smokingSetup
+    fun setSmokingSetupDone() { sp.edit().putBoolean("smoking_setup", true).apply(); _smokingSetup.value = true }
+
+    /** Last low-stock warning, so it is sent once a day at most. */
+    var lastStockWarning: String
+        get() = sp.getString("stock_warn", "")!!
+        set(v) { sp.edit().putString("stock_warn", v).apply() }
 
     private fun date(key: String, default: String?): LocalDate? {
         val s = if (sp.contains(key)) sp.getString(key, null) else default

@@ -40,14 +40,32 @@ interface AllowedDao {
     @Query("SELECT packageName FROM allowed_apps") suspend fun allNow(): List<String>
 }
 
-@Database(entities = [SessionEntity::class, UnlockEntity::class, AllowedAppEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [
+        SessionEntity::class, UnlockEntity::class, AllowedAppEntity::class,
+        DoseLogEntity::class, SlipEntity::class, SideEffectEntity::class, BadgeEntity::class,
+    ],
+    version = 2,
+    exportSchema = true,
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao
     abstract fun unlocks(): UnlockDao
     abstract fun allowed(): AllowedDao
+    abstract fun quit(): QuitDao
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "batbloom.db").build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "batbloom.db").addMigrations(MIGRATION_1_2).build()
+    }
+}
+
+/** v1 → v2: adds the quit-smoking tables (dose log, slips, side effects, badges). SQL copied from schemas/2.json. */
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `dose_log` (`key` TEXT NOT NULL, `day` INTEGER NOT NULL, `mg` REAL NOT NULL, `tablets` REAL NOT NULL, `status` TEXT NOT NULL, `actedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `slips` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, `count` INTEGER NOT NULL, `note` TEXT)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `side_effects` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, `kind` TEXT NOT NULL, `severity` INTEGER NOT NULL, `note` TEXT)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `badges` (`id` TEXT NOT NULL, `earnedAt` INTEGER NOT NULL, `coins` INTEGER NOT NULL, PRIMARY KEY(`id`))")
     }
 }

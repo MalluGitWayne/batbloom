@@ -60,6 +60,9 @@ fun ShopScreen(modifier: Modifier) {
                     }
                 }
                 when {
+                    !have && p.badge != null -> OutlinedButton({}, enabled = false) {
+                        Text("Earned with the ${com.malluwayne.batbloom.quit.Badges.byId(p.badge).title} badge")
+                    }
                     have && p.id == selected -> OutlinedButton({}, enabled = false) { Text("Planting this") }
                     have -> OutlinedButton({ app.prefs.setSelectedPlant(p.id) }) { Text("Use") }
                     else -> Button(

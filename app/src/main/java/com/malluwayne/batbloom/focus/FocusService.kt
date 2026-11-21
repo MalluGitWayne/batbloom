@@ -181,6 +181,7 @@ class FocusService : Service() {
         }
         notifyResult(title, text)
         BloomWidget.refresh(this)
+        app.appScope.launch { com.malluwayne.batbloom.quit.DoseAlarms.checkBadges(app) }
         stop()
     }
 

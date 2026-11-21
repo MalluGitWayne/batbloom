@@ -19,6 +19,8 @@ data class PlantSpec(
     val glow: Color,
     val petals: Int = 5,
     val shape: PetalShape = PetalShape.Round,
+    /** Earned with this badge instead of coins. */
+    val badge: String? = null,
 )
 
 /** Batbloom's own night plants. Coins from finished sessions unlock them; nothing is bought with money. */
@@ -65,6 +67,13 @@ object PlantCatalog {
             stem = Color(0xFF4A6B45), leaf = Color(0xFF5E8A55),
             petal = Color(0xFFE0453A), petalInner = Color(0xFFFF9A6B), center = Color(0xFFFFE08A),
             glow = Color(0xFFFF6A4D), petals = 6, shape = PetalShape.Pointed,
+        ),
+        PlantSpec(
+            "dawnbreath", "Dawnbreath Lily", 0, "Earned by finishing your quit course. It opens at first light.",
+            PlantKind.Flower,
+            stem = Color(0xFF4F8A6E), leaf = Color(0xFF6FBF94),
+            petal = Color(0xFFFFB38A), petalInner = Color(0xFFFFE3C9), center = Color(0xFFFFF3C4),
+            glow = Color(0xFFFFC9A8), petals = 7, shape = PetalShape.Round, badge = "course",
         ),
     )
 

@@ -66,7 +66,10 @@ fun GardenScreen(modifier: Modifier) {
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Your garden", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Your garden", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.OutlinedButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("Seed shop") }
+                }
                 val blooms = shown.count { it.status == Status.DONE }
                 Text("$blooms bloomed · ${shown.size - blooms} wilted", color = Muted)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

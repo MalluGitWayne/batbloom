@@ -122,7 +122,7 @@ private fun SetupView() {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Batbloom", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("● $coins", color = Gold, fontWeight = FontWeight.Bold)
+            TextButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("● $coins  Shop", color = Gold, fontWeight = FontWeight.Bold) }
         }
         SkyWithPlant(plant, 1f, false, 220)
 
@@ -237,10 +237,15 @@ private fun QuitCard(now: Long) {
     val q = quit ?: return
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
-    val sf = Stats.smokeFree(q, now, zone, smoking)
+    val slips by BatbloomApp.instance.repo.slips.collectAsState(emptyList())
+    val p0 = com.malluwayne.batbloom.quit.QuitMath.progress(
+        q.atStartOfDay(zone), java.time.Instant.ofEpochMilli(now).atZone(zone),
+        smoking.perDay, smoking.packSize, smoking.packPrice, slips.sumOf { it.count },
+    )
+    val sf = Stats.SmokeFreeView(!p0.sinceQuit.isNegative && !p0.sinceQuit.isZero, p0.notSmoked, p0.moneySaved)
     SectionCard(container = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)) {
         Text(Stats.quitLine(q, today), color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        if (sf.days > 0) Text("${sf.notSmoked} cigarettes not smoked · ${rupees(sf.moneySaved)} saved")
+        if (sf.started) Text("${sf.notSmoked} cigarettes not smoked · ${rupees(sf.moneySaved)} saved")
         if (treat.name.isNotBlank() && treat.price > 0) {
             val p = (sf.moneySaved / treat.price).coerceIn(0.0, 1.0).toFloat()
             Text("Treat: ${treat.name} · ${(p * 100).roundToInt()}%", fontSize = 13.sp)

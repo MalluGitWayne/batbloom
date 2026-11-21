@@ -41,6 +41,8 @@ data class CravingSummary(
 )
 
 object Stats {
+    data class SmokeFreeView(val started: Boolean, val notSmoked: Int, val moneySaved: Double)
+
     /** Time since the start of the quit day; zero before it. */
     fun smokeFree(quit: LocalDate, nowMillis: Long, zone: ZoneId, p: SmokingProfile): SmokeFree {
         val start = quit.atStartOfDay(zone).toInstant().toEpochMilli()

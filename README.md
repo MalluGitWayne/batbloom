@@ -20,7 +20,7 @@ A night-garden focus timer for Android. Start a session and a plant grows under 
   - It's a tracker and **does not replace medical advice**.
 - **Garden:** clear wilted plants all at once, or long-press one to remove it.
 - **Seven original night plants** unlock as you bloom (5, 15, 30, 60 and 100 finished sessions); the Dawnbreath Lily comes with finishing the quit course.
-- **Widgets:** the bloom widget paints the night sky with today's plant and your recent plants (centred and larger when you make it tall), its Focus button names the mode it starts, and a **dose button** appears around your dose times to mark it taken in one tap. Two Hevy-style calendars show your consistency: a **study calendar** (days you studied, shaded by your goal) and a **smoke-free calendar** (every clean day since the quit day, slips ringed in red). Both show more weeks as you make them taller. There is also a 1×1 craving button.
+- **Widgets:** the bloom widget paints the night sky with today's plant and your recent plants (centred and larger when you make it tall), its Focus button names the mode it starts, and a **dose button** appears around your dose times to mark it taken in one tap. Two Hevy-style calendars show your consistency: a **study calendar** (days you studied, shaded by your goal) and a **smoke-free calendar** (every clean day since the quit day, slips ringed in red). Both lay out like a workout-history widget: this month, compact, and centred at any size. There is also a 1×1 craving button.
 - Dark theme, no ads, no accounts. Everything is stored on the phone with Room. The internet is used only to check GitHub for updates.
 
 ## Updates

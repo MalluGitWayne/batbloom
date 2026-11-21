@@ -63,7 +63,7 @@ object Calendars {
         var d = if (today in days) today else today.minusDays(1)
         var streak = 0
         while (d in days) { streak++; d = d.minusDays(1) }
-        fun lv(m: Int) = if (goal > 0) (0.35f + 0.65f * (m.toFloat() / goal).coerceIn(0f, 1f)) else 1f
+        fun lv(m: Int) = if (goal > 0) (0.6f + 0.4f * (m.toFloat() / goal).coerceIn(0f, 1f)) else 1f
         val allByDate = study.groupBy { Stats.dayOf(it.startedAt, zone) }.mapValues { (_, l) -> lv(l.sumOf { it.plannedMinutes }) }
         return CalendarData(
             ym, "Study",
@@ -119,6 +119,10 @@ object Calendars {
         )
     }
 
+    /**
+     * The month grid, laid out like a workout-history widget: month name, a compact grid whose text grows with the
+     * widget, and the figures beside it. The whole block is centred, so a taller widget just gets more air around it.
+     */
     fun draw(context: Context, wDp: Int, hDp: Int, m: CalendarData, today: LocalDate): Bitmap {
         val density = context.resources.displayMetrics.density
         val s = min(density, sqrt(700_000f / (wDp * hDp).coerceAtLeast(1)))
@@ -136,39 +140,50 @@ object Calendars {
         c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
         paint.shader = null
 
-        val pad = dp(14f)
+        val pad = dp(16f)
         val wide = wDp >= 230
-        val gridW = if (wide) w * 0.62f else w - 2 * pad
-        val cellW = (gridW - pad) / 7f
-        val top = pad + dp(24f)
-        val gridTop = top + dp(14f)
-        val footer = if (wide) 0f else dp(38f)
-        // As many weeks as fit at a comfortable cell size (4 to 12), ending with this week.
-        val avail = h - gridTop - pad - footer
-        val weeks = (avail / (cellW * 0.92f)).toInt().coerceIn(4, 12)
-        val cellH = min(cellW, avail / weeks)
-        val endOfWeek = today.plusDays((6 - today.dayOfWeek.value % 7).toLong()) // Saturday
-        val first = endOfWeek.minusDays(weeks * 7L - 1)
+        val ym = m.month
+        val offset = ym.atDay(1).dayOfWeek.value % 7 // Sunday first
+        val weeks = (offset + ym.lengthOfMonth() + 6) / 7
+        val gridW = if (wide) (w - 2 * pad) * 0.60f else w - 2 * pad
+        val footerH = if (wide) 0f else dp(40f)
+        val titleH = dp(30f)
+        val headH = dp(18f)
+        // Cells are a little wider than tall (like a printed calendar); never taller than the space allows.
+        val cellW = gridW / 7f
+        val cellH = min(cellW * 0.95f, (h - 2 * pad - titleH - headH - footerH) / weeks).coerceAtLeast(dp(10f))
+        val blockH = titleH + headH + cellH * weeks
+        val top = ((h - footerH - blockH) / 2f).coerceAtLeast(pad)
+        val left = pad
 
-        // Title: name and the months shown
-        val monthsShown = listOf(first, endOfWeek).map { it.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }.distinct()
-        paint.color = 0xFFFFFFFF.toInt(); paint.textSize = dp(14f); paint.typeface = bold
-        c.drawText(m.title, pad, pad + dp(12f), paint)
-        val tw = paint.measureText(m.title)
-        paint.typeface = Typeface.DEFAULT; paint.color = 0xFF9AA0BC.toInt(); paint.textSize = dp(12f)
-        c.drawText("  " + monthsShown.joinToString(" \u2013 "), pad + tw, pad + dp(12f), paint)
+        // Month name, and what this calendar tracks on the right
+        paint.textAlign = Paint.Align.LEFT
+        paint.color = 0xFFFFFFFF.toInt(); paint.typeface = bold
+        paint.textSize = min(dp(20f), cellH * 0.95f).coerceAtLeast(dp(14f))
+        c.drawText(ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault()), left, top + dp(20f), paint)
+        paint.textAlign = Paint.Align.RIGHT
+        paint.typeface = bold; paint.textSize = dp(12f)
+        paint.color = 0xFF000000.toInt() or m.fill
+        c.drawText(m.title.uppercase(), w - pad, top + dp(18f), paint)
 
+        // Weekday letters
         paint.textAlign = Paint.Align.CENTER
-        paint.textSize = dp(10f)
+        paint.typeface = Typeface.DEFAULT
+        paint.color = 0xFF9AA0BC.toInt()
+        val dayText = min(dp(19f), cellH * 0.42f).coerceAtLeast(dp(10f))
+        paint.textSize = dayText * 0.85f
         val order = listOf(DayOfWeek.SUNDAY) + DayOfWeek.entries.filter { it != DayOfWeek.SUNDAY }
-        order.forEachIndexed { i, d -> c.drawText(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), pad + cellW * (i + 0.5f), top + dp(8f), paint) }
+        order.forEachIndexed { i, d -> c.drawText(d.getDisplayName(TextStyle.NARROW, Locale.getDefault()), left + cellW * (i + 0.5f), top + titleH + dp(10f), paint) }
 
+        // Days
+        val gridTop = top + titleH + headH
         val radius = min(cellW, cellH) * 0.42f
-        for (i in 0 until weeks * 7) {
-            val date = first.plusDays(i.toLong())
-            val cx = pad + cellW * (i % 7 + 0.5f)
-            val cy = gridTop + cellH * (i / 7 + 0.5f)
-            val lv = m.levelByDate[date] ?: 0f
+        for (day in 1..ym.lengthOfMonth()) {
+            val idx = offset + day - 1
+            val cx = left + cellW * (idx % 7 + 0.5f)
+            val cy = gridTop + cellH * (idx / 7 + 0.5f)
+            val lv = m.level[day] ?: 0f
+            val date = ym.atDay(day)
             paint.style = Paint.Style.FILL
             if (lv > 0f) {
                 paint.color = m.fill or ((lv.coerceIn(0f, 1f) * 255).toInt() shl 24)
@@ -179,37 +194,40 @@ object Calendars {
                 c.drawCircle(cx, cy, radius, paint); paint.style = Paint.Style.FILL
             }
             when {
-                date in m.flaggedDates -> ring(0xFFFF8A80.toInt())
-                date == m.specialDate -> ring(0xFFFFD27F.toInt())
-                date == today -> ring(0xFFE6E8F2.toInt())
+                day in m.flagged -> ring(0xFFFF8A80.toInt())
+                day == m.special -> ring(0xFFFFD27F.toInt())
+                date == today && lv <= 0f -> ring(0xFFE6E8F2.toInt())
             }
-            // The 1st of a month shows the month's name, so the window reads across months.
-            val label = if (date.dayOfMonth == 1) date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) else "${date.dayOfMonth}"
-            paint.textSize = min(dp(11.5f), cellH * 0.44f) * if (label.length > 2) 0.78f else 1f
+            paint.textSize = dayText
             paint.color = when {
                 lv > 0f -> 0xFF101428.toInt()
-                date.isAfter(today) -> 0x40FFFFFF
-                date.dayOfMonth == 1 -> 0xFFC9B8FF.toInt()
-                else -> 0xFFB4B9D0.toInt()
+                date.isAfter(today) -> 0x66FFFFFF
+                date == today -> 0xFFFFFFFF.toInt()
+                else -> 0xFFD8DCEE.toInt()
             }
-            paint.typeface = if (lv > 0f || date == today || date.dayOfMonth == 1) bold else Typeface.DEFAULT
-            c.drawText(label, cx, cy - (paint.descent() + paint.ascent()) / 2, paint)
+            paint.typeface = if (lv > 0f || date == today) bold else Typeface.DEFAULT
+            c.drawText("$day", cx, cy - (paint.descent() + paint.ascent()) / 2, paint)
         }
 
+        // Figures
         paint.textAlign = Paint.Align.LEFT
         if (wide) {
-            val x = gridW + dp(10f)
-            val block = (h - 2 * pad) / m.figures.size.coerceAtLeast(1)
-            m.figures.forEachIndexed { i, (value, label) ->
-                val y = pad + block * i + block * 0.5f
-                paint.typeface = bold; paint.textSize = dp(19f); paint.color = 0xFFFFFFFF.toInt()
+            val x = left + gridW + dp(18f)
+            val valueSize = min(dp(26f), cellH * 1.1f).coerceAtLeast(dp(17f))
+            val labelSize = (valueSize * 0.5f).coerceIn(dp(11f), dp(14f))
+            val itemH = valueSize + labelSize + dp(14f)
+            val figuresH = itemH * m.figures.size
+            var y = top + titleH + ((blockH - titleH) - figuresH) / 2f + valueSize
+            m.figures.forEach { (value, label) ->
+                paint.typeface = bold; paint.textSize = valueSize; paint.color = 0xFFFFFFFF.toInt()
+                while (paint.measureText(value) > w - pad - x && paint.textSize > dp(12f)) paint.textSize -= dp(0.5f)
                 c.drawText(value, x, y, paint)
-                paint.typeface = Typeface.DEFAULT; paint.textSize = dp(11f); paint.color = 0xFF9AA0BC.toInt()
-                c.drawText(label, x, y + dp(14f), paint)
+                paint.typeface = Typeface.DEFAULT; paint.textSize = labelSize; paint.color = 0xFF9AA0BC.toInt()
+                c.drawText(label, x, y + labelSize + dp(3f), paint)
+                y += itemH
             }
         } else {
-            // Narrow: two figures side by side under the grid, each sized to fit its half.
-            val y = gridTop + cellH * weeks + dp(16f)
+            val y = top + blockH + dp(22f)
             val half = (w - 2 * pad) / 2f
             m.figures.take(2).forEachIndexed { i, (value, label) ->
                 val x = pad + half * i

@@ -121,7 +121,7 @@ object Calendars {
      * The month grid, laid out like a workout-history widget: month name, a compact grid whose text grows with the
      * widget, and the figures beside it. The whole block is centred, so a taller widget just gets more air around it.
      */
-    fun draw(context: Context, wDp: Int, hDp: Int, m: CalendarData, today: LocalDate): Bitmap {
+    fun draw(context: Context, wDp: Int, hDp: Int, m: CalendarData, today: LocalDate, look: WidgetLook = WidgetLook.Dark): Bitmap {
         val density = context.resources.displayMetrics.density
         val s = min(density, sqrt(700_000f / (wDp * hDp).coerceAtLeast(1)))
         val w = (wDp * s).toInt().coerceAtLeast(1)
@@ -134,10 +134,11 @@ object Calendars {
 
         val r = dp(24f)
         c.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, w.toFloat(), h.toFloat()), r, r, Path.Direction.CW) })
-        paint.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), 0xFF141A38.toInt(), 0xFF221B3D.toInt(), Shader.TileMode.CLAMP)
+        paint.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), look.bgTop, look.bgBottom, Shader.TileMode.CLAMP)
         c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
         paint.shader = null
 
+        val fill = if (m.fill == 0x7FE3D0) look.smokeFill else look.studyFill
         val pad = dp(16f)
         val wide = wDp >= 230
         val ym = m.month
@@ -156,18 +157,18 @@ object Calendars {
 
         // Month name, and what this calendar tracks on the right
         paint.textAlign = Paint.Align.LEFT
-        paint.color = 0xFFFFFFFF.toInt(); paint.typeface = bold
+        paint.color = look.text; paint.typeface = bold
         paint.textSize = min(dp(20f), cellH * 0.95f).coerceAtLeast(dp(14f))
         c.drawText(ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault()), left, top + dp(20f), paint)
         paint.textAlign = Paint.Align.RIGHT
         paint.typeface = bold; paint.textSize = dp(12f)
-        paint.color = 0xFF000000.toInt() or m.fill
+        paint.color = 0xFF000000.toInt() or fill
         c.drawText(m.title.uppercase(), w - pad, top + dp(18f), paint)
 
         // Weekday letters
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = Typeface.DEFAULT
-        paint.color = 0xFF9AA0BC.toInt()
+        paint.color = look.muted
         val dayText = min(dp(19f), cellH * 0.42f).coerceAtLeast(dp(10f))
         paint.textSize = dayText * 0.85f
         val order = listOf(DayOfWeek.SUNDAY) + DayOfWeek.entries.filter { it != DayOfWeek.SUNDAY }
@@ -184,7 +185,7 @@ object Calendars {
             val date = ym.atDay(day)
             paint.style = Paint.Style.FILL
             if (lv > 0f) {
-                paint.color = m.fill or ((lv.coerceIn(0f, 1f) * 255).toInt() shl 24)
+                paint.color = fill or ((lv.coerceIn(0f, 1f) * 255).toInt() shl 24)
                 c.drawCircle(cx, cy, radius, paint)
             }
             fun ring(color: Int) {
@@ -194,14 +195,14 @@ object Calendars {
             when {
                 day in m.flagged -> ring(0xFFFF8A80.toInt())
                 day == m.special -> ring(0xFFFFD27F.toInt())
-                date == today && lv <= 0f -> ring(0xFFE6E8F2.toInt())
+                date == today && lv <= 0f -> ring(look.todayRing)
             }
             paint.textSize = dayText
             paint.color = when {
-                lv > 0f -> 0xFF101428.toInt()
-                date.isAfter(today) -> 0x66FFFFFF
-                date == today -> 0xFFFFFFFF.toInt()
-                else -> 0xFFD8DCEE.toInt()
+                lv > 0f -> look.onFill
+                date.isAfter(today) -> look.future
+                date == today -> look.text
+                else -> look.soft
             }
             paint.typeface = if (lv > 0f || date == today) bold else Typeface.DEFAULT
             c.drawText("$day", cx, cy - (paint.descent() + paint.ascent()) / 2, paint)
@@ -217,10 +218,10 @@ object Calendars {
             val figuresH = itemH * m.figures.size
             var y = top + titleH + ((blockH - titleH) - figuresH) / 2f + valueSize
             m.figures.forEach { (value, label) ->
-                paint.typeface = bold; paint.textSize = valueSize; paint.color = 0xFFFFFFFF.toInt()
+                paint.typeface = bold; paint.textSize = valueSize; paint.color = look.text
                 while (paint.measureText(value) > w - pad - x && paint.textSize > dp(12f)) paint.textSize -= dp(0.5f)
                 c.drawText(value, x, y, paint)
-                paint.typeface = Typeface.DEFAULT; paint.textSize = labelSize; paint.color = 0xFF9AA0BC.toInt()
+                paint.typeface = Typeface.DEFAULT; paint.textSize = labelSize; paint.color = look.muted
                 c.drawText(label, x, y + labelSize + dp(3f), paint)
                 y += itemH
             }
@@ -229,10 +230,10 @@ object Calendars {
             val half = (w - 2 * pad) / 2f
             m.figures.take(2).forEachIndexed { i, (value, label) ->
                 val x = pad + half * i
-                paint.typeface = bold; paint.color = 0xFFFFFFFF.toInt(); paint.textSize = dp(15f)
+                paint.typeface = bold; paint.color = look.text; paint.textSize = dp(15f)
                 while (paint.measureText(value) > half - dp(6f) && paint.textSize > dp(9f)) paint.textSize -= dp(0.5f)
                 c.drawText(value, x, y, paint)
-                paint.typeface = Typeface.DEFAULT; paint.color = 0xFF9AA0BC.toInt(); paint.textSize = dp(10.5f)
+                paint.typeface = Typeface.DEFAULT; paint.color = look.muted; paint.textSize = dp(10.5f)
                 while (paint.measureText(label) > half - dp(6f) && paint.textSize > dp(8f)) paint.textSize -= dp(0.5f)
                 c.drawText(label, x, y + dp(14f), paint)
             }
@@ -253,7 +254,7 @@ private fun calendarUpdate(context: Context, provider: Class<*>, build: suspend 
         for (id in ids) {
             val (wDp, hDp) = BloomWidget.sizeDp(manager, id, 250, 150)
             val v = RemoteViews(context.packageName, R.layout.widget_calendar)
-            v.setImageViewBitmap(R.id.wcal_art, Calendars.draw(context, wDp, hDp, data, today))
+            v.setImageViewBitmap(R.id.wcal_art, Calendars.draw(context, wDp, hDp, data, today, WidgetLook.current(context)))
             v.setOnClickPendingIntent(R.id.wcal_root, BloomWidget.launch(context, action, rc))
             manager.updateAppWidget(id, v)
         }

@@ -36,6 +36,12 @@ class BatbloomApp : Application() {
         appScope.launch { DoseAlarms.checkBadges(this@BatbloomApp) }
     }
 
+    /** The phone switched dark/light mode: widgets on System follow it. */
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        BloomWidget.refresh(this)
+    }
+
     companion object {
         lateinit var instance: BatbloomApp private set
     }

@@ -226,3 +226,15 @@ class AutoBackupTest {
         org.junit.Assert.assertEquals("batbloom-auto-2026-11-21.json", A.fileName(java.time.LocalDate.of(2026, 11, 21)))
     }
 }
+
+class WidgetLookTest {
+    @org.junit.Test fun followsTheme() {
+        val W = com.malluwayne.batbloom.widget.WidgetLook
+        org.junit.Assert.assertEquals(W.Dark, W.of(com.malluwayne.batbloom.ui.ThemeMode.Dark, false))
+        org.junit.Assert.assertEquals(W.Oled, W.of(com.malluwayne.batbloom.ui.ThemeMode.Oled, false))
+        org.junit.Assert.assertEquals(W.Light, W.of(com.malluwayne.batbloom.ui.ThemeMode.Light, true))
+        org.junit.Assert.assertEquals(W.Dark, W.of(com.malluwayne.batbloom.ui.ThemeMode.System, true))
+        org.junit.Assert.assertEquals(W.Light, W.of(com.malluwayne.batbloom.ui.ThemeMode.System, false))
+        org.junit.Assert.assertEquals(0xFF000000.toInt(), W.Oled.bgTop)
+    }
+}

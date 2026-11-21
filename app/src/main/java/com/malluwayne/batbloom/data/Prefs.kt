@@ -169,7 +169,10 @@ class Prefs(context: Context) {
         runCatching { com.malluwayne.batbloom.ui.ThemeMode.valueOf(sp.getString("theme", "Dark")!!) }.getOrDefault(com.malluwayne.batbloom.ui.ThemeMode.Dark),
     )
     val theme: StateFlow<com.malluwayne.batbloom.ui.ThemeMode> = _theme
-    fun setTheme(t: com.malluwayne.batbloom.ui.ThemeMode) { sp.edit().putString("theme", t.name).apply(); _theme.value = t }
+    fun setTheme(t: com.malluwayne.batbloom.ui.ThemeMode) {
+        sp.edit().putString("theme", t.name).apply(); _theme.value = t
+        runCatching { com.malluwayne.batbloom.widget.BloomWidget.refresh(com.malluwayne.batbloom.BatbloomApp.instance) }
+    }
 
     // --- Time Guard and reminders ---
 

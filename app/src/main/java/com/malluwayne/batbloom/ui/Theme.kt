@@ -43,7 +43,7 @@ data class Palette(
     val isLight: Boolean,
 )
 
-val DarkPalette = Palette(Color(0xFFB9A3FF), Color(0xFF7FE3D0), Color(0xFFFFD27F), Color(0xFF0B0E1A), Color(0xFF151B30), Color(0xFF9AA0BC), false)
+val DarkPalette = Palette(Color(0xFFB9A3FF), Color(0xFF7FE3D0), Color(0xFFFFD27F), Color(0xFF0F0F13), Color(0xFF1A1A20), Color(0xFF9C9CA8), false)
 val OledPalette = DarkPalette.copy(night = Color(0xFF000000), panel = Color(0xFF0D0D12), muted = Color(0xFF8C90A6))
 val LightPalette = Palette(Color(0xFF6A4FD6), Color(0xFF0D8A79), Color(0xFFA86F00), Color(0xFFF5F4FA), Color(0xFFFFFFFF), Color(0xFF5E6276), true)
 
@@ -74,17 +74,17 @@ private fun darkScheme(p: Palette) = darkColorScheme(
     onBackground = Color(0xFFE6E8F2),
     surface = p.night,
     onSurface = Color(0xFFE6E8F2),
-    surfaceVariant = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF1E2540),
-    onSurfaceVariant = Color(0xFFC0C5DC),
+    surfaceVariant = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF222229),
+    onSurfaceVariant = Color(0xFFC4C4CE),
     surfaceContainer = p.panel,
-    surfaceContainerHigh = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF1B2240),
-    surfaceContainerHighest = if (p.night == Color(0xFF000000)) Color(0xFF1E1E26) else Color(0xFF222A4A),
-    surfaceContainerLow = if (p.night == Color(0xFF000000)) Color(0xFF07070A) else Color(0xFF111628),
+    surfaceContainerHigh = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF222229),
+    surfaceContainerHighest = if (p.night == Color(0xFF000000)) Color(0xFF1E1E26) else Color(0xFF2A2A32),
+    surfaceContainerLow = if (p.night == Color(0xFF000000)) Color(0xFF07070A) else Color(0xFF141418),
     error = Color(0xFFFF8A80),
     errorContainer = Color(0xFF5C1A1A),
     onErrorContainer = Color(0xFFFFDAD6),
-    outline = Color(0xFF4A5275),
-    outlineVariant = Color(0xFF2C3352),
+    outline = Color(0xFF4A4A56),
+    outlineVariant = Color(0xFF2C2C35),
 )
 
 private fun lightScheme(p: Palette) = androidx.compose.material3.lightColorScheme(

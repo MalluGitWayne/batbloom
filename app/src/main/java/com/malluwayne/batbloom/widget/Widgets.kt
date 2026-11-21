@@ -92,6 +92,7 @@ class BloomWidget : AppWidgetProvider() {
             plantBox: FloatArray?, plantId: String?, growth: Float, withered: Boolean,
             garden: List<Pair<String, Boolean>> = emptyList(),
             miniDp: Float = 0f,
+            look: WidgetLook = WidgetLook.Dark,
         ): Bitmap {
             val density = context.resources.displayMetrics.density
             val scale = min(density, sqrt(600_000f / (wDp * hDp).coerceAtLeast(1)))
@@ -102,14 +103,22 @@ class BloomWidget : AppWidgetProvider() {
                 val clip = Path().apply { addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(radiusDp * scale))) }
                 clipPath(clip) {
                     val phase = (System.currentTimeMillis() / 60_000 % 7).toFloat()
-                    drawSky(fly = 0.62f, twinkle = phase, moonAt = Offset(0.9f, 0.15f))
-                    drawFireflies(phase)
+                    val style = when (look.kind) { WidgetLook.Kind.Dark -> 0; WidgetLook.Kind.Oled -> 1; WidgetLook.Kind.Light -> 2 }
+                    drawSky(fly = 0.62f, twinkle = phase, moonAt = Offset(0.9f, 0.15f), style = style)
+                    if (!look.light) drawFireflies(phase)
                     if (plantBox != null && plantId != null) {
                         val (l, t, r, b) = plantBox.map { it * scale }
                         // A low hill for the garden to stand on.
                         val hillTop = b - (b - t) * 0.12f
                         drawOval(
-                            Brush.verticalGradient(listOf(Color(0xFF2E2552), Color(0xFF17122E)), hillTop, size.height),
+                            Brush.verticalGradient(
+                                when (look.kind) {
+                                    WidgetLook.Kind.Light -> listOf(Color(0xFFCFC5EC), Color(0xFFBDB0E3))
+                                    WidgetLook.Kind.Oled -> listOf(Color(0xFF16121F), Color(0xFF0A0810))
+                                    else -> listOf(Color(0xFF2E2552), Color(0xFF17122E))
+                                },
+                                hillTop, size.height,
+                            ),
                             Offset(-size.width * 0.15f, hillTop), Size(size.width * 1.3f, (size.height - hillTop) * 2f),
                         )
                         // Recent plants in a row to the left of today's, newest nearest, sized to stay below the text.
@@ -182,7 +191,8 @@ class BloomWidget : AppWidgetProvider() {
 
             for (id in ids) {
                 val (wDp, hDp) = sizeDp(manager, id, 250, 160)
-                val v = RemoteViews(context.packageName, R.layout.widget_bloom)
+                val look = WidgetLook.current(context)
+                val v = RemoteViews(context.packageName, if (look.light) R.layout.widget_bloom_light else R.layout.widget_bloom)
                 if (endAt != null) {
                     v.setViewVisibility(R.id.w_timer, View.VISIBLE)
                     v.setViewVisibility(R.id.w_main, View.GONE)
@@ -234,7 +244,7 @@ class BloomWidget : AppWidgetProvider() {
                     R.id.w_focus,
                     launch(context, if (endAt != null) MainActivity.ACTION_OPEN else MainActivity.ACTION_FOCUS, if (endAt != null) 14 else 12),
                 )
-                v.setImageViewBitmap(R.id.w_art, paint(context, wDp, hDp, 24f, box, plantId, growth, false, garden, miniDp = mini))
+                v.setImageViewBitmap(R.id.w_art, paint(context, wDp, hDp, 24f, box, plantId, growth, false, garden, miniDp = mini, look = look))
                 v.setOnClickPendingIntent(R.id.w_root, launch(context, MainActivity.ACTION_OPEN, 10))
                 manager.updateAppWidget(id, v)
             }

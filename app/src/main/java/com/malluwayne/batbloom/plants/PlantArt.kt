@@ -349,11 +349,20 @@ fun DrawScope.drawFireflies(phase: Float) {
 }
 
 /** The night sky: gradient, stars, crescent moon and two bats. Also used to paint the home-screen widget. */
-fun DrawScope.drawSky(fly: Float = 0.3f, twinkle: Float = 0f, moonAt: Offset = Offset(0.80f, 0.16f), bats: Boolean = true) {
+/** 0 = night (default), 1 = pure black, 2 = pale dawn (light theme widgets). */
+fun DrawScope.drawSky(fly: Float = 0.3f, twinkle: Float = 0f, moonAt: Offset = Offset(0.80f, 0.16f), bats: Boolean = true, style: Int = 0) {
     val w = size.width
     val h = size.height
-    drawRect(Brush.verticalGradient(listOf(Color(0xFF070A18), Color(0xFF141A38), Color(0xFF221B3D))))
-    skyStars.forEach { (x, y, s) ->
+    drawRect(
+        Brush.verticalGradient(
+            when (style) {
+                1 -> listOf(Color(0xFF000000), Color(0xFF000000), Color(0xFF07060D))
+                2 -> listOf(Color(0xFFEDE9FA), Color(0xFFDCD4F2), Color(0xFFC9BDE8))
+                else -> listOf(Color(0xFF070A18), Color(0xFF141A38), Color(0xFF221B3D))
+            },
+        ),
+    )
+    if (style != 2) skyStars.forEach { (x, y, s) ->
         val a = 0.35f + 0.5f * ((sin(twinkle + s * 9f) + 1f) / 2f)
         drawCircle(Color.White.copy(alpha = a), (1f + s * 2.2f) * (min(w, h) / 600f).coerceAtLeast(0.6f), Offset(x * w, y * h))
     }
@@ -362,12 +371,12 @@ fun DrawScope.drawSky(fly: Float = 0.3f, twinkle: Float = 0f, moonAt: Offset = O
     drawCircle(Brush.radialGradient(listOf(Color(0x33FFF3C4), Color.Transparent), moonC, moonR * 3f), moonR * 3f, moonC)
     val moon = Path().apply { addOval(Rect(moonC, moonR)) }
     val bite = Path().apply { addOval(Rect(moonC + Offset(moonR * 0.45f, -moonR * 0.2f), moonR * 0.9f)) }
-    drawPath(Path.combine(PathOperation.Difference, moon, bite), Color(0xFFFFF3C4))
+    drawPath(Path.combine(PathOperation.Difference, moon, bite), if (style == 2) Color(0xFFE2B455) else Color(0xFFFFF3C4))
     if (bats) listOf(0f to 0.22f, 0.45f to 0.34f).forEachIndexed { i, (offset, y) ->
         val p = (fly + offset) % 1f
         val x = -0.1f * w + p * 1.2f * w
         val flap = sin(p * 60f + i) * 0.35f
-        drawBat(Offset(x, h * y + sin(p * 12f) * h * 0.02f), min(w, h) * (0.035f - i * 0.008f), flap)
+        drawBat(Offset(x, h * y + sin(p * 12f) * h * 0.02f), min(w, h) * (0.035f - i * 0.008f), flap, if (style == 2) Color(0xFF3A3352) else Color(0xFF05060E))
     }
 }
 

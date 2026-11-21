@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -365,6 +366,8 @@ private fun RunningView(s: State.Running) {
     val sw = s.request.stopwatch
     val progress = if (sw) Rules.stopwatchGrowth(now - s.startAt) else Rules.progress(s.startAt, s.endAt, now)
     var confirm by remember { mutableStateOf(false) }
+    var clockMode by remember { mutableStateOf(false) }
+    if (clockMode) ClockMode(s, onExit = { clockMode = false })
     val hasUsage = remember { Device.hasUsageAccess(ctx) }
     val reason by BatbloomApp.instance.prefs.quitReason.collectAsState()
     Column(
@@ -389,7 +392,10 @@ private fun RunningView(s: State.Running) {
         }
         if (!hasUsage) Text("Leave detection is off", color = Muted, fontSize = 12.sp)
 
-        TextButton({ confirm = true }) { Text("Give up", color = MaterialTheme.colorScheme.error) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton({ clockMode = true }) { Text("Clock mode") }
+            TextButton({ confirm = true }) { Text("Give up", color = MaterialTheme.colorScheme.error) }
+        }
     }
     if (confirm) AlertDialog(
         onDismissRequest = { confirm = false },
@@ -457,5 +463,56 @@ fun AppLogo(sizeDp: Int) {
         val m = Modifier.fillMaxSize().graphicsLayer(scaleX = 1.5f, scaleY = 1.5f)
         androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.malluwayne.batbloom.R.drawable.ic_launcher_background), null, m)
         androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.malluwayne.batbloom.R.drawable.ic_launcher_foreground), null, m)
+    }
+}
+
+
+/**
+ * Clock mode: black, dim, always-on screen with the timer, like an always-on display. The text drifts a little every
+ * minute so the screen doesn't burn in. Tap anywhere to leave. The session keeps running either way.
+ */
+@Composable
+private fun ClockMode(s: State.Running, onExit: () -> Unit) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onExit,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        val view = androidx.compose.ui.platform.LocalView.current
+        androidx.compose.runtime.DisposableEffect(Unit) {
+            val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+            view.keepScreenOn = true
+            window?.let { w ->
+                w.attributes = w.attributes.apply { screenBrightness = 0.05f }
+                androidx.core.view.WindowCompat.getInsetsController(w, view).apply {
+                    hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                    systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+            }
+            onDispose { view.keepScreenOn = false }
+        }
+        val now = rememberNow()
+        val sw = s.request.stopwatch
+        val minute = (now / 60_000).toInt()
+        val dx = ((minute * 37) % 61 - 30).dp
+        val dy = ((minute * 53) % 121 - 60).dp
+        val endsAt = remember(s.endAt) { java.time.format.DateTimeFormatter.ofPattern("h:mm a").format(java.time.Instant.ofEpochMilli(s.endAt).atZone(ZoneId.systemDefault())) }
+        Box(
+            Modifier.fillMaxSize().background(Color.Black).clickable(onClick = onExit),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(dx, dy)) {
+                Box(Modifier.size(90.dp).graphicsLayer(alpha = 0.55f)) {
+                    PlantArt(PlantCatalog.byId(s.plantId), if (sw) Rules.stopwatchGrowth(now - s.startAt) else Rules.progress(s.startAt, s.endAt, now), false, Modifier.fillMaxSize(), animate = false)
+                }
+                Text(
+                    clock(if (sw) now - s.startAt else s.endAt - now),
+                    color = Color(0xFFBDBDC8), fontSize = 64.sp, fontWeight = FontWeight.Light,
+                )
+                Text(
+                    listOfNotNull(s.tag, s.subject).joinToString(" \u00B7 ") + if (sw) "" else "  \u00B7  ends $endsAt",
+                    color = Color(0xFF6E6E7A), fontSize = 14.sp,
+                )
+            }
+        }
     }
 }

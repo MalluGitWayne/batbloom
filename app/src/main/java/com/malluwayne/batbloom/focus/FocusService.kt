@@ -257,6 +257,8 @@ class FocusService : Service() {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setContentIntent(openApp())
             .addAction(0, if (FocusEngine.state.value is State.Break) "End cycle" else "Give up", giveUp)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .addExtras(android.os.Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
             .apply {
                 if ((FocusEngine.state.value as? State.Running)?.request?.stopwatch == true) addAction(
                     0, "Stop",

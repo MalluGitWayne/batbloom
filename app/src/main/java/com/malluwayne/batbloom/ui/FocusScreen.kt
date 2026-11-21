@@ -117,7 +117,6 @@ private fun SetupView() {
     val prefs = app.prefs
     val ctx = LocalContext.current
     val coins by app.repo.coins.collectAsState(0)
-    val owned by app.repo.unlocked.collectAsState(setOf("moonflower"))
     val sessions by app.repo.sessions.collectAsState(emptyList())
     val minutes by prefs.minutes.collectAsState()
     val tag by prefs.tag.collectAsState()
@@ -126,58 +125,115 @@ private fun SetupView() {
     val pomodoro by prefs.pomodoro.collectAsState()
     val stopwatch by prefs.stopwatch.collectAsState()
     val plan by prefs.plan.collectAsState()
-    val custom by prefs.customTags.collectAsState()
+    val goal by prefs.dailyGoal.collectAsState()
+    val exam by prefs.examDate.collectAsState()
+    val quit by prefs.quitDate.collectAsState()
     val now = rememberNow(60_000)
-    var pickSubject by remember { mutableStateOf(false) }
-    var addTag by remember { mutableStateOf(false) }
+    var pickWhat by remember { mutableStateOf(false) }
+    var pickPlant by remember { mutableStateOf(false) }
+    var editPlan by remember { mutableStateOf(false) }
+    var explainUsage by remember { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val summary = remember(sessions, today) { Stats.compute(sessions, today, zone) }
+    val due = remember(sessions, today) { com.malluwayne.batbloom.stats.Revision.due(sessions, today, zone) }
     val hasUsage = remember(now) { Device.hasUsageAccess(ctx) }
 
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // Header: logo, name, coins (tap for the shop)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AppLogo(40)
+            AppLogo(32)
             Spacer(Modifier.width(10.dp))
-            Text("Batbloom", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("● $coins  Shop", color = Gold, fontWeight = FontWeight.Bold) }
+            Text("Batbloom", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton({ com.malluwayne.batbloom.Nav.shop.value = true }) { Text("\u25CF $coins", color = Gold, fontWeight = FontWeight.SemiBold) }
         }
         UpdateBanner { com.malluwayne.batbloom.Nav.tab.value = 4 }
-        SkyWithPlant(plant, 1f, false, 220)
+        Spacer(Modifier.height(8.dp))
 
-        QuitCard(now)
-        FmgeCard(summary.fmgeTodayMinutes)
-
-        if (!hasUsage) UsageAccessCard()
-
-        // Mode
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(!pomodoro && !stopwatch, { prefs.setPomodoro(false); prefs.setStopwatch(false) }, { Text("Timer") })
-            FilterChip(pomodoro, { prefs.setPomodoro(true) }, { Text("Pomodoro") })
-            FilterChip(stopwatch, { prefs.setStopwatch(true) }, { Text("Stopwatch") })
-        }
-        if (stopwatch) {
+        // The plant; tap it to choose another
+        Box(Modifier.clip(RoundedCornerShape(28.dp)).clickable { pickPlant = true }) {
+            SkyWithPlant(plant, 1f, false, 280)
             Text(
-                "Counts up until you stop it. Your plant is in full bloom after ${Rules.STOPWATCH_BLOOM_MINUTES} min; it needs at least " +
-                    "${Rules.MIN_MINUTES} min to count, and stops by itself at ${Rules.STOPWATCH_MAX_MINUTES / 60} hours.",
-                color = Muted, fontSize = 13.sp,
+                "${PlantCatalog.byId(plant).name}  \u203A", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.TopStart).padding(16.dp),
             )
-        } else if (!pomodoro) {
-            Text("$minutes min", fontSize = 40.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-            Slider(
-                value = minutes.toFloat(),
-                onValueChange = { prefs.setMinutes((it / 5).roundToInt() * 5) },
-                valueRange = Rules.MIN_MINUTES.toFloat()..Rules.MAX_MINUTES.toFloat(),
-                steps = (Rules.MAX_MINUTES - Rules.MIN_MINUTES) / 5 - 1,
-                colors = androidx.compose.material3.SliderDefaults.colors(
-                    activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent,
-                ),
-            )
-        } else {
-            SectionCard {
+        }
+
+        // One quiet status line
+        val status = listOfNotNull(
+            if (goal > 0) "FMGE ${Rules.formatMinutes(summary.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}" else null,
+            exam?.let { Stats.examLine(it, today) },
+            quit?.let { Stats.quitLine(it, today) },
+        ).joinToString("  \u00B7  ")
+        if (status.isNotEmpty()) Text(status, color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+        if (due.isNotEmpty()) Text(
+            "Revise today: " + due.take(3).joinToString(", ") { it.subject },
+            color = Gold, fontSize = 13.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp).clickable { prefs.setTag(Tags.FMGE); prefs.setSubject(due.first().subject) },
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        // Mode, then the length
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            ModeTab("Timer", !pomodoro && !stopwatch) { prefs.setPomodoro(false); prefs.setStopwatch(false) }
+            ModeTab("Pomodoro", pomodoro) { prefs.setPomodoro(true) }
+            ModeTab("Stopwatch", stopwatch) { prefs.setStopwatch(true) }
+        }
+        Spacer(Modifier.height(8.dp))
+        when {
+            stopwatch -> {
+                Text("Count up", fontSize = 44.sp, fontWeight = FontWeight.Bold)
+                Text("Stop when you\u2019re done \u00B7 at least ${Rules.MIN_MINUTES} min", color = Muted, fontSize = 13.sp)
+            }
+            pomodoro -> {
+                Text("${plan.rounds} \u00D7 ${plan.focusMinutes} min", fontSize = 44.sp, fontWeight = FontWeight.Bold)
+                TextButton({ editPlan = true }) {
+                    Text("${plan.shortBreak} min breaks \u00B7 ${plan.longBreak} min long break  \u203A", color = Muted, fontSize = 13.sp)
+                }
+            }
+            else -> {
+                Text("$minutes min", fontSize = 44.sp, fontWeight = FontWeight.Bold)
+                Slider(
+                    value = minutes.toFloat(),
+                    onValueChange = { prefs.setMinutes((it / 5).roundToInt() * 5) },
+                    valueRange = Rules.MIN_MINUTES.toFloat()..Rules.MAX_MINUTES.toFloat(),
+                    steps = (Rules.MAX_MINUTES - Rules.MIN_MINUTES) / 5 - 1,
+                    colors = androidx.compose.material3.SliderDefaults.colors(
+                        activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent,
+                    ),
+                )
+            }
+        }
+
+        // What you are focusing on: one tap to change
+        TextButton({ pickWhat = true }) {
+            Text(listOfNotNull(tag, if (tag == Tags.FMGE) subject else null).joinToString(" \u00B7 ") + "  \u203A", fontSize = 15.sp)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = { Starter.fromPrefs(ctx) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Text(if (stopwatch) "Start stopwatch" else if (pomodoro) "Start Pomodoro" else "Start", fontSize = 18.sp)
+        }
+        TextButton({ Starter.craving(ctx) }, Modifier.padding(top = 4.dp)) {
+            Text("Craving? 10-minute bloom", color = Gold, fontWeight = FontWeight.SemiBold)
+        }
+        if (!hasUsage) TextButton({ explainUsage = true }) {
+            Text("Leave detection is off \u00B7 Turn on", color = Muted, fontSize = 12.sp)
+        }
+    }
+
+    if (pickWhat) FocusOnDialog { pickWhat = false }
+    if (pickPlant) PlantDialog { pickPlant = false }
+    if (editPlan) AlertDialog(
+        onDismissRequest = { editPlan = false },
+        confirmButton = { TextButton({ editPlan = false }) { Text("Done") } },
+        title = { Text("Pomodoro") },
+        text = {
+            Column {
                 Stepper("Focus", plan.focusMinutes, 10, 60, 5, "min") { prefs.setPlan(plan.copy(focusMinutes = it)) }
                 Stepper("Short break", plan.shortBreak, 1, 15, 1, "min") { prefs.setPlan(plan.copy(shortBreak = it)) }
                 Stepper("Long break", plan.longBreak, 5, 40, 5, "min") { prefs.setPlan(plan.copy(longBreak = it)) }
@@ -187,68 +243,102 @@ private fun SetupView() {
                     color = Muted, fontSize = 12.sp,
                 )
             }
-        }
-
-        Text("Tag", color = Muted)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            (Tags.all.filter { it != Tags.CRAVING } + custom).forEach { t ->
-                FilterChip(tag == t, { prefs.setTag(t) }, { Text(t) })
-            }
-            FilterChip(false, { addTag = true }, { Text("+ Tag") })
-        }
-        if (tag == Tags.FMGE) {
-            OutlinedButton(onClick = { pickSubject = true }, modifier = Modifier.fillMaxWidth()) { Text("Subject: $subject") }
-        }
-
-        SoundPicker(live = false)
-
-        Text("Plant", color = Muted)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(PlantCatalog.all.filter { it.id in owned }) { p ->
-                Box(
-                    Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(Panel)
-                        .border(2.dp, if (p.id == plant) Lavender else Color.Transparent, RoundedCornerShape(16.dp))
-                        .clickable { prefs.setSelectedPlant(p.id) },
-                ) { PlantArt(p, 1f, false, Modifier.fillMaxSize(), animate = false) }
-            }
-        }
-
-        Button(onClick = { Starter.fromPrefs(ctx) }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-            Text(if (stopwatch) "Start stopwatch" else if (pomodoro) "Start Pomodoro" else "Plant & focus", fontSize = 18.sp)
-        }
-        Button(
-            onClick = { Starter.craving(ctx) },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = MaterialTheme.colorScheme.onTertiary),
-        ) { Text("Craving? Grow a 10-minute bloom", fontWeight = FontWeight.Bold) }
-        Spacer(Modifier.height(8.dp))
-    }
-
-    if (pickSubject) AlertDialog(
-        onDismissRequest = { pickSubject = false },
-        confirmButton = { TextButton({ pickSubject = false }) { Text("Close") } },
-        title = { Text("FMGE subject") },
+        },
+    )
+    if (explainUsage) AlertDialog(
+        onDismissRequest = { explainUsage = false },
+        title = { Text("Leave detection") },
         text = {
-            LazyColumn {
-                items(Tags.fmgeSubjects) { s ->
-                    Text(
-                        s, Modifier.fillMaxWidth().clickable { prefs.setSubject(s); pickSubject = false }.padding(vertical = 12.dp),
-                        color = if (s == subject) Lavender else MaterialTheme.colorScheme.onSurface,
-                    )
+            Text(
+                "To notice when you switch to another app during a session, Batbloom needs Usage access. It only checks which app is on " +
+                    "screen while a plant is growing, and that never leaves your phone.",
+            )
+        },
+        confirmButton = {
+            TextButton({ explainUsage = false; ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) { Text("Open Usage access") }
+        },
+        dismissButton = { TextButton({ explainUsage = false }) { Text("Not now") } },
+    )
+}
+
+@Composable
+private fun ModeTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        color = if (selected) MaterialTheme.colorScheme.onSurface else Muted,
+        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        fontSize = 14.sp,
+        modifier = Modifier.clip(RoundedCornerShape(50))
+            .background(if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+    )
+}
+
+/** Tag, FMGE subject and custom tags, in one dialog. */
+@Composable
+private fun FocusOnDialog(onClose: () -> Unit) {
+    val prefs = BatbloomApp.instance.prefs
+    val tag by prefs.tag.collectAsState()
+    val subject by prefs.subject.collectAsState()
+    val custom by prefs.customTags.collectAsState()
+    var adding by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = { TextButton(onClose) { Text("Done") } },
+        title = { Text("Focusing on") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (Tags.all.filter { it != Tags.CRAVING } + custom).forEach { t -> FilterChip(tag == t, { prefs.setTag(t) }, { Text(t) }) }
+                    FilterChip(false, { adding = true }, { Text("+ Tag") })
+                }
+                if (adding) Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(text, { text = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("New tag") })
+                    TextButton({ prefs.addTag(text); prefs.setTag(text.trim().take(20)); adding = false; text = "" }) { Text("Add") }
+                }
+                if (tag == Tags.FMGE) {
+                    Text("Subject", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                    Tags.fmgeSubjects.forEach { s ->
+                        Text(
+                            s, Modifier.fillMaxWidth().clickable { prefs.setSubject(s) }.padding(vertical = 9.dp),
+                            color = if (s == subject) Lavender else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (s == subject) FontWeight.SemiBold else FontWeight.Normal,
+                        )
+                    }
                 }
             }
         },
     )
-    if (addTag) {
-        var text by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { addTag = false },
-            confirmButton = { TextButton({ prefs.addTag(text); prefs.setTag(text.trim().take(20)); addTag = false }) { Text("Add") } },
-            dismissButton = { TextButton({ addTag = false }) { Text("Cancel") } },
-            title = { Text("New tag") },
-            text = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text("e.g. Revision, Grand test") }) },
-        )
-    }
+}
+
+@Composable
+private fun PlantDialog(onClose: () -> Unit) {
+    val app = BatbloomApp.instance
+    val owned by app.repo.unlocked.collectAsState(setOf("moonflower"))
+    val plant by app.prefs.selectedPlant.collectAsState()
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = { TextButton({ onClose(); com.malluwayne.batbloom.Nav.shop.value = true }) { Text("Seed shop") } },
+        dismissButton = { TextButton(onClose) { Text("Close") } },
+        title = { Text("Plant") },
+        text = {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                PlantCatalog.all.filter { it.id in owned }.forEach { p ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(76.dp).clickable { app.prefs.setSelectedPlant(p.id); onClose() },
+                    ) {
+                        Box(
+                            Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(Panel)
+                                .border(2.dp, if (p.id == plant) Lavender else Color.Transparent, RoundedCornerShape(16.dp)),
+                        ) { PlantArt(p, 1f, false, Modifier.fillMaxSize(), animate = false) }
+                        Text(p.name, fontSize = 11.sp, maxLines = 1, color = Muted)
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -258,75 +348,6 @@ private fun Stepper(label: String, value: Int, min: Int, max: Int, step: Int, un
         TextButton({ onChange((value - step).coerceAtLeast(min)) }) { Text("−", fontSize = 20.sp) }
         Text("$value $unit".trim(), Modifier.width(64.dp), textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold)
         TextButton({ onChange((value + step).coerceAtMost(max)) }) { Text("+", fontSize = 20.sp) }
-    }
-}
-
-@Composable
-private fun QuitCard(now: Long) {
-    val prefs = BatbloomApp.instance.prefs
-    val quit by prefs.quitDate.collectAsState()
-    val smoking by prefs.smoking.collectAsState()
-    val reason by prefs.quitReason.collectAsState()
-    val treat by prefs.treat.collectAsState()
-    val q = quit ?: return
-    val zone = ZoneId.systemDefault()
-    val today = LocalDate.now(zone)
-    val slips by BatbloomApp.instance.repo.slips.collectAsState(emptyList())
-    val p0 = com.malluwayne.batbloom.quit.QuitMath.progress(
-        q.atStartOfDay(zone), java.time.Instant.ofEpochMilli(now).atZone(zone),
-        smoking.perDay, smoking.packSize, smoking.packPrice, slips.sumOf { it.count },
-    )
-    val sf = Stats.SmokeFreeView(!p0.sinceQuit.isNegative && !p0.sinceQuit.isZero, p0.notSmoked, p0.moneySaved)
-    SectionCard(container = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)) {
-        Text(Stats.quitLine(q, today), color = Gold, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        if (sf.started) Text("${sf.notSmoked} cigarettes not smoked · ${rupees(sf.moneySaved)} saved")
-        if (treat.name.isNotBlank() && treat.price > 0) {
-            val p = (sf.moneySaved / treat.price).coerceIn(0.0, 1.0).toFloat()
-            Text("Treat: ${treat.name} · ${(p * 100).roundToInt()}%", fontSize = 13.sp)
-            LinearProgressIndicator({ p }, Modifier.fillMaxWidth(), color = Gold)
-        }
-        if (reason.isNotBlank()) Text("“$reason”", color = Muted, fontSize = 13.sp)
-    }
-}
-
-@Composable
-private fun FmgeCard(todayMinutes: Int) {
-    val prefs = BatbloomApp.instance.prefs
-    val exam by prefs.examDate.collectAsState()
-    val goal by prefs.dailyGoal.collectAsState()
-    val tag by prefs.tag.collectAsState()
-    if (exam == null && tag != Tags.FMGE) return
-    SectionCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("FMGE today", Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-            Text("${Rules.formatMinutes(todayMinutes)} / ${Rules.formatMinutes(goal)}", color = Teal)
-        }
-        LinearProgressIndicator({ if (goal > 0) (todayMinutes.toFloat() / goal).coerceAtMost(1f) else 0f }, Modifier.fillMaxWidth(), color = Teal)
-        exam?.let { Text(Stats.examLine(it, LocalDate.now()), color = Muted, fontSize = 13.sp) }
-        val sessions by BatbloomApp.instance.repo.sessions.collectAsState(emptyList())
-        val today = LocalDate.now()
-        val due = remember(sessions, today) { com.malluwayne.batbloom.stats.Revision.due(sessions, today, ZoneId.systemDefault()) }
-        if (due.isNotEmpty()) {
-            Text("Due for revision", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                due.take(6).forEach { d ->
-                    FilterChip(false, { prefs.setTag(Tags.FMGE); prefs.setSubject(d.subject) }, { Text(com.malluwayne.batbloom.stats.Revision.label(d, today), fontSize = 12.sp) })
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UsageAccessCard() {
-    val ctx = LocalContext.current
-    SectionCard("Turn on leave detection", container = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)) {
-        Text(
-            "To know when you switch to another app during a session, Batbloom needs Usage access. " +
-                "It only checks which app is on screen while a plant is growing, on this phone. Which apps you use never leaves your phone.",
-            fontSize = 13.sp,
-        )
-        Button({ ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }) { Text("Open Usage access") }
     }
 }
 
@@ -363,18 +384,15 @@ private fun RunningView(s: State.Running) {
             Button({ FocusEngine.stop(ctx) }, Modifier.fillMaxWidth()) { Text(if (enough) "Stop & plant it" else "Stop (needs ${Rules.MIN_MINUTES} min)") }
         }
         Text("${PlantCatalog.byId(s.plantId).name} · ${stageFor(progress).label}", color = Lavender)
-        LinearProgressIndicator({ progress }, Modifier.fillMaxWidth())
 
         s.warningSeconds?.let {
             SectionCard(container = MaterialTheme.colorScheme.errorContainer) {
                 Text("Your plant is wilting! Leave ${s.warningApp ?: "that app"} within ${it}s.", fontWeight = FontWeight.Bold)
             }
         }
-        if (!hasUsage) Text("Leave detection is off. Turn on Usage access from the Focus screen.", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
+        if (!hasUsage) Text("Leave detection is off", color = Muted, fontSize = 12.sp)
 
         if (s.tag == Tags.CRAVING) CravingPanel(s, now, reason)
-
-        SoundPicker(live = true)
 
         TextButton({ confirm = true }) { Text("Give up", color = MaterialTheme.colorScheme.error) }
     }

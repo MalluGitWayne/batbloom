@@ -121,35 +121,3 @@ class CalendarWidgetTest {
     }
 }
 
-class SoundTest {
-    private fun samples(s: com.malluwayne.batbloom.sound.Sound, seconds: Double = 3.0): FloatArray {
-        val g = com.malluwayne.batbloom.sound.SoundGenerator(s, 44_100, seed = 7)
-        return FloatArray((44_100 * seconds).toInt()).also { g.fill(it) }
-    }
-    private fun rms(a: FloatArray) = kotlin.math.sqrt(a.map { it.toDouble() * it }.average())
-    /** Average sample-to-sample change: high for hissy sounds, low for deep ones. */
-    private fun roughness(a: FloatArray) = (1 until a.size).map { kotlin.math.abs(a[it] - a[it - 1]).toDouble() }.average()
-
-    @org.junit.Test fun everySoundIsAudibleAndInRange() {
-        com.malluwayne.batbloom.sound.Sound.entries.filter { it != com.malluwayne.batbloom.sound.Sound.Off }.forEach { s ->
-            val a = samples(s)
-            org.junit.Assert.assertTrue("$s in range", a.all { it in -1f..1f })
-            org.junit.Assert.assertTrue("$s audible (rms ${rms(a)})", rms(a) > 0.02)
-            org.junit.Assert.assertTrue("$s not clipping much", a.count { kotlin.math.abs(it) >= 0.999f } < a.size / 200)
-        }
-        org.junit.Assert.assertEquals(0.0, rms(samples(com.malluwayne.batbloom.sound.Sound.Off)), 0.0)
-    }
-
-    @org.junit.Test fun brownIsDeeperThanRain() {
-        val brown = roughness(samples(com.malluwayne.batbloom.sound.Sound.Brown)) / rms(samples(com.malluwayne.batbloom.sound.Sound.Brown))
-        val rain = roughness(samples(com.malluwayne.batbloom.sound.Sound.Rain)) / rms(samples(com.malluwayne.batbloom.sound.Sound.Rain))
-        org.junit.Assert.assertTrue("brown $brown < rain $rain", brown < rain / 2)
-    }
-
-    @org.junit.Test fun oceanSwells() {
-        // Loudness over ~9 s waves: the loudest second is clearly louder than the quietest.
-        val a = samples(com.malluwayne.batbloom.sound.Sound.Ocean, 18.0)
-        val perSecond = (0 until 18).map { i -> rms(a.copyOfRange(i * 44_100, (i + 1) * 44_100)) }
-        org.junit.Assert.assertTrue(perSecond.max() > perSecond.min() * 1.8)
-    }
-}

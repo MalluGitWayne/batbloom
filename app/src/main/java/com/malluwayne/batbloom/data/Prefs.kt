@@ -162,18 +162,6 @@ class Prefs(context: Context) {
         get() = sp.getString("stock_warn", "")!!
         set(v) { sp.edit().putString("stock_warn", v).apply() }
 
-    // --- Ambient sound ---
-
-    private val _sound = MutableStateFlow(
-        runCatching { com.malluwayne.batbloom.sound.Sound.valueOf(sp.getString("sound", "Off")!!) }.getOrDefault(com.malluwayne.batbloom.sound.Sound.Off),
-    )
-    val sound: StateFlow<com.malluwayne.batbloom.sound.Sound> = _sound
-    fun setSound(s: com.malluwayne.batbloom.sound.Sound) { sp.edit().putString("sound", s.name).apply(); _sound.value = s }
-
-    private val _soundVolume = MutableStateFlow(sp.getFloat("sound_vol", 0.6f))
-    val soundVolume: StateFlow<Float> = _soundVolume
-    fun setSoundVolume(v: Float) { sp.edit().putFloat("sound_vol", v).apply(); _soundVolume.value = v }
-
     // --- Time Guard and reminders ---
 
     /** Daily limits in minutes per app package. */

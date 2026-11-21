@@ -202,6 +202,9 @@ fun QuitScreen(modifier: Modifier) {
             }
         }
 
+        // Everything below folds up: tap a section to open it.
+        androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Milestones
         if (q != null) SectionCard("Health milestones") {
             val since = java.time.Duration.between(q.atStartOfDay(zone), now)
@@ -302,6 +305,8 @@ fun QuitScreen(modifier: Modifier) {
             }
         }
 
+        }
+        }
         Text(
             "Batbloom helps you keep track. It does not replace advice from your doctor or pharmacist; follow their instructions for your tablets. " +
                 "All of this stays on your phone.",

@@ -200,6 +200,8 @@ private fun SetupView() {
             OutlinedButton(onClick = { pickSubject = true }, modifier = Modifier.fillMaxWidth()) { Text("Subject: $subject") }
         }
 
+        SoundPicker(live = false)
+
         Text("Plant", color = Muted)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(PlantCatalog.all.filter { it.id in owned }) { p ->
@@ -371,6 +373,8 @@ private fun RunningView(s: State.Running) {
         if (!hasUsage) Text("Leave detection is off. Turn on Usage access from the Focus screen.", color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
 
         if (s.tag == Tags.CRAVING) CravingPanel(s, now, reason)
+
+        SoundPicker(live = true)
 
         TextButton({ confirm = true }) { Text("Give up", color = MaterialTheme.colorScheme.error) }
     }

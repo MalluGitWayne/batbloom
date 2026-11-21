@@ -3,6 +3,7 @@
 A night-garden focus timer for Android. Start a session and a plant grows under the moon. Leave for a distracting app and it wilts.
 
 - **Focus sessions** of 10–120 min, **Pomodoro** cycles (focus rounds with short and long breaks that start on their own), or a **stopwatch** that counts up until you stop it (at least 10 min to count).
+- **Ambient sounds:** rain, brown noise, ocean or night crickets, generated on the phone (no audio files). They play during focus rounds, go quiet for breaks, can be previewed and changed mid-session, and have a Sound off button in the notification.
 - **Leave detection.** With Usage access on, opening an app that isn't on your allow list gives you 10 seconds to come back. After that the plant wilts. The home screen, phone calls and the lock screen are always allowed.
 - **Garden** of every session, **stats** (today, this week, streak, success rate, minutes per tag), and **FMGE** tracking: a subject picker, minutes per subject (subjects not started yet are listed), a daily goal and an exam countdown.
 - **MCQ practice** is a subject of its own (tracked in stats, not in spaced revision).

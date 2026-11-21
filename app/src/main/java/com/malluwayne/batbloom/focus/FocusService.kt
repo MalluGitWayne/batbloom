@@ -21,6 +21,7 @@ import com.malluwayne.batbloom.R
 import com.malluwayne.batbloom.data.SessionEntity
 import com.malluwayne.batbloom.focus.FocusEngine.State
 import com.malluwayne.batbloom.plants.PlantCatalog
+import com.malluwayne.batbloom.sound.AmbientPlayer
 import com.malluwayne.batbloom.widget.BloomWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,7 @@ class FocusService : Service() {
                 }
             }
             ACTION_STOP -> (FocusEngine.state.value as? State.Running)?.let { stopStopwatch(it) }
+            ACTION_SOUND_OFF -> { app.prefs.setSound(com.malluwayne.batbloom.sound.Sound.Off); AmbientPlayer.stop(); showOngoing() }
             ACTION_GIVE_UP -> when (val s = FocusEngine.state.value) {
                 is State.Running -> roundOver(s, success = false, reason = "gave up")
                 is State.Break -> finishAll(State.Finished(s.blooms > 0, s.request, s.request.plan?.focusMinutes ?: 0, s.coins, null, s.blooms, s.request.plan?.rounds))
@@ -94,6 +96,7 @@ class FocusService : Service() {
         val r = State.Running(-1, req, minutes, start, start + minutes * 60_000L, round, blooms, coins)
         guard = LeaveGuard()
         FocusEngine.state.value = r
+        AmbientPlayer.play(app.prefs.sound.value, app.prefs.soundVolume.value)
         showOngoing()
         scheduleAlarm(r.endAt)
         scope.launch {
@@ -170,6 +173,7 @@ class FocusService : Service() {
             val now = System.currentTimeMillis()
             val b = State.Break(r.request, now, now + plan.breakAfter(round) * 60_000L, round + 1, plan.isLongBreak(round), blooms, coins)
             FocusEngine.state.value = b
+            AmbientPlayer.stop() // breaks are quiet; the sound comes back with the next round
             notifyResult("Round $round bloomed! Break time", "${plan.breakAfter(round)} min break, then round ${round + 1} of ${plan.rounds} starts by itself.")
             showOngoing()
             scheduleAlarm(b.endAt)
@@ -202,6 +206,7 @@ class FocusService : Service() {
     }
 
     private fun stop() {
+        AmbientPlayer.stop()
         loop?.cancel()
         loop = null
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -259,6 +264,10 @@ class FocusService : Service() {
             .setContentIntent(openApp())
             .addAction(0, if (FocusEngine.state.value is State.Break) "End cycle" else "Give up", giveUp)
             .apply {
+                if (FocusEngine.state.value is State.Running && AmbientPlayer.current != com.malluwayne.batbloom.sound.Sound.Off) addAction(
+                    0, "Sound off",
+                    PendingIntent.getService(this@FocusService, 5, Intent(this@FocusService, FocusService::class.java).setAction(ACTION_SOUND_OFF), PendingIntent.FLAG_IMMUTABLE),
+                )
                 if ((FocusEngine.state.value as? State.Running)?.request?.stopwatch == true) addAction(
                     0, "Stop",
                     PendingIntent.getService(this@FocusService, 4, Intent(this@FocusService, FocusService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE),
@@ -316,6 +325,7 @@ class FocusService : Service() {
         const val ACTION_START = "batbloom.START"
         const val ACTION_GIVE_UP = "batbloom.GIVE_UP"
         const val ACTION_STOP = "batbloom.STOP"
+        const val ACTION_SOUND_OFF = "batbloom.SOUND_OFF"
         const val CH_SESSION = "session"
         const val CH_ALERTS = "alerts"
         const val NOTIF_SESSION = 1

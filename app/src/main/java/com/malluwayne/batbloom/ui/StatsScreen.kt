@@ -89,7 +89,7 @@ fun StatsScreen(modifier: Modifier) {
         }
         Row(Modifier.fillMaxWidth()) {
             Figure(Rules.formatMinutes(s.weekMinutes), "this week", Modifier.weight(1f))
-            Figure("${s.streakDays} day${if (s.streakDays == 1) "" else "s"}", "streak", Modifier.weight(1f), Gold)
+            Figure("${s.streakDays} day${if (s.streakDays == 1) "" else "s"}", if (s.bestStreak > s.streakDays) "streak \u00B7 best ${s.bestStreak}" else "streak", Modifier.weight(1f), Gold)
             Figure("${s.completed}", "blooms", Modifier.weight(1f), Lavender)
         }
 

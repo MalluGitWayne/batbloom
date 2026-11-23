@@ -72,7 +72,10 @@ class Repository(private val db: AppDatabase) {
         val done = db.backup().sessions()
         val zone = java.time.ZoneId.systemDefault()
         val st = com.malluwayne.batbloom.stats.Stats.compute(done, today, zone)
-        val earned = Badges.earned(today, schedule, quitDate, facts = Badges.facts(done, st.streakDays, zone))
+        val earned = Badges.earned(today, schedule, quitDate, facts = Badges.facts(
+            done, maxOf(st.bestStreak, st.streakDays), zone,
+            doseStreak = Badges.bestDoseStreak(schedule, db.backup().doses().filter { it.status == DoseStatus.TAKEN }.map { it.key }.toSet(), today),
+        ))
         return earned.filter { id ->
             quit.award(BadgeEntity(id, System.currentTimeMillis())) != -1L
         }

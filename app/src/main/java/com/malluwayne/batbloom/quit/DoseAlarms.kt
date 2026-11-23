@@ -183,13 +183,19 @@ object DoseAlarms {
     suspend fun checkBadges(context: Context) {
         val a = app(context)
         val new = a.repo.awardBadges(LocalDate.now(ZoneId.systemDefault()), a.prefs.schedule.value, a.prefs.quitDate.value)
+        val openAwards = PendingIntent.getActivity(
+            context, 31, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_AWARDS)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         new.forEachIndexed { i, id ->
             val b = Badges.byId(id)
             val n = NotificationCompat.Builder(context, CH_QUIT)
                 .setSmallIcon(R.drawable.ic_stat_bloom)
-                .setContentTitle("🏆 Achievement unlocked: ${b.title}")
-                .setSubText("${b.tier.label} · +${b.tier.points} pts")
+                .setContentTitle("🏆 ${b.title}")
+                .setSubText("Achievement unlocked · ${b.tier.label}")
                 .setContentText(b.text)
+                .setContentIntent(openAwards)
                 .setAutoCancel(true)
                 .build()
             runCatching { NotificationManagerCompat.from(context).notify(NOTIF_BADGE + i, n) }

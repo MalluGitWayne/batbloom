@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import com.malluwayne.batbloom.quit.Badge
 import com.malluwayne.batbloom.quit.Glyph
@@ -81,12 +83,23 @@ fun Emblem(b: Badge, earned: Boolean, size: Dp, progress: Float? = null, animate
         v
     } else 0.28f
     val accent = Color(b.accent)
-    Canvas(Modifier.size(size)) { drawEmblem(b.tier, b.glyph, accent, earned, progress, shine, animate && earned) }
+    val hidden = b.secret && !earned
+    val desc = when {
+        hidden -> "Secret achievement, locked"
+        earned -> "${b.title}, ${b.tier.label} achievement, unlocked"
+        progress != null -> "${b.title}, ${b.tier.label} achievement, locked, ${(progress * 100).toInt()} percent"
+        else -> "${b.title}, ${b.tier.label} achievement, locked"
+    }
+    Canvas(Modifier.size(size).semantics { contentDescription = desc }) {
+        drawEmblem(b.tier, if (hidden) Glyph.SECRET else b.glyph, accent, earned, if (hidden) null else progress, shine, animate && earned)
+    }
 }
 
-private fun DrawScope.drawEmblem(tier: Tier, glyph: Glyph, accent: Color, earned: Boolean, progress: Float?, shine: Float, moving: Boolean) {
-    val w = size.minDimension
-    val c = Offset(size.width / 2, size.height / 2)
+/** Draws an emblem centred on [c], [w] across (defaults: the whole draw area). Also used for share images. */
+internal fun DrawScope.drawEmblem(
+    tier: Tier, glyph: Glyph, accent: Color, earned: Boolean, progress: Float?, shine: Float, moving: Boolean,
+    c: Offset = Offset(size.width / 2, size.height / 2), w: Float = size.minDimension,
+) {
     val r = w * 0.38f
     val m = metal(tier)
 
@@ -146,10 +159,6 @@ private fun DrawScope.drawEmblem(tier: Tier, glyph: Glyph, accent: Color, earned
         }
     }
 }
-
-private fun Color.compositeOverOpaque(base: Color) = Color(
-    red * alpha + base.red * (1 - alpha), green * alpha + base.green * (1 - alpha), blue * alpha + base.blue * (1 - alpha), 1f,
-)
 
 private fun shape(t: Tier, c: Offset, r: Float): Path = Path().apply {
     when (t) {
@@ -350,6 +359,16 @@ private fun DrawScope.glyph(g: Glyph, c: Offset, s: Float, col: Color, bg: Color
             }, col.copy(alpha = 0.75f))
             drawLine(bg.copy(alpha = 0.7f), p(0f, -0.5f), p(0f, 0.75f), s * 0.06f)
             listOf(-0.25f, 0f, 0.25f).forEach { y -> drawLine(bg.copy(alpha = 0.35f), p(-0.75f, y - 0.12f), p(-0.2f, y - 0.05f), s * 0.05f) }
+        }
+        Glyph.SECRET -> {
+            drawArc(col, 180f, 250f, false, p(-0.5f, -0.9f), Size(s * 1.0f, s * 0.95f), style = Stroke(s * 0.2f, cap = StrokeCap.Round))
+            drawLine(col, p(0.12f, -0.1f), p(0f, 0.3f), s * 0.2f, StrokeCap.Round)
+            drawCircle(col, s * 0.13f, p(0f, 0.72f))
+        }
+        Glyph.CHECK_PILL -> {
+            drawCircle(col, s * 0.92f, c, style = Stroke(s * 0.14f))
+            drawPath(Path().apply { moveTo(p(-0.45f, 0.02f).x, p(-0.45f, 0.02f).y); lineTo(p(-0.12f, 0.36f).x, p(-0.12f, 0.36f).y); lineTo(p(0.5f, -0.32f).x, p(0.5f, -0.32f).y) }, col, style = stroke)
+            rotate(-40f, p(0.62f, 0.62f)) { drawRoundRect(hi, p(0.38f, 0.5f), Size(s * 0.5f, s * 0.24f), CornerRadius(s * 0.12f)) }
         }
         Glyph.TARGET -> {
             drawCircle(col, s * 0.92f, c)

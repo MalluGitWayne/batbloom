@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
             ACTION_QUIT -> Nav.tab.value = 2
             ACTION_OPEN -> Nav.tab.value = 0
             ACTION_STATS -> { Nav.tab.value = 1; Nav.garden.value = 1 }
+            ACTION_AWARDS -> { Nav.tab.value = 1; Nav.garden.value = 2 }
             ACTION_FMGE -> {
                 val p = BatbloomApp.instance.prefs
                 p.setTag(Tags.FMGE)
@@ -101,6 +102,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_QUIT = "batbloom.QUIT"
         const val ACTION_FMGE = "batbloom.FMGE"
         const val ACTION_STATS = "batbloom.STATS"
+        const val ACTION_AWARDS = "batbloom.AWARDS"
         const val EXTRA_SUBJECT = "subject"
     }
 }

@@ -119,10 +119,29 @@ class CourseTest {
         assertEquals(10 to 10, Badges.progress("hours10", d(11, 20), s, quit, f))
         assertEquals(7 to 14, Badges.progress("week2", quit.plusDays(7), s, quit, f))
         assertEquals(Badges.all.size, Badges.all.map { it.id }.toSet().size)
+
+        // Dose streaks: every slot of the day must be taken. Days 1-3 have one dose, day 4 on have two.
+        val day = { n: Int -> s.start.plusDays(n - 1L) }
+        val takenAll = (1..5).flatMap { s.slotsOn(day(it)) }.map { it.key }.toSet()
+        assertEquals(5, Badges.bestDoseStreak(s, takenAll, day(5)))
+        val missedPm4 = takenAll - "${day(4)}-PM"
+        assertEquals(3, Badges.bestDoseStreak(s, missedPm4, day(5)))
+        // Today not finished yet doesn't break the run.
+        assertEquals(4, Badges.bestDoseStreak(s, takenAll - "${day(5)}-PM", day(5)))
+        val g = Badges.earned(d(11, 20), s, quit, facts = com.malluwayne.batbloom.quit.FocusFacts(doseStreak = 7, maxBloomsInDay = 3))
+        assertTrue("dose3" in g && "dose7" in g && "hat_trick" in g && "dose21" !in g && "dose_all" !in g)
+        assertTrue("dose_all" in Badges.earned(d(11, 20), s, quit, facts = com.malluwayne.batbloom.quit.FocusFacts(doseStreak = 84)))
+        assertTrue(Badges.byId("night_owl").secret && !Badges.byId("week1").secret)
         assertEquals(d(12, 5), Badges.dueDate("week1", s, quit))
         assertEquals(d(2, 12), Badges.dueDate("course", s, quit))
         assertEquals(10, Badges.target("bloom10"))
         assertTrue("halfway" in Badges.earned(s.start.plusDays(41), s, quit))
         assertTrue("course" in Badges.earned(d(2, 12), s, quit))
+    }
+
+    @Test fun bestStreak() {
+        val days = setOf(d(11, 1), d(11, 2), d(11, 3), d(11, 10), d(11, 11))
+        assertEquals(3, com.malluwayne.batbloom.stats.Stats.bestRun(days))
+        assertEquals(0, com.malluwayne.batbloom.stats.Stats.bestRun(emptySet()))
     }
 }

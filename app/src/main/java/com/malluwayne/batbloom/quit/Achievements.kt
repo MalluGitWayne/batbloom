@@ -14,7 +14,7 @@ enum class Tier(val label: String, val points: Int) {
 }
 
 /** The picture drawn in the middle of an emblem. */
-enum class Glyph { PILL, NO_SMOKE, HEART, CALENDAR, MOON, HALF, TROPHY, STAR, CROWN, FLOWER, FLAME, HOURGLASS, BOLT, BAT, SUN, BOOK, TARGET }
+enum class Glyph { SECRET, CHECK_PILL, PILL, NO_SMOKE, HEART, CALENDAR, MOON, HALF, TROPHY, STAR, CROWN, FLOWER, FLAME, HOURGLASS, BOLT, BAT, SUN, BOOK, TARGET }
 
 /** An achievement. [accent] (ARGB) colours its picture and glow. */
 data class Badge(
@@ -25,6 +25,8 @@ data class Badge(
     val tier: Tier,
     val group: String,
     val accent: Long,
+    /** Shown as "???" until unlocked. */
+    val secret: Boolean = false,
 )
 
 /** Focus facts the count-based achievements are measured against. */
@@ -37,6 +39,10 @@ data class FocusFacts(
     val earlyBird: Int = 0,
     val fmgeMinutes: Int = 0,
     val subjects: Int = 0,
+    /** Most finished sessions on a single day. */
+    val maxBloomsInDay: Int = 0,
+    /** Longest run of days with every dose taken. */
+    val doseStreak: Int = 0,
 )
 
 object Badges {
@@ -68,6 +74,11 @@ object Badges {
         Badge("month6", "6 months smoke-free", "Half a year without smoking.", Glyph.STAR, Tier.PLATINUM, QUIT, TEAL),
         Badge("year1", "1 year smoke-free", "A full year. You did it.", Glyph.CROWN, Tier.PLATINUM, QUIT, AMBER),
 
+        Badge("dose3", "3 perfect days", "Every tablet taken three days running.", Glyph.CHECK_PILL, Tier.BRONZE, QUIT, SKY),
+        Badge("dose7", "Perfect week", "Every tablet taken seven days running.", Glyph.CHECK_PILL, Tier.SILVER, QUIT, TEAL),
+        Badge("dose21", "21 perfect days", "Every tablet taken for three weeks straight.", Glyph.CHECK_PILL, Tier.GOLD, QUIT, AMBER),
+        Badge("dose_all", "Every single tablet", "Took every dose of the whole course.", Glyph.CHECK_PILL, Tier.PLATINUM, QUIT, LEAF),
+
         Badge("bloom1", "First bloom", "Finished your first focus session.", Glyph.FLOWER, Tier.BRONZE, FOCUS, ROSE),
         Badge("bloom10", "10 blooms", "Ten finished sessions.", Glyph.FLOWER, Tier.SILVER, FOCUS, VIOLET),
         Badge("bloom50", "50 blooms", "Fifty finished sessions.", Glyph.FLOWER, Tier.GOLD, FOCUS, AMBER),
@@ -80,9 +91,10 @@ object Badges {
         Badge("hours50", "50 hours", "Fifty hours of focus in total.", Glyph.HOURGLASS, Tier.SILVER, FOCUS, SKY),
         Badge("hours100", "100 hours", "A hundred hours of focus.", Glyph.HOURGLASS, Tier.GOLD, FOCUS, AMBER),
         Badge("hours250", "250 hours", "Two hundred and fifty hours of focus.", Glyph.HOURGLASS, Tier.PLATINUM, FOCUS, TEAL),
-        Badge("marathon", "Marathon", "One session of 2 hours or more.", Glyph.BOLT, Tier.GOLD, FOCUS, AMBER),
-        Badge("night_owl", "Night bat", "5 sessions started between 10 PM and 4 AM.", Glyph.BAT, Tier.SILVER, FOCUS, VIOLET),
-        Badge("early_bird", "Early riser", "5 sessions started between 5 and 7 AM.", Glyph.SUN, Tier.SILVER, FOCUS, AMBER),
+        Badge("marathon", "Marathon", "One session of 2 hours or more.", Glyph.BOLT, Tier.GOLD, FOCUS, AMBER, secret = true),
+        Badge("night_owl", "Night bat", "5 sessions started between 10 PM and 4 AM.", Glyph.BAT, Tier.SILVER, FOCUS, VIOLET, secret = true),
+        Badge("early_bird", "Early riser", "5 sessions started between 5 and 7 AM.", Glyph.SUN, Tier.SILVER, FOCUS, AMBER, secret = true),
+        Badge("hat_trick", "Hat-trick", "3 finished sessions in one day.", Glyph.STAR, Tier.BRONZE, FOCUS, ROSE, secret = true),
 
         Badge("fmge10", "FMGE 10 hours", "Ten hours of FMGE study.", Glyph.BOOK, Tier.BRONZE, FMGE, LEAF),
         Badge("fmge50", "FMGE 50 hours", "Fifty hours of FMGE study.", Glyph.BOOK, Tier.SILVER, FMGE, LEAF),
@@ -111,10 +123,16 @@ object Badges {
         "fmge10" to ({ f: FocusFacts -> f.fmgeMinutes / 60 } to 10), "fmge50" to ({ f: FocusFacts -> f.fmgeMinutes / 60 } to 50),
         "fmge100" to ({ f: FocusFacts -> f.fmgeMinutes / 60 } to 100),
         "all_subjects" to ({ f: FocusFacts -> f.subjects } to Tags.fmgeSubjects.size),
+        "hat_trick" to ({ f: FocusFacts -> f.maxBloomsInDay } to 3),
+        "dose3" to ({ f: FocusFacts -> f.doseStreak } to 3), "dose7" to ({ f: FocusFacts -> f.doseStreak } to 7),
+        "dose21" to ({ f: FocusFacts -> f.doseStreak } to 21),
     )
 
     /** Facts for the count-based achievements, from finished sessions. */
-    fun facts(sessions: List<SessionEntity>, streak: Int, zone: ZoneId): FocusFacts {
+    fun facts(
+        sessions: List<SessionEntity>, streak: Int, zone: ZoneId,
+        doseStreak: Int = 0,
+    ): FocusFacts {
         val done = sessions.filter { it.status == Status.DONE }
         val hours = done.map { Instant.ofEpochMilli(it.startedAt).atZone(zone).hour }
         val fmge = done.filter { it.tag == Tags.FMGE }
@@ -127,7 +145,27 @@ object Badges {
             earlyBird = hours.count { it in 5..6 },
             fmgeMinutes = fmge.sumOf { it.plannedMinutes },
             subjects = fmge.mapNotNull { it.subject }.toSet().count { it in Tags.fmgeSubjects },
+            maxBloomsInDay = done.groupingBy { Instant.ofEpochMilli(it.startedAt).atZone(zone).toLocalDate() }.eachCount().values.maxOrNull() ?: 0,
+            doseStreak = doseStreak,
         )
+    }
+
+    /**
+     * Longest run of course days, up to [today], on which every scheduled dose was logged as taken.
+     * [taken] holds the keys of taken doses. Today counts only once all of its doses are taken.
+     */
+    fun bestDoseStreak(schedule: DoseSchedule, taken: Set<String>, today: LocalDate): Int {
+        var best = 0
+        var run = 0
+        var d = schedule.start
+        val last = minOf(today, schedule.endDate)
+        while (!d.isAfter(last)) {
+            val slots = schedule.slotsOn(d)
+            val all = slots.isNotEmpty() && slots.all { it.key in taken }
+            if (all) { run++; best = maxOf(best, run) } else if (d != today) run = 0
+            d = d.plusDays(1)
+        }
+        return best
     }
 
     /** Time-based achievements are never taken away. */
@@ -140,6 +178,7 @@ object Badges {
         if (day >= 1) add("course_start")
         if (day >= 42) add("halfway")
         if (day >= schedule.courseDays) add("course")
+        if (facts.doseStreak >= schedule.courseDays) add("dose_all")
         counts.forEach { (id, c) -> if (c.first(facts) >= c.second) add(id) }
     }
 
@@ -153,11 +192,12 @@ object Badges {
     }
 
     /** Target of a count-based achievement, for example 10 for "10 blooms". */
-    fun target(id: String): Int? = counts[id]?.second
+    fun target(id: String): Int? = counts[id]?.second ?: if (id == "dose_all") DoseSchedule().courseDays else null
 
     /** Progress as (have, target): counted for count-based achievements, in days for time-based ones. */
     fun progress(id: String, today: LocalDate, schedule: DoseSchedule, quit: LocalDate?, facts: FocusFacts): Pair<Int, Int>? {
         counts[id]?.let { (f, t) -> return f(facts).coerceAtMost(t) to t }
+        if (id == "dose_all") return facts.doseStreak.coerceAtMost(schedule.courseDays) to schedule.courseDays
         val (from, to) = when (id) {
             "course_start" -> return null
             "halfway" -> schedule.start to schedule.start.plusDays(41)

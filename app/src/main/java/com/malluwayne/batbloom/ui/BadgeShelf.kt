@@ -57,6 +57,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malluwayne.batbloom.BatbloomApp
 import com.malluwayne.batbloom.Nav
+import com.malluwayne.batbloom.data.DoseLogEntity
+import com.malluwayne.batbloom.data.DoseStatus
 import com.malluwayne.batbloom.data.SessionEntity
 import com.malluwayne.batbloom.quit.Badge
 import com.malluwayne.batbloom.quit.Badges
@@ -86,19 +88,25 @@ private class AchievementState(
 }
 
 @Composable
-private fun rememberAchievements(earnedAt: Map<String, Long>, schedule: DoseSchedule, quit: LocalDate?, sessions: List<SessionEntity>): AchievementState {
+private fun rememberAchievements(
+    earnedAt: Map<String, Long>, schedule: DoseSchedule, quit: LocalDate?, sessions: List<SessionEntity>, doses: List<DoseLogEntity>,
+): AchievementState {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
-    return remember(earnedAt, schedule, quit, sessions, today) {
+    return remember(earnedAt, schedule, quit, sessions, doses, today) {
         val st = Stats.compute(sessions, today, zone)
-        AchievementState(earnedAt, schedule, quit, today, Badges.facts(sessions, st.streakDays, zone))
+        val taken = doses.filter { it.status == DoseStatus.TAKEN }.map { it.key }.toSet()
+        AchievementState(
+            earnedAt, schedule, quit, today,
+            Badges.facts(sessions, maxOf(st.bestStreak, st.streakDays), zone, Badges.bestDoseStreak(schedule, taken, today)),
+        )
     }
 }
 
 /** On the Quit tab: score, the latest achievements and the next one coming, with a link to all of them. */
 @Composable
-fun BadgeShelf(earnedAt: Map<String, Long>, schedule: DoseSchedule, quit: LocalDate?, sessions: List<SessionEntity>) {
-    val s = rememberAchievements(earnedAt, schedule, quit, sessions)
+fun BadgeShelf(earnedAt: Map<String, Long>, schedule: DoseSchedule, quit: LocalDate?, sessions: List<SessionEntity>, doses: List<DoseLogEntity>) {
+    val s = rememberAchievements(earnedAt, schedule, quit, sessions, doses)
     var open by remember { mutableStateOf<Badge?>(null) }
     val quitBadges = Badges.all.filter { it.group == Badges.QUIT }
     val latest = quitBadges.filter { it.id in earnedAt }.sortedByDescending { earnedAt[it.id] }.take(4)
@@ -138,7 +146,8 @@ fun AchievementsScreen(modifier: Modifier) {
     val sessions by app.repo.sessions.collectAsState(emptyList())
     val schedule by app.prefs.schedule.collectAsState()
     val quit by app.prefs.quitDate.collectAsState()
-    val s = rememberAchievements(badges.associate { it.id to it.earnedAt }, schedule, quit, sessions)
+    val doses by app.repo.doses.collectAsState(emptyList())
+    val s = rememberAchievements(badges.associate { it.id to it.earnedAt }, schedule, quit, sessions, doses)
     var open by remember { mutableStateOf<Badge?>(null) }
     val earned = s.earnedIds.toSet()
 
@@ -182,7 +191,7 @@ fun AchievementsScreen(modifier: Modifier) {
         }
 
         // Almost there
-        val close = Badges.all.filter { it.id !in earned }
+        val close = Badges.all.filter { it.id !in earned && !it.secret }
             .mapNotNull { b -> s.ratio(b)?.takeIf { it > 0f }?.let { b to it } }
             .sortedByDescending { it.second }.take(3)
         if (close.isNotEmpty()) SectionCard("Almost there") {
@@ -193,7 +202,7 @@ fun AchievementsScreen(modifier: Modifier) {
                         Text(b.title, fontWeight = FontWeight.SemiBold)
                         val (h, t) = s.progress(b)!!
                         Text(progressLabel(b, h, t), color = Muted, fontSize = 12.sp)
-                        LinearProgressIndicator({ r }, Modifier.fillMaxWidth().padding(top = 4.dp), color = Color(b.accent))
+                        LinearProgressIndicator({ r }, Modifier.fillMaxWidth().padding(top = 4.dp), color = Color(b.accent), gapSize = 0.dp, drawStopIndicator = {})
                     }
                 }
             }
@@ -221,7 +230,9 @@ private fun progressLabel(b: Badge, have: Int, target: Int): String = when {
     Badges.target(b.id) == null -> "Day $have of $target"
     b.id.startsWith("hours") || b.id.startsWith("fmge") -> "$have of $target hours"
     b.id == "marathon" -> "Longest: $have of $target min"
-    b.id.startsWith("streak") -> "$have of $target days"
+    b.id.startsWith("streak") -> "Best streak: $have of $target days"
+    b.id.startsWith("dose") -> "Best run: $have of $target days with every tablet"
+    b.id == "hat_trick" -> "Best day: $have of $target sessions"
     b.id == "all_subjects" -> "$have of $target subjects"
     else -> "$have of $target"
 }
@@ -235,13 +246,18 @@ private fun AchievementTile(b: Badge, earned: Boolean, s: AchievementState, modi
             .clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        val hidden = b.secret && !earned
         Emblem(b, earned, 76.dp, if (earned) null else s.ratio(b))
         Text(
-            b.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, textAlign = TextAlign.Center, lineHeight = 14.sp,
+            if (hidden) "???" else b.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, textAlign = TextAlign.Center, lineHeight = 14.sp,
             color = if (earned) MaterialTheme.colorScheme.onSurface else Muted, modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            if (earned) b.tier.label.uppercase() else s.progress(b)?.let { (h, t) -> "$h/$t" } ?: "Locked",
+            when {
+                earned -> b.tier.label.uppercase()
+                hidden -> "SECRET"
+                else -> s.progress(b)?.let { (h, t) -> "$h/$t" } ?: "Locked"
+            },
             fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold,
             color = if (earned) tierText(b.tier) else Muted,
         )
@@ -253,15 +269,18 @@ private fun AchievementDialog(b: Badge, s: AchievementState, onDismiss: () -> Un
     val earned = s.earnedAt[b.id]
     val zone = ZoneId.systemDefault()
     val fmt = DateTimeFormatter.ofPattern("EEE d MMM yyyy")
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val hidden = b.secret && earned == null
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onDismiss) { Text("OK") } },
+        dismissButton = if (earned != null) ({ TextButton({ AchievementShare.share(ctx, b, earned) }) { Text("Share") } }) else null,
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Emblem(b, earned != null, 150.dp, if (earned == null) s.ratio(b) else null, animate = true)
                 TierPill(b.tier, earned != null)
-                Text(b.title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
-                Text(b.text, color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
+                Text(if (hidden) "Secret achievement" else b.title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+                Text(if (hidden) "Keep using Batbloom to find out what unlocks it." else b.text, color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
                 val due = Badges.dueDate(b.id, s.schedule, s.quit)
                 val line = when {
                     earned != null -> "Unlocked " + fmt.format(Instant.ofEpochMilli(earned).atZone(zone))
@@ -269,9 +288,9 @@ private fun AchievementDialog(b: Badge, s: AchievementState, onDismiss: () -> Un
                     else -> null
                 }
                 line?.let { Text(it, color = if (earned != null) tierText(b.tier) else Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp)) }
-                if (earned == null) s.progress(b)?.let { (h, t) ->
+                if (earned == null && !hidden) s.progress(b)?.let { (h, t) ->
                     Text(progressLabel(b, h, t), color = Muted, modifier = Modifier.padding(top = 10.dp))
-                    LinearProgressIndicator({ h.toFloat() / t }, Modifier.fillMaxWidth().padding(top = 6.dp), color = Color(b.accent))
+                    LinearProgressIndicator({ h.toFloat() / t }, Modifier.fillMaxWidth().padding(top = 6.dp), color = Color(b.accent), gapSize = 0.dp, drawStopIndicator = {})
                 }
             }
         },
@@ -356,6 +375,8 @@ private fun UnlockCelebration(b: Badge, onDone: () -> Unit) {
                         onDone, Modifier.padding(top = 24.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = tc, contentColor = Color(0xFF14162C)),
                     ) { Text("Awesome!", fontWeight = FontWeight.Bold) }
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    TextButton({ AchievementShare.share(ctx, b, System.currentTimeMillis()) }) { Text("Share", color = tc) }
                 }
             }
         }

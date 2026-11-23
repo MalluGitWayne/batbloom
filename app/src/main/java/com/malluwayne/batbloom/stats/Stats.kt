@@ -24,6 +24,8 @@ data class StatsSummary(
     val failed: Int,
     val successRate: Int,
     val streakDays: Int,
+    /** Longest run of days with a bloom, ever. */
+    val bestStreak: Int = 0,
 )
 
 data class SmokingProfile(val perDay: Int, val packSize: Int, val packPrice: Double)
@@ -78,7 +80,21 @@ object Stats {
             failed = failed,
             successRate = if (total == 0) 0 else (done.size * 100 + total / 2) / total,
             streakDays = streak,
+            bestStreak = bestRun(byDay.keys),
         )
+    }
+
+    /** Longest run of consecutive dates in [days]. */
+    fun bestRun(days: Set<LocalDate>): Int {
+        var best = 0
+        for (d in days) {
+            if (d.minusDays(1) in days) continue
+            var n = 0
+            var x = d
+            while (x in days) { n++; x = x.plusDays(1) }
+            best = maxOf(best, n)
+        }
+        return best
     }
 
     /** Positive: days until [date]; negative: days since. */

@@ -183,7 +183,7 @@ fun QuitScreen(modifier: Modifier) {
             }
         }
 
-        BadgeShelf(badges.associate { it.id to it.earnedAt }, schedule, quit, sessions)
+        BadgeShelf(badges.associate { it.id to it.earnedAt }, schedule, quit, sessions, doses)
 
         androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

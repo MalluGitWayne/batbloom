@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package com.malluwayne.batbloom.ui
 
@@ -87,6 +87,7 @@ fun QuitScreen(modifier: Modifier) {
     val day = schedule.dayNumber(today)
     val logByKey = remember(doses) { doses.associateBy { it.key } }
     var stockDialog by remember { mutableStateOf(false) }
+    var editTime by remember { mutableStateOf<com.malluwayne.batbloom.quit.DoseSlot?>(null) }
     val timeFmt = remember { DateTimeFormatter.ofPattern("h:mm a") }
     val dateFmt = remember { DateTimeFormatter.ofPattern("EEE d MMM") }
     val warn = MaterialTheme.colorScheme.error
@@ -117,28 +118,40 @@ fun QuitScreen(modifier: Modifier) {
             MilestoneHero(start, java.time.Duration.between(start, now), onQuitNow = { prefs.quitNow() })
         }
 
-        // Today's tablets: one row per dose, tap the circle to tick it off
+        // Today's tablets: one row per dose, tap the circle to tick it off whenever you take it (early or late).
+        // Yesterday's doses you never logged show too, so a forgotten tick can still be added.
         val todaySlots = schedule.slotsOn(today)
+        val yesterdayOpen = schedule.slotsOn(today.minusDays(1)).filter { it.key !in logByKey }
         SectionCard("Today") {
-            if (todaySlots.isEmpty()) Text("No doses today", color = Muted)
-            todaySlots.forEach { slot ->
+            if (todaySlots.isEmpty() && yesterdayOpen.isEmpty()) Text("No doses today", color = Muted)
+            (yesterdayOpen + todaySlots).forEach { slot ->
                 val at = schedule.timeOf(slot, zone)
                 val log = logByKey[slot.key]
+                val past = slot.date != today
                 val overdue = log == null && now.isAfter(at.plusMinutes(60))
                 DoseRow(
-                    title = "${slot.label} \u00B7 ${Doses.formatMg(slot.mg)}",
+                    title = (if (past) "Yesterday ${slot.label.lowercase()}" else slot.label) + " \u00B7 ${Doses.formatMg(slot.mg)}",
                     detail = when (log?.status) {
-                        DoseStatus.TAKEN -> "Taken ${timeFmt.format(Instant.ofEpochMilli(log.actedAt).atZone(zone))}"
+                        DoseStatus.TAKEN -> "Taken ${timeFmt.format(Instant.ofEpochMilli(log.actedAt).atZone(zone))} \u00B7 change time"
                         DoseStatus.SKIPPED -> "Skipped"
-                        else -> timeFmt.format(at) + " \u00B7 " + Doses.formatTablets(Doses.tablets(slot.mg, strength)).replace(" tablets", " \u00D7 ${Doses.formatMg(strength)}").replace(" tablet", " \u00D7 ${Doses.formatMg(strength)}")
+                        else -> if (past) "Not logged \u00B7 tick it if you took it" else
+                            timeFmt.format(at) + " \u00B7 " + Doses.formatTablets(Doses.tablets(slot.mg, strength)).replace(" tablets", " \u00D7 ${Doses.formatMg(strength)}").replace(" tablet", " \u00D7 ${Doses.formatMg(strength)}")
                     },
                     status = log?.status,
                     overdue = overdue,
-                    onToggle = { scope.launch { DoseAlarms.mark(ctx, slot, if (log == null) DoseStatus.TAKEN else null) } },
+                    // A forgotten dose from yesterday is logged at its scheduled time; you can change it after.
+                    onToggle = {
+                        scope.launch {
+                            DoseAlarms.mark(ctx, slot, if (log == null) DoseStatus.TAKEN else null, if (past) at.toInstant().toEpochMilli() else System.currentTimeMillis())
+                        }
+                    },
                     onSkip = if (log == null) ({ scope.launch { DoseAlarms.mark(ctx, slot, DoseStatus.SKIPPED) } }) else null,
+                    onDetail = if (log?.status == DoseStatus.TAKEN) ({ editTime = slot }) else null,
                 )
-                if (overdue) {
-                    val next = schedule.nextSlot(now)?.let { schedule.timeOf(it, zone) }
+                if (overdue && !past) {
+                    // The dose after this one (even if its time has already come): if the evening dose is due,
+                    // a missed morning dose is skipped rather than taken together with it.
+                    val next = schedule.slotsFrom(slot.date).map { schedule.timeOf(it, zone) }.firstOrNull { it.isAfter(at) }
                     Text(
                         if (Doses.missedAdvice(now, next, closeHours) == Doses.Missed.TakeNow) "Missed \u00B7 take it now" else "Missed \u00B7 skip it, next dose is close",
                         color = Gold, fontSize = 12.sp, modifier = Modifier.padding(start = 52.dp),
@@ -229,6 +242,24 @@ fun QuitScreen(modifier: Modifier) {
         )
     }
 
+    editTime?.let { slot ->
+        val taken = logByKey[slot.key]?.actedAt?.let { Instant.ofEpochMilli(it).atZone(zone) } ?: now
+        val st = androidx.compose.material3.rememberTimePickerState(taken.hour, taken.minute, false)
+        AlertDialog(
+            onDismissRequest = { editTime = null },
+            title = { Text("When did you take it?") },
+            confirmButton = {
+                TextButton({
+                    val at = Doses.takenAt(schedule.timeOf(slot, zone), java.time.LocalTime.of(st.hour, st.minute), java.time.ZonedDateTime.now(zone))
+                    scope.launch { app.repo.setDoseTime(slot.key, at.toInstant().toEpochMilli()) }
+                    editTime = null
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton({ editTime = null }) { Text("Cancel") } },
+            text = { androidx.compose.material3.TimePicker(st) },
+        )
+    }
+
     if (stockDialog) {
         var count by remember { mutableStateOf(if (stockLeft >= 0) stockLeft.toString().removeSuffix(".0") else "") }
         var mg by remember { mutableStateOf(strength) }
@@ -277,7 +308,7 @@ private fun QuitFigure(value: String, label: String, modifier: Modifier) {
 
 /** A dose: a round button to tick it off, the dose, and a quiet Skip while it is still open. */
 @Composable
-private fun DoseRow(title: String, detail: String, status: String?, overdue: Boolean, onToggle: () -> Unit, onSkip: (() -> Unit)?) {
+private fun DoseRow(title: String, detail: String, status: String?, overdue: Boolean, onToggle: () -> Unit, onSkip: (() -> Unit)?, onDetail: (() -> Unit)? = null) {
     val teal = Teal
     val muted = Muted
     val outline = if (overdue) Gold else MaterialTheme.colorScheme.outline
@@ -294,7 +325,7 @@ private fun DoseRow(title: String, detail: String, status: String?, overdue: Boo
                 DoseStatus.SKIPPED -> Text("\u2013", color = muted, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
         }
-        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+        Column(Modifier.weight(1f).padding(start = 14.dp).then(if (onDetail != null) Modifier.clickable(onClick = onDetail) else Modifier)) {
             Text(title, fontWeight = FontWeight.SemiBold, color = if (status != null) muted else MaterialTheme.colorScheme.onSurface)
             Text(detail, fontSize = 13.sp, color = if (status == DoseStatus.TAKEN) teal else muted)
         }

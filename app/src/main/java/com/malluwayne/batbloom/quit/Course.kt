@@ -70,6 +70,18 @@ data class DoseSlot(val date: LocalDate, val morning: Boolean, val mg: Double, v
 }
 
 object Doses {
+    /**
+     * When a dose was taken, from a clock time the user picked: the day before, of or after the dose's own day,
+     * whichever is closest to its scheduled time without being in the future (an evening dose taken at
+     * 12:30 AM lands on the next day).
+     */
+    fun takenAt(scheduled: ZonedDateTime, picked: LocalTime, now: ZonedDateTime): ZonedDateTime {
+        val candidates = (-1L..1L).map { scheduled.toLocalDate().plusDays(it).atTime(picked).atZone(scheduled.zone) }
+            .filter { !it.isAfter(now) }
+        return candidates.minByOrNull { kotlin.math.abs(Duration.between(it, scheduled).toMinutes()) }
+            ?: now
+    }
+
     fun tablets(mg: Double, strength: Double): Double = if (strength <= 0) 0.0 else mg / strength
 
     fun formatMg(mg: Double): String = if (mg % 1.0 == 0.0) "${mg.toInt()} mg" else "$mg mg"

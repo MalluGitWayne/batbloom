@@ -139,6 +139,21 @@ class CourseTest {
         assertTrue("course" in Badges.earned(d(2, 12), s, quit))
     }
 
+    @Test fun takenAtPickedTime() {
+        val z = ZoneId.of("Asia/Kolkata")
+        val pm = d(11, 24).atTime(20, 0).atZone(z)
+        val now = d(11, 25).atTime(9, 0).atZone(z)
+        // Evening dose, picked 9:30 PM -> same day
+        assertEquals(d(11, 24).atTime(21, 30).atZone(z), Doses.takenAt(pm, java.time.LocalTime.of(21, 30), now))
+        // Picked 12:30 AM -> it was after midnight, so the next day
+        assertEquals(d(11, 25).atTime(0, 30).atZone(z), Doses.takenAt(pm, java.time.LocalTime.of(0, 30), now))
+        // Taken early: 5 PM the same day
+        assertEquals(d(11, 24).atTime(17, 0).atZone(z), Doses.takenAt(pm, java.time.LocalTime.of(17, 0), now))
+        // Never in the future: picked 10 PM while it's only 8:15 PM -> yesterday's 10 PM is too far, so today 10 PM is excluded
+        val early = d(11, 24).atTime(20, 15).atZone(z)
+        assertTrue(!Doses.takenAt(pm, java.time.LocalTime.of(22, 0), early).isAfter(early))
+    }
+
     @Test fun bestStreak() {
         val days = setOf(d(11, 1), d(11, 2), d(11, 3), d(11, 10), d(11, 11))
         assertEquals(3, com.malluwayne.batbloom.stats.Stats.bestRun(days))

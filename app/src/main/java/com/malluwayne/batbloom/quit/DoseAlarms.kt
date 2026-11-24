@@ -93,15 +93,11 @@ object DoseAlarms {
     /** Marks [key] taken when tapped (used by the widget's dose button). */
     fun takenIntent(context: Context, key: String): PendingIntent = receiverIntent(context, ACTION_TAKEN, key, 400 + (key.hashCode() and 0xFF))
 
-    /** Today's dose that is due now (from 1 h before until 4 h after its time) and not yet logged. */
+    /** Today's first dose not yet logged, whatever the time: you can take it early or late. */
     suspend fun dueNow(context: Context): DoseSlot? {
         val a = app(context)
-        val s = a.prefs.schedule.value
         val now = ZonedDateTime.now()
-        return s.slotsOn(now.toLocalDate()).firstOrNull { slot ->
-            val t = s.timeOf(slot, now.zone)
-            !now.isBefore(t.minusHours(1)) && !now.isAfter(t.plusHours(4)) && a.repo.doseStatus(slot.key) == null
-        }
+        return a.prefs.schedule.value.slotsOn(now.toLocalDate()).firstOrNull { a.repo.doseStatus(it.key) == null }
     }
 
     fun notifyDose(context: Context, slot: DoseSlot) {
@@ -147,10 +143,10 @@ object DoseAlarms {
     }
 
     /** Logs a dose (from the notification or the app), updates the stock and warns if it is running low. */
-    suspend fun mark(context: Context, slot: DoseSlot, status: String?) {
+    suspend fun mark(context: Context, slot: DoseSlot, status: String?, at: Long = System.currentTimeMillis()) {
         val a = app(context)
         val strength = a.prefs.tabletStrength.value
-        val change = a.repo.markDose(slot, status, strength)
+        val change = a.repo.markDose(slot, status, strength, at)
         val left = a.prefs.tabletsLeft.value
         if (left >= 0 && change != 0.0) a.prefs.setTabletsLeft((left + change).coerceAtLeast(0.0))
         if (status != null) cancelDoseNotification(context, slot.key)

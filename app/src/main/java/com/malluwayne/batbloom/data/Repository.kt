@@ -49,15 +49,20 @@ class Repository(private val db: AppDatabase) {
 
     suspend fun doseStatus(key: String): String? = quit.dose(key)?.status
 
+    /** Changes when a logged dose was taken (for when you tick it later than you took it). */
+    suspend fun setDoseTime(key: String, at: Long) {
+        quit.dose(key)?.let { quit.logDose(it.copy(actedAt = at)) }
+    }
+
     /**
      * Marks a dose Taken or Skipped ([status] null clears it). Taking a dose uses tablets from the stock;
      * changing your mind gives them back. Returns the stock change in tablets.
      */
-    suspend fun markDose(slot: DoseSlot, status: String?, strength: Double): Double {
+    suspend fun markDose(slot: DoseSlot, status: String?, strength: Double, at: Long = System.currentTimeMillis()): Double {
         val before = quit.dose(slot.key)
         val tablets = Doses.tablets(slot.mg, strength)
         if (status == null) quit.deleteDose(slot.key)
-        else quit.logDose(DoseLogEntity(slot.key, slot.day, slot.mg, tablets, status, System.currentTimeMillis()))
+        else quit.logDose(DoseLogEntity(slot.key, slot.day, slot.mg, tablets, status, at))
         val wasTaken = before?.status == DoseStatus.TAKEN
         val isTaken = status == DoseStatus.TAKEN
         return when {

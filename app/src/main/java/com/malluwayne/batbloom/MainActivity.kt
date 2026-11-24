@@ -133,23 +133,25 @@ object Starter {
 
 /** Which tab is showing, and whether the shop is open. Widgets and notifications switch tabs through this. */
 object Nav {
-    val tab = MutableStateFlow(0)
+    val tab = MutableStateFlow(6) // Home
     /** Inside the Garden tab: 0 = garden, 1 = stats. */
     val garden = MutableStateFlow(0)
 }
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     Focus("Focus", Icons.Filled.PlayArrow),
-    Garden("Garden", Icons.Filled.Home),
+    Garden("Garden", Icons.Filled.DateRange),
     Quit("Quit", Icons.Filled.Favorite),
     Meds("Meds", com.malluwayne.batbloom.ui.PillIcon),
     Settings("Settings", Icons.Filled.Settings),
     // Added last so the numbers above (used by notifications and widgets) stay the same.
     Exam("Exam", com.malluwayne.batbloom.ui.BookIcon),
+    Home("Home", Icons.Filled.Home),
 }
 
 /** The order tabs show in the bar. */
-private val TabOrder = listOf(Tab.Focus, Tab.Garden, Tab.Exam, Tab.Quit, Tab.Meds, Tab.Settings)
+/** Garden isn't in the bar: it opens from Home and Focus. */
+private val TabOrder = listOf(Tab.Home, Tab.Focus, Tab.Exam, Tab.Quit, Tab.Meds, Tab.Settings)
 
 @Composable
 private fun AppRoot() {
@@ -160,7 +162,9 @@ private fun AppRoot() {
     val examTab by prefs.examTab.collectAsState()
     val hidden = buildSet { if (!medsTab) add(Tab.Meds); if (!quitTab) add(Tab.Quit); if (!examTab) add(Tab.Exam) }
     // Tab numbers stay fixed (notifications and widgets use them); a hidden tab falls back to Focus.
-    val tab = if (Tab.entries.getOrNull(rawTab)?.let { it in hidden } != false) 0 else rawTab
+    val tab = if (Tab.entries.getOrNull(rawTab)?.let { it in hidden } != false) Tab.Home.ordinal else rawTab
+    // Back goes Home first (Garden goes back to where it was opened from: Home).
+    BackHandler(enabled = tab != Tab.Home.ordinal) { Nav.tab.value = Tab.Home.ordinal }
     InstallConfirmLauncher()
     com.malluwayne.batbloom.ui.AchievementCelebrations()
     Scaffold(
@@ -187,6 +191,7 @@ private fun AppRoot() {
                 Tab.Meds -> com.malluwayne.batbloom.ui.MedsScreen(m)
                 Tab.Settings -> SettingsScreen(m)
                 Tab.Exam -> com.malluwayne.batbloom.ui.ExamScreen(m)
+                Tab.Home -> com.malluwayne.batbloom.ui.HomeScreen(m)
             }
         }
     }

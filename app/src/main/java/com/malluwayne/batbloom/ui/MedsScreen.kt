@@ -132,8 +132,9 @@ fun MedsScreen(modifier: Modifier) {
         MedSchedule.dosesOn(meds, d).forEach { add(DoseItem.Med(it, logBySlot[it.med.id to it.slot])) }
         schedule.slotsOn(d).forEach { s -> add(DoseItem.Course(s, schedule.timeOf(s, zone).toLocalDateTime(), courseByKey[s.key])) }
     }.sortedBy { it.at }
-    val items = itemsOn(today)
-    val yesterdayOpen = itemsOn(today.minusDays(1)).filter { it.open }
+    // Recomputed only when the data or the day changes, not on every clock tick.
+    val items = remember(meds, logs, courseLogs, schedule, today) { itemsOn(today) }
+    val yesterdayOpen = remember(meds, logs, courseLogs, schedule, today) { itemsOn(today.minusDays(1)).filter { it.open } }
     val allItems = (yesterdayOpen + items).associateBy { it.key }
     val asNeeded = meds.filter { Frequency.of(it.frequency) == Frequency.AsNeeded && MedSchedule.isActive(it, today) }
     val active = meds.filter { !it.archived }
@@ -150,6 +151,7 @@ fun MedsScreen(modifier: Modifier) {
                 Text(dayFmt.format(today), color = Muted, fontSize = 13.sp)
             }
             TextButton({ reminderSettings = true }) { Text("Reminders") }
+            TextButton({ MedListPdf.share(ctx, meds.filter { !it.archived }, schedule, today) }) { Text("Share") }
             TextButton({ editing = newMed(today) }) { Text("+ Add", fontWeight = FontWeight.SemiBold) }
         }
 
@@ -215,7 +217,7 @@ fun MedsScreen(modifier: Modifier) {
                             Text(m.name, fontWeight = FontWeight.SemiBold)
                             Text(
                                 if (todays.isEmpty()) (MedSchedule.strengthLabel(m).ifBlank { "Not taken today" })
-                                else "${todays.size}× today · last ${timeFmt.format(Instant.ofEpochMilli(todays.maxOf { it.actedAt }).atZone(zone))}",
+                                else "${todays.size}× today · last ${timeFmt.format(Instant.ofEpochMilli(todays.maxOf { it.actedAt }).atZone(zone))} (${sinceLabel(nowMs - todays.maxOf { it.actedAt })})",
                                 color = Muted, fontSize = 13.sp,
                             )
                         }
@@ -266,6 +268,17 @@ fun MedsScreen(modifier: Modifier) {
     }
     askLog?.let { m -> LogAsNeededDialog(m, onDismiss = { askLog = null }) { qty -> BatbloomApp.instance.appScope.launch { Meds.logAsNeeded(ctx, m, qty) }; askLog = null } }
     if (reminderSettings) ReminderSettingsDialog { reminderSettings = false }
+}
+
+/** "3h 10m ago", "25m ago". */
+fun sinceLabel(ms: Long): String {
+    val m = (ms / 60_000).coerceAtLeast(0)
+    return when {
+        m < 1 -> "just now"
+        m < 60 -> "${m}m ago"
+        m < 48 * 60 -> "${m / 60}h ${m % 60}m ago"
+        else -> "${m / 1440} days ago"
+    }
 }
 
 fun newMed(today: LocalDate) = MedEntity(name = "", form = MedForm.Tablet.name, startDate = today.toString(), times = "08:00*1")
@@ -378,8 +391,8 @@ private fun LogSheet(group: List<DoseItem>, now: ZonedDateTime, onClose: () -> U
                     BatbloomApp.instance.appScope.launch {
                         group.forEach { i ->
                             val c = choice[i.key]
-                            if (c == i.status && (c != DoseStatus.TAKEN || i.takenAt == at)) {
-                                // unchanged; still update the time of an already-taken dose if a time was chosen
+                            if (c == i.status) {
+                                // Already logged and unchanged: keep its time unless a time was picked on purpose.
                                 if (c == DoseStatus.TAKEN && whenMode != "now" && i.takenAt != at) save(ctx, i, c, at)
                                 return@forEach
                             }
@@ -549,6 +562,15 @@ private fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onEd
             Text("From " + DateTimeFormatter.ofPattern("d MMM yyyy").format(LocalDate.parse(m.startDate)) + (m.endDate?.let { " until " + DateTimeFormatter.ofPattern("d MMM yyyy").format(LocalDate.parse(it)) } ?: ""), color = Muted, fontSize = 13.sp)
             m.notes?.takeIf { it.isNotBlank() }?.let { Text(it, color = Muted, fontSize = 13.sp) }
         }
+        history.firstOrNull { it.status == DoseStatus.TAKEN }?.let { last ->
+            SectionCard {
+                Text("Last taken", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    sinceLabel(System.currentTimeMillis() - last.actedAt) + " · " + fmt.format(Instant.ofEpochMilli(last.actedAt).atZone(zone)),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
         SectionCard("Supply") {
             val days = MedSchedule.daysOfStock(m, today)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { stockDialog = true }) {
@@ -631,5 +653,8 @@ private fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onEd
 
 private fun parseQtyLine(m: MedEntity): String? {
     if (Frequency.of(m.frequency) == Frequency.AsNeeded) return null
+    if (Frequency.of(m.frequency) == Frequency.Taper) return MedSchedule.parsePhases(m.times).joinToString("\n") { p ->
+        "Days ${p.from}\u2013${p.to}: " + p.times.joinToString(", ") { "${timeFmt.format(it.time)} ${MedSchedule.qtyLabel(m, it.qty)}" }
+    }
     return MedSchedule.parseTimes(m.times).joinToString(" · ") { "${timeFmt.format(it.time)}: ${MedSchedule.qtyLabel(m, it.qty)}" }
 }

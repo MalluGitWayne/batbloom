@@ -93,6 +93,9 @@ fun QuitScreen(modifier: Modifier) {
     val now = Instant.ofEpochMilli(nowMs).atZone(zone)
     val today = now.toLocalDate()
     var setup by remember { mutableStateOf(false) }
+    var breathe by remember { mutableStateOf(false) }
+    var slipAsk by remember { mutableStateOf(false) }
+    val slips by prefs.slips.collectAsState()
     val since = remember { DateTimeFormatter.ofPattern("EEE d MMM, h:mm a") }
 
     LaunchedEffect(quit, today) { DoseAlarms.checkBadges(ctx) }
@@ -130,6 +133,16 @@ fun QuitScreen(modifier: Modifier) {
         } else {
             val start = q.atTime(quitTime).atZone(zone)
             MilestoneHero(start, java.time.Duration.between(start, now), onQuitNow = { prefs.quitNow() })
+
+            // Help in the moment
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button({ breathe = true }, Modifier.weight(1f)) { Text("Craving? Breathe") }
+                OutlinedButton({ slipAsk = true }, Modifier.weight(1f)) { Text("I slipped") }
+            }
+            if (slips.isNotEmpty()) Text(
+                "${slips.size} slip${if (slips.size == 1) "" else "s"} logged \u00B7 last ${sinceLabel(nowMs - slips.last())}. Every smoke-free day still counts.",
+                color = Muted, fontSize = 12.sp,
+            )
 
             val p = QuitMath.progress(start, now, smoking.perDay, smoking.packSize, smoking.packPrice)
             val perYear = if (smoking.packSize > 0) smoking.perDay * 365.0 / smoking.packSize * smoking.packPrice else 0.0
@@ -191,6 +204,50 @@ fun QuitScreen(modifier: Modifier) {
     }
 
     if (setup || !setupDone) QuitSetupDialog(firstRun = !setupDone) { setup = false; prefs.setSmokingSetupDone() }
+    if (breathe) BreathingDialog { breathe = false }
+    if (slipAsk) AlertDialog(
+        onDismissRequest = { slipAsk = false },
+        title = { Text("It happens") },
+        text = { Text("A slip isn't a failure. Most people who quit for good slipped along the way. Do you want to keep your smoke-free time, or start again from now?") },
+        confirmButton = { TextButton({ prefs.addSlip(System.currentTimeMillis()); slipAsk = false }) { Text("Keep my progress") } },
+        dismissButton = { TextButton({ prefs.addSlip(System.currentTimeMillis()); prefs.quitNow(); slipAsk = false }) { Text("Restart from now") } },
+    )
+}
+
+/** Guided breathing for a craving: in for 4, hold for 4, out for 6, for about two minutes. */
+@Composable
+private fun BreathingDialog(onClose: () -> Unit) {
+    val scale = remember { androidx.compose.animation.core.Animatable(0.55f) }
+    var phase by remember { mutableStateOf("Breathe in") }
+    var left by remember { mutableStateOf(112) }
+    LaunchedEffect(Unit) {
+        val tween = { ms: Int -> androidx.compose.animation.core.tween<Float>(ms, easing = androidx.compose.animation.core.FastOutSlowInEasing) }
+        while (left > 0) {
+            phase = "Breathe in"; scale.animateTo(1f, tween(4000)); left -= 4
+            phase = "Hold"; kotlinx.coroutines.delay(4000); left -= 4
+            phase = "Breathe out"; scale.animateTo(0.55f, tween(6000)); left -= 6
+        }
+        phase = "Well done"
+    }
+    androidx.compose.ui.window.Dialog(onClose, androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.fillMaxSize().background(Color(0xF0081018)).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        ) {
+            Text(phase, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(30.dp))
+            androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(280.dp)) {
+                val r = size.minDimension / 2 * scale.value
+                drawCircle(Brush.radialGradient(listOf(Color(0x557FE3D0), Color.Transparent), center, r * 1.35f), r * 1.35f)
+                drawCircle(Brush.radialGradient(listOf(Color(0xFF7FE3D0), Color(0xFF2E7D74)), center, r), r)
+            }
+            Spacer(Modifier.height(30.dp))
+            Text(if (left > 0) "${left / 60}:${"%02d".format(left % 60)} left" else "The craving should be easing now.", color = Color(0xFFCBD2F0))
+            Text("Cravings usually pass in 3 to 5 minutes.", color = Color(0xFF8FA3C7), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            Spacer(Modifier.height(24.dp))
+            Button(onClose) { Text("The craving has passed") }
+        }
+    }
 }
 
 @Composable

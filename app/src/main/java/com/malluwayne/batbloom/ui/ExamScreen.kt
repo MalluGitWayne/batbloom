@@ -23,6 +23,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -50,6 +51,8 @@ import com.malluwayne.batbloom.Nav
 import com.malluwayne.batbloom.data.Status
 import com.malluwayne.batbloom.data.Tags
 import com.malluwayne.batbloom.focus.Rules
+import com.malluwayne.batbloom.stats.ExamPlan
+import com.malluwayne.batbloom.stats.MockTest
 import com.malluwayne.batbloom.stats.Revision
 import com.malluwayne.batbloom.stats.Stats
 import java.time.Instant
@@ -86,6 +89,16 @@ fun ExamScreen(modifier: Modifier) {
     }
     var settings by remember { mutableStateOf(false) }
     var showAll by remember { mutableStateOf(false) }
+    val mcqJson by prefs.mcq.collectAsState()
+    val mcqGoal by prefs.mcqGoal.collectAsState()
+    val testsJson by prefs.mockTests.collectAsState()
+    var askMcq by remember { mutableStateOf(false) }
+    var addTest by remember { mutableStateOf(false) }
+    fun addMcq(k: Int) {
+        val m = ExamPlan.parseMcq(prefs.mcq.value).toMutableMap()
+        m[today] = ((m[today] ?: 0) + k).coerceAtLeast(0)
+        prefs.setMcq(ExamPlan.formatMcq(m, today))
+    }
 
     fun study(subject: String) {
         prefs.setTag(Tags.FMGE); prefs.setSubject(subject); Nav.tab.value = 0
@@ -163,6 +176,27 @@ fun ExamScreen(modifier: Modifier) {
             }
         }
 
+        // Questions (MCQs) done today
+        val mcq = remember(mcqJson) { ExamPlan.parseMcq(mcqJson) }
+        SectionCard {
+            val done = mcq[today] ?: 0
+            Row(verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    Text("$done", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                    Text("questions today of $mcqGoal", color = Muted, fontSize = 13.sp)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("${ExamPlan.mcqWeek(mcq, today)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Lavender)
+                    Text("this week \u00B7 ${ExamPlan.mcqStreak(mcq, today)}-day streak", color = Muted, fontSize = 12.sp)
+                }
+            }
+            LinearProgressIndicator({ (done.toFloat() / mcqGoal.coerceAtLeast(1)).coerceAtMost(1f) }, Modifier.fillMaxWidth().height(8.dp), color = Lavender, drawStopIndicator = {}, gapSize = 0.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                listOf(10, 25, 50).forEach { k -> OutlinedButton({ addMcq(k) }) { Text("+$k") } }
+                TextButton({ askMcq = true }) { Text("Other\u2026") }
+            }
+        }
+
         // Spaced revision
         SectionCard("Revise today") {
             if (due.isEmpty()) Text(
@@ -183,6 +217,22 @@ fun ExamScreen(modifier: Modifier) {
                     TextButton({ study(d.subject) }) { Text("Study") }
                 }
             }
+        }
+
+        // This week's plan
+        val plan = remember(subjects, today, exam) { ExamPlan.week(subjects, today, exam) }
+        if (plan.any { it.second.isNotEmpty() }) SectionCard("This week") {
+            plan.forEach { (d, list) ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Text(
+                        if (d == today) "Today" else d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " ${d.dayOfMonth}",
+                        Modifier.weight(0.32f), fontWeight = if (d == today) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp,
+                        color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
+                    )
+                    Text(list.joinToString(", ").ifBlank { "\u2014" }, Modifier.weight(0.68f), fontSize = 13.sp)
+                }
+            }
+            Text("Revisions due go on their day; the rest goes to your least-studied subjects.", color = Muted, fontSize = 11.sp)
         }
 
         // All subjects
@@ -212,10 +262,76 @@ fun ExamScreen(modifier: Modifier) {
             }
             if (list.size > 8) TextButton({ showAll = !showAll }) { Text(if (showAll) "Show less" else "Show all ${list.size} subjects") }
         }
+
+        // Mock tests
+        val tests = remember(testsJson) { ExamPlan.parseTests(testsJson) }
+        SectionCard("Mock tests") {
+            if (tests.isEmpty()) Text("Add your grand test and mock scores to see your trend against the pass mark (150 of 300).", color = Muted, fontSize = 13.sp)
+            else {
+                val last = tests.last()
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Column(Modifier.weight(1f)) {
+                        Text("${last.percent}%", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = if (last.percent >= ExamPlan.PASS_PERCENT) Teal else Gold)
+                        Text("latest \u00B7 ${last.score}/${last.total}" + last.name.let { if (it.isBlank()) "" else " \u00B7 $it" }, color = Muted, fontSize = 13.sp)
+                    }
+                    if (tests.size > 1) {
+                        val diff = last.percent - tests[tests.size - 2].percent
+                        Text((if (diff >= 0) "+" else "") + "$diff%", color = if (diff >= 0) Teal else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                }
+                TestChart(tests.takeLast(10))
+                tests.takeLast(5).reversed().forEach { tst ->
+                    Row {
+                        Text(DateTimeFormatter.ofPattern("d MMM").format(tst.date) + tst.name.let { if (it.isBlank()) "" else " \u00B7 $it" }, Modifier.weight(1f), fontSize = 13.sp)
+                        Text("${tst.score}/${tst.total} \u00B7 ${tst.percent}%", fontSize = 13.sp, color = Muted)
+                    }
+                }
+            }
+            TextButton({ addTest = true }) { Text("+ Add a result") }
+        }
         Spacer(Modifier.height(8.dp))
     }
 
     if (settings) ExamSettingsDialog { settings = false }
+    if (askMcq) {
+        var v by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { askMcq = false },
+            title = { Text("Questions done") },
+            text = {
+                Column {
+                    NumberBox("How many? (use \u2212 to correct)", v) { v = it }
+                    Row { TextButton({ v = "-" + v.trimStart('-') }) { Text("Make it \u2212") } }
+                }
+            },
+            confirmButton = { TextButton({ v.toIntOrNull()?.let { addMcq(it) }; askMcq = false }) { Text("Add") } },
+            dismissButton = { TextButton({ askMcq = false }) { Text("Cancel") } },
+        )
+    }
+    if (addTest) {
+        var name by remember { mutableStateOf("") }
+        var score by remember { mutableStateOf("") }
+        var total by remember { mutableStateOf("300") }
+        AlertDialog(
+            onDismissRequest = { addTest = false },
+            title = { Text("Add a test result") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.OutlinedTextField(name, { name = it.take(30) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Name (e.g. GT 3)") })
+                    NumberBox("Score", score) { score = it }
+                    NumberBox("Out of", total) { total = it }
+                }
+            },
+            confirmButton = {
+                TextButton({
+                    val s = score.toIntOrNull(); val tt = total.toIntOrNull()
+                    if (s != null && tt != null && tt > 0) prefs.setMockTests(ExamPlan.formatTests(ExamPlan.parseTests(prefs.mockTests.value) + MockTest(today, name.trim(), s.coerceIn(0, tt), tt)))
+                    addTest = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton({ addTest = false }) { Text("Cancel") } },
+        )
+    }
 }
 
 private fun ago(d: LocalDate, today: LocalDate): String = when (val n = ChronoUnit.DAYS.between(d, today)) {
@@ -247,6 +363,29 @@ private fun WeekBars(week: List<Pair<LocalDate, Int>>, today: LocalDate) {
     }
 }
 
+/** Test scores over time, with the pass mark as a dashed line. */
+@Composable
+private fun TestChart(tests: List<MockTest>) {
+    if (tests.size < 2) return
+    val teal = Teal
+    val gold = Gold
+    val grid = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+    Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+        // Zoom to the scores (and the pass mark) so changes are visible.
+        val lo = (minOf(tests.minOf { it.percent }, ExamPlan.PASS_PERCENT) - 8).coerceAtLeast(0)
+        val hi = (maxOf(tests.maxOf { it.percent }, ExamPlan.PASS_PERCENT) + 8).coerceAtMost(100)
+        val pad = 10f
+        val y = { p: Int -> pad + (size.height - 2 * pad) * (1f - (p - lo).toFloat() / (hi - lo).coerceAtLeast(1)) }
+        drawLine(gold.copy(alpha = 0.7f), Offset(0f, y(ExamPlan.PASS_PERCENT)), Offset(size.width, y(ExamPlan.PASS_PERCENT)), 2f,
+            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
+        drawLine(grid, Offset(0f, size.height), Offset(size.width, size.height), 1f)
+        val step = size.width / (tests.size - 1)
+        val pts = tests.mapIndexed { i, t -> Offset(i * step, y(t.percent)) }
+        pts.zipWithNext().forEach { (a, b) -> drawLine(teal, a, b, 5f, androidx.compose.ui.graphics.StrokeCap.Round) }
+        pts.forEach { drawCircle(teal, 7f, it); drawCircle(Color.White, 3f, it) }
+    }
+}
+
 /** Exam date, daily goal and the study reminder (moved here from Settings). */
 @Composable
 private fun ExamSettingsDialog(onClose: () -> Unit) {
@@ -271,6 +410,8 @@ private fun ExamSettingsDialog(onClose: () -> Unit) {
                     goal.toFloat(), { prefs.setDailyGoal(((it / 30).roundToInt() * 30).coerceAtLeast(30)) }, valueRange = 30f..720f, steps = 22,
                     colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
                 )
+                val mcqGoal by prefs.mcqGoal.collectAsState()
+                StepRow("Daily questions goal", mcqGoal, 10, 1000, 10) { prefs.setMcqGoal(it) }
                 StudyReminderSection()
             }
         },

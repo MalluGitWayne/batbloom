@@ -148,6 +148,7 @@ private fun SetupView() {
             AppLogo(32)
             Spacer(Modifier.width(10.dp))
             Text("Batbloom", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton({ com.malluwayne.batbloom.Nav.tab.value = 1; com.malluwayne.batbloom.Nav.garden.value = 0 }) { Text("Garden \u203A") }
         }
         UpdateBanner { com.malluwayne.batbloom.Nav.tab.value = 4 }
         Spacer(Modifier.height(8.dp))

@@ -34,6 +34,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -82,7 +83,15 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
     var freq by remember { mutableStateOf(Frequency.of(start.frequency)) }
     var weekdays by remember { mutableIntStateOf(start.weekdays) }
     var interval by remember { mutableIntStateOf(start.intervalDays.coerceAtLeast(2)) }
-    val times = remember { mutableStateListOf<MedTime>().apply { addAll(MedSchedule.parseTimes(start.times).ifEmpty { listOf(MedTime(LocalTime.of(8, 0))) }) } }
+    val startPhases = if (Frequency.of(start.frequency) == Frequency.Taper) MedSchedule.parsePhases(start.times) else emptyList()
+    val times = remember {
+        mutableStateListOf<MedTime>().apply {
+            addAll((startPhases.firstOrNull()?.times ?: MedSchedule.parseTimes(start.times)).ifEmpty { listOf(MedTime(LocalTime.of(8, 0))) })
+        }
+    }
+    val phases = remember { mutableStateListOf<com.malluwayne.batbloom.meds.Phase>().apply { addAll(startPhases) } }
+    val others by BatbloomApp.instance.db.meds().all().collectAsState(emptyList())
+    val duplicate = others.firstOrNull { it.id != start.id && !it.archived && it.name.trim().equals(name.trim(), ignoreCase = true) }
     var startDate by remember { mutableStateOf(LocalDate.parse(start.startDate)) }
     var endDate by remember { mutableStateOf(start.endDate?.let { LocalDate.parse(it) }) }
     var shape by remember { mutableStateOf(start.shape) }
@@ -95,13 +104,17 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
     fun build() = start.copy(
         name = name.trim(), form = form.name, strength = strength.toDoubleOrNull() ?: 0.0, unit = unit,
         shape = shape, color1 = c1, color2 = c2, background = bg, notes = notes.trim().ifBlank { null },
-        frequency = freq.name, weekdays = weekdays, intervalDays = interval, times = MedSchedule.formatTimes(times),
+        frequency = freq.name, weekdays = weekdays, intervalDays = interval, times = if (freq == Frequency.Taper) MedSchedule.formatPhases(phases) else MedSchedule.formatTimes(times),
         startDate = startDate.toString(), endDate = endDate?.toString(), stock = stock.trim().toDoubleOrNull() ?: -1.0,
     )
 
     val canNext = when (step) {
         0 -> name.isNotBlank()
-        3 -> freq == Frequency.AsNeeded || (times.isNotEmpty() && (freq != Frequency.Weekdays || weekdays != 0))
+        3 -> when (freq) {
+            Frequency.AsNeeded -> true
+            Frequency.Taper -> phases.isNotEmpty() && phases.all { it.times.isNotEmpty() }
+            else -> times.isNotEmpty() && (freq != Frequency.Weekdays || weekdays != 0)
+        }
         else -> true
     }
 
@@ -132,6 +145,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
                         name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Name") },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     )
+                    duplicate?.let { DuplicateNote(it) }
                 }
                 1 -> {
                     Title("Choose the medication type", null)
@@ -150,7 +164,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
                     }
                 }
                 3 -> ScheduleStep(
-                    freq, { freq = it }, weekdays, { weekdays = it }, interval, { interval = it }, times,
+                    freq, { freq = it }, weekdays, { weekdays = it }, interval, { interval = it }, times, phases,
                     startDate, { startDate = it }, endDate, { endDate = it }, form,
                 )
                 4 -> {
@@ -171,6 +185,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
                 else -> {
                     Title("Review details", null)
                     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Display name") })
+                    duplicate?.let { DuplicateNote(it) }
                     SectionCard {
                         LabeledRow("Type", form.label)
                         if ((strength.toDoubleOrNull() ?: 0.0) > 0) LabeledRow("Strength", "$strength $unit")
@@ -192,6 +207,14 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
             Modifier.fillMaxWidth().padding(vertical = 8.dp), enabled = canNext,
         ) { Text(if (step < steps.lastIndex) "Next" else if (isNew) "Add medication" else "Save") }
     }
+}
+
+@Composable
+private fun DuplicateNote(m: MedEntity) {
+    Text(
+        "You already have ${m.name}" + MedSchedule.strengthLabel(m).let { if (it.isBlank()) "" else " ($it)" } + ". Adding it again can mean taking a double dose; edit the existing one instead if it's the same medicine.",
+        color = MaterialTheme.colorScheme.error, fontSize = 13.sp,
+    )
 }
 
 @Composable
@@ -240,6 +263,7 @@ private fun ScheduleStep(
     weekdays: Int, setWeekdays: (Int) -> Unit,
     interval: Int, setInterval: (Int) -> Unit,
     times: MutableList<MedTime>,
+    phases: MutableList<com.malluwayne.batbloom.meds.Phase>,
     startDate: LocalDate, setStart: (LocalDate) -> Unit,
     endDate: LocalDate?, setEnd: (LocalDate?) -> Unit,
     form: MedForm,
@@ -247,6 +271,7 @@ private fun ScheduleStep(
     val tf = remember { DateTimeFormatter.ofPattern("h:mm a") }
     val df = remember { DateTimeFormatter.ofPattern("EEE d MMM yyyy") }
     var editTime by remember { mutableStateOf<Int?>(null) }
+    var editPhaseTime by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var pickDate by remember { mutableStateOf<String?>(null) }
     val unitWord = { q: Double -> MedSchedule.qtyLabel(MedEntity(name = "", form = form.name, startDate = "2000-01-01"), q) }
 
@@ -283,6 +308,51 @@ private fun ScheduleStep(
         val q = times.firstOrNull()?.qty ?: 1.0
         QtyStepper(q, { v -> if (times.isEmpty()) times.add(MedTime(LocalTime.of(8, 0), v)) else times[0] = times[0].copy(qty = v) }, unitWord)
         Text("No reminders. Log it from the Meds tab whenever you take it.", color = Muted, fontSize = 13.sp)
+    } else if (freq == Frequency.Taper) {
+        if (phases.isEmpty()) {
+            phases.add(com.malluwayne.batbloom.meds.Phase(1, 7, times.toList()))
+            phases.add(com.malluwayne.batbloom.meds.Phase(8, 14, times.toList()))
+        }
+        Text("For doses that step up or down, like a starter pack or a tapering course. Day 1 is the start date.", color = Muted, fontSize = 13.sp)
+        phases.forEachIndexed { pi, ph ->
+            SectionCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Step ${pi + 1}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    if (phases.size > 1) TextButton({ phases.removeAt(pi) }) { Text("Remove", color = Muted, fontSize = 13.sp) }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Days", Modifier.weight(1f))
+                    TextButton({ phases[pi] = ph.copy(from = (ph.from - 1).coerceAtLeast(1)) }) { Text("\u2212") }
+                    Text("${ph.from}", fontWeight = FontWeight.SemiBold)
+                    TextButton({ phases[pi] = ph.copy(from = (ph.from + 1).coerceAtMost(ph.to)) }) { Text("+") }
+                    Text("to")
+                    TextButton({ phases[pi] = ph.copy(to = (ph.to - 1).coerceAtLeast(ph.from)) }) { Text("\u2212") }
+                    Text("${ph.to}", fontWeight = FontWeight.SemiBold)
+                    TextButton({ phases[pi] = ph.copy(to = ph.to + 1) }) { Text("+") }
+                }
+                ph.times.forEachIndexed { ti, mt ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            tf.format(mt.time), fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(10.dp)).clickable { editPhaseTime = pi to ti }.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                        Spacer(Modifier.weight(1f))
+                        TextButton({ phases[pi] = ph.copy(times = ph.times.toMutableList().also { it[ti] = mt.copy(qty = (mt.qty - 0.5).coerceAtLeast(0.5)) }) }) { Text("\u2212") }
+                        Text(unitWord(mt.qty), fontSize = 13.sp)
+                        TextButton({ phases[pi] = ph.copy(times = ph.times.toMutableList().also { it[ti] = mt.copy(qty = mt.qty + 0.5) }) }) { Text("+") }
+                        if (ph.times.size > 1) TextButton({ phases[pi] = ph.copy(times = ph.times.toMutableList().also { it.removeAt(ti) }) }) { Text("\u2715", color = Muted) }
+                    }
+                }
+                TextButton({
+                    val last = ph.times.maxOfOrNull { it.time } ?: LocalTime.of(8, 0)
+                    phases[pi] = ph.copy(times = ph.times + MedTime(last.plusHours(12).withMinute(0)))
+                }) { Text("+ Add a time") }
+            }
+        }
+        TextButton({
+            val last = phases.last()
+            phases.add(com.malluwayne.batbloom.meds.Phase(last.to + 1, last.to + 7, last.times))
+        }) { Text("+ Add a step") }
     } else {
         Label("Times")
         times.forEachIndexed { i, t ->
@@ -321,6 +391,22 @@ private fun ScheduleStep(
             onDismissRequest = { editTime = null },
             confirmButton = { TextButton({ if (i < times.size) times[i] = times[i].copy(time = LocalTime.of(st.hour, st.minute)); editTime = null }) { Text("OK") } },
             dismissButton = { TextButton({ editTime = null }) { Text("Cancel") } },
+            text = { TimePicker(st) },
+        )
+    }
+    editPhaseTime?.let { (pi, ti) ->
+        val ph = phases.getOrNull(pi)
+        val t = ph?.times?.getOrNull(ti)?.time ?: LocalTime.of(8, 0)
+        val st = rememberTimePickerState(t.hour, t.minute, false)
+        AlertDialog(
+            onDismissRequest = { editPhaseTime = null },
+            confirmButton = {
+                TextButton({
+                    if (ph != null && ti < ph.times.size) phases[pi] = ph.copy(times = ph.times.toMutableList().also { it[ti] = it[ti].copy(time = LocalTime.of(st.hour, st.minute)) }.sortedBy { it.time })
+                    editPhaseTime = null
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton({ editPhaseTime = null }) { Text("Cancel") } },
             text = { TimePicker(st) },
         )
     }

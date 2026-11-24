@@ -18,10 +18,13 @@ enum class MedForm(val label: String, val unitWord: String) {
 }
 
 enum class Frequency(val label: String) {
-    Daily("Every day"), Weekdays("On specific days"), Interval("Every few days"), AsNeeded("As needed");
+    Daily("Every day"), Weekdays("On specific days"), Interval("Every few days"), Taper("Changes over time"), AsNeeded("As needed");
 
     companion object { fun of(s: String) = entries.firstOrNull { it.name == s } ?: Daily }
 }
+
+/** A tapering step: from day [from] to day [to] (1 = start date), these times and amounts. */
+data class Phase(val from: Int, val to: Int, val times: List<MedTime>)
 
 /** A scheduled time and how many units to take then. */
 data class MedTime(val time: LocalTime, val qty: Double = 1.0)
@@ -67,13 +70,34 @@ object MedSchedule {
                 val start = LocalDate.parse(m.startDate)
                 ChronoUnit.DAYS.between(start, date) % m.intervalDays.coerceAtLeast(1) == 0L
             }
+            Frequency.Taper -> timesOn(m, date).isNotEmpty()
             Frequency.AsNeeded -> false
         }
     }
 
+    // --- Tapering: phases are stored in `times` as "1-3=08:00*1|4-7=08:00*1;20:00*1" ---
+
+    fun parsePhases(s: String): List<Phase> = s.split('|').mapNotNull { part ->
+        val (range, times) = part.split('=', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+        val (a, b) = range.split('-').mapNotNull { it.trim().toIntOrNull() }.takeIf { it.size == 2 } ?: return@mapNotNull null
+        Phase(minOf(a, b), maxOf(a, b), parseTimes(times))
+    }.sortedBy { it.from }
+
+    fun formatPhases(l: List<Phase>): String = l.sortedBy { it.from }.joinToString("|") { "${it.from}-${it.to}=${formatTimes(it.times)}" }
+
+    /** Day number of [date] in the course (1 = start date). */
+    fun dayNumber(m: MedEntity, date: LocalDate): Int = (ChronoUnit.DAYS.between(LocalDate.parse(m.startDate), date) + 1).toInt()
+
+    /** The times and amounts for [date]: from the matching phase for tapering medications. */
+    fun timesOn(m: MedEntity, date: LocalDate): List<MedTime> =
+        if (Frequency.of(m.frequency) == Frequency.Taper) {
+            val d = dayNumber(m, date)
+            parsePhases(m.times).firstOrNull { d in it.from..it.to }?.times ?: emptyList()
+        } else parseTimes(m.times)
+
     fun dosesOn(meds: List<MedEntity>, date: LocalDate): List<MedDose> =
         meds.filter { occursOn(it, date) }
-            .flatMap { m -> parseTimes(m.times).map { MedDose(m, date, it.time, it.qty) } }
+            .flatMap { m -> timesOn(m, date).map { MedDose(m, date, it.time, it.qty) } }
             .sortedWith(compareBy<MedDose> { it.time }.thenBy { it.med.name.lowercase() })
 
     /** The first scheduled dose time strictly after [now], looking up to two weeks ahead. */
@@ -93,6 +117,7 @@ object MedSchedule {
             Frequency.Daily -> "Every day · $times"
             Frequency.Weekdays -> weekdayLabel(m.weekdays) + " · $times"
             Frequency.Interval -> "Every ${m.intervalDays} days · $times"
+            Frequency.Taper -> parsePhases(m.times).let { p -> "Changes over time · ${p.size} step${if (p.size == 1) "" else "s"}, ${p.maxOfOrNull { it.to } ?: 0} days" }
             Frequency.AsNeeded -> "As needed"
         }
     }
@@ -118,7 +143,7 @@ object MedSchedule {
     /** Units used per day on average over the next 7 days (for "stock lasts until"). */
     fun dailyUse(m: MedEntity, from: LocalDate): Double {
         val week = (0 until 7).map { from.plusDays(it.toLong()) }
-        val total = week.filter { occursOn(m, it) }.sumOf { parseTimes(m.times).sumOf { t -> t.qty } }
+        val total = week.filter { occursOn(m, it) }.sumOf { d -> timesOn(m, d).sumOf { t -> t.qty } }
         return total / 7.0
     }
 

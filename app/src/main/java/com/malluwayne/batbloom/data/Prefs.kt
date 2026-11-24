@@ -23,6 +23,28 @@ class Prefs(context: Context) {
     val medsTab: StateFlow<Boolean> = _medsTab
     fun setMedsTab(on: Boolean) { sp.edit().putBoolean("meds_tab", on).apply(); _medsTab.value = on }
 
+    /** Mock test results as JSON (see [com.malluwayne.batbloom.stats.ExamPlan]). */
+    private val _mockTests = MutableStateFlow(sp.getString("mock_tests", "[]")!!)
+    val mockTests: StateFlow<String> = _mockTests
+    fun setMockTests(json: String) { sp.edit().putString("mock_tests", json).apply(); _mockTests.value = json }
+
+    /** Questions done per day as JSON {"2026-11-25": 120}. */
+    private val _mcq = MutableStateFlow(sp.getString("mcq_log", "{}")!!)
+    val mcq: StateFlow<String> = _mcq
+    fun setMcq(json: String) { sp.edit().putString("mcq_log", json).apply(); _mcq.value = json }
+
+    private val _mcqGoal = MutableStateFlow(sp.getInt("mcq_goal", 100))
+    val mcqGoal: StateFlow<Int> = _mcqGoal
+    fun setMcqGoal(n: Int) { sp.edit().putInt("mcq_goal", n).apply(); _mcqGoal.value = n }
+
+    /** Slips logged on the Quit tab (epoch millis). */
+    private val _slips = MutableStateFlow(sp.getStringSet("slips", emptySet())!!.mapNotNull { it.toLongOrNull() }.sorted())
+    val slips: StateFlow<List<Long>> = _slips
+    fun addSlip(at: Long) {
+        val l = (_slips.value + at).sorted()
+        sp.edit().putStringSet("slips", l.map { it.toString() }.toSet()).apply(); _slips.value = l
+    }
+
     /** Whether the Exam tab shows. Off also pauses the daily study reminder. */
     private val _examTab = MutableStateFlow(sp.getBoolean("exam_tab", true))
     val examTab: StateFlow<Boolean> = _examTab

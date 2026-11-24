@@ -231,6 +231,11 @@ class RescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         DoseAlarms.ensureChannels(context)
         DoseAlarms.scheduleNext(context)
+        com.malluwayne.batbloom.meds.MedAlarms.ensureChannel(context)
+        val pending = goAsync()
+        (context.applicationContext as BatbloomApp).appScope.launch {
+            try { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(context) } finally { pending.finish() }
+        }
         com.malluwayne.batbloom.guard.Reminders.scheduleAll(context)
         com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
     }

@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
             ACTION_OPEN -> Nav.tab.value = 0
             ACTION_STATS -> { Nav.tab.value = 1; Nav.garden.value = 1 }
             ACTION_AWARDS -> { Nav.tab.value = 1; Nav.garden.value = 2 }
+            ACTION_MEDS -> Nav.tab.value = 3
             ACTION_FMGE -> {
                 val p = BatbloomApp.instance.prefs
                 p.setTag(Tags.FMGE)
@@ -103,6 +104,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_FMGE = "batbloom.FMGE"
         const val ACTION_STATS = "batbloom.STATS"
         const val ACTION_AWARDS = "batbloom.AWARDS"
+        const val ACTION_MEDS = "batbloom.MEDS"
         const val EXTRA_SUBJECT = "subject"
     }
 }
@@ -138,6 +140,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     Focus("Focus", Icons.Filled.PlayArrow),
     Garden("Garden", Icons.Filled.Home),
     Quit("Quit", Icons.Filled.Favorite),
+    Meds("Meds", com.malluwayne.batbloom.ui.PillIcon),
     Settings("Settings", Icons.Filled.Settings),
 }
 
@@ -166,6 +169,7 @@ private fun AppRoot() {
                 Tab.Focus -> FocusScreen(m)
                 Tab.Garden -> GardenTab(m)
                 Tab.Quit -> QuitScreen(m)
+                Tab.Meds -> com.malluwayne.batbloom.ui.MedsScreen(m)
                 Tab.Settings -> SettingsScreen(m)
             }
         }

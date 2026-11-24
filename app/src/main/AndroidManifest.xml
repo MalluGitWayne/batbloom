@@ -65,6 +65,7 @@
 
         <receiver android:name=".focus.SessionAlarmReceiver" android:exported="false" />
         <receiver android:name=".quit.DoseReceiver" android:exported="false" />
+        <receiver android:name=".meds.MedReceiver" android:exported="false" />
         <receiver android:name=".update.InstallReceiver" android:exported="false" />
         <receiver android:name=".guard.ReminderReceiver" android:exported="false" />
         <receiver android:name=".quit.RescheduleReceiver" android:exported="false">

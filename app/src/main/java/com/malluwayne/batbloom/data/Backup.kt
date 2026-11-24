@@ -16,6 +16,8 @@ data class BackupData(
     val doses: List<DoseLogEntity>,
     val badges: List<BadgeEntity>,
     val prefs: Map<String, Any?>,
+    val meds: List<MedEntity> = emptyList(),
+    val medLogs: List<MedLogEntity> = emptyList(),
 )
 
 @Dao
@@ -25,23 +27,27 @@ interface BackupDao {
     @Query("SELECT * FROM allowed_apps") suspend fun allowed(): List<AllowedAppEntity>
     @Query("SELECT * FROM dose_log") suspend fun doses(): List<DoseLogEntity>
     @Query("SELECT * FROM badges") suspend fun badges(): List<BadgeEntity>
+    @Query("SELECT * FROM meds") suspend fun meds(): List<MedEntity>
+    @Query("SELECT * FROM med_log") suspend fun medLogs(): List<MedLogEntity>
 
     @Insert suspend fun putSessions(l: List<SessionEntity>)
     @Insert suspend fun putUnlocks(l: List<UnlockEntity>)
     @Insert suspend fun putAllowed(l: List<AllowedAppEntity>)
     @Insert suspend fun putDoses(l: List<DoseLogEntity>)
     @Insert suspend fun putBadges(l: List<BadgeEntity>)
+    @Insert suspend fun putMeds(l: List<MedEntity>)
+    @Insert suspend fun putMedLogs(l: List<MedLogEntity>)
 }
 
 object Backup {
-    /** 2: no coins, cravings, slips or side effects. Older files still restore (extra fields are ignored). */
-    const val FORMAT = 2
+    /** 2: no coins, cravings, slips or side effects. 3: medications. Older files still restore (missing parts are empty). */
+    const val FORMAT = 3
     const val PREFS_FILE = "batbloom"
 
     suspend fun collect(context: Context, db: AppDatabase): BackupData {
         val d = db.backup()
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-        return BackupData(d.sessions(), d.unlocks(), d.allowed(), d.doses(), d.badges(), sp.all)
+        return BackupData(d.sessions(), d.unlocks(), d.allowed(), d.doses(), d.badges(), sp.all, d.meds(), d.medLogs())
     }
 
     /** Replaces all data with the backup's. Settings are written too; the app restarts to load them. */
@@ -51,6 +57,7 @@ object Backup {
             val d = db.backup()
             d.putSessions(b.sessions); d.putUnlocks(b.unlocks); d.putAllowed(b.allowed)
             d.putDoses(b.doses); d.putBadges(b.badges)
+            d.putMeds(b.meds); d.putMedLogs(b.medLogs)
         }
         val e = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit().clear()
         b.prefs.forEach { (k, v) ->
@@ -83,6 +90,17 @@ object Backup {
             JSONObject().put("key", it.key).put("day", it.day).put("mg", it.mg).put("tablets", it.tablets).put("status", it.status).put("actedAt", it.actedAt)
         }))
         put("badges", JSONArray(b.badges.map { JSONObject().put("id", it.id).put("earnedAt", it.earnedAt) }))
+        put("meds", JSONArray(b.meds.map { m ->
+            JSONObject().put("id", m.id).put("name", m.name).put("form", m.form).put("strength", m.strength).put("unit", m.unit)
+                .put("shape", m.shape).put("color1", m.color1).put("color2", m.color2).put("background", m.background)
+                .put("notes", m.notes ?: JSONObject.NULL).put("frequency", m.frequency).put("weekdays", m.weekdays)
+                .put("intervalDays", m.intervalDays).put("times", m.times).put("startDate", m.startDate)
+                .put("endDate", m.endDate ?: JSONObject.NULL).put("stock", m.stock).put("archived", m.archived).put("createdAt", m.createdAt)
+        }))
+        put("medLogs", JSONArray(b.medLogs.map { l ->
+            JSONObject().put("id", l.id).put("medId", l.medId).put("slot", l.slot ?: JSONObject.NULL).put("status", l.status)
+                .put("quantity", l.quantity).put("actedAt", l.actedAt)
+        }))
         put("prefs", JSONObject().apply {
             b.prefs.forEach { (k, v) ->
                 val (t, value) = when (v) {
@@ -138,6 +156,17 @@ object Backup {
             },
             badges = arr("badges").map { BadgeEntity(it.getString("id"), it.getLong("earnedAt")) },
             prefs = prefs,
+            meds = arr("meds").map {
+                MedEntity(
+                    it.getLong("id"), it.getString("name"), it.getString("form"), it.getDouble("strength"), it.getString("unit"),
+                    it.getString("shape"), it.getLong("color1"), it.getLong("color2"), it.getLong("background"), it.str("notes"),
+                    it.getString("frequency"), it.getInt("weekdays"), it.getInt("intervalDays"), it.getString("times"),
+                    it.getString("startDate"), it.str("endDate"), it.getDouble("stock"), it.getBoolean("archived"), it.getLong("createdAt"),
+                )
+            },
+            medLogs = arr("medLogs").map {
+                MedLogEntity(it.getLong("id"), it.getLong("medId"), it.str("slot"), it.getString("status"), it.getDouble("quantity"), it.getLong("actedAt"))
+            },
         )
     }
 }

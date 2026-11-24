@@ -45,8 +45,11 @@ interface AllowedDao {
     entities = [
         SessionEntity::class, UnlockEntity::class, AllowedAppEntity::class,
         DoseLogEntity::class, BadgeEntity::class,
+        MedEntity::class, MedLogEntity::class,
     ],
-    version = 3,
+    version = 4,
+    // v3 -> v4 only adds the medication tables.
+    autoMigrations = [androidx.room.AutoMigration(from = 3, to = 4)],
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,6 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun allowed(): AllowedDao
     abstract fun quit(): QuitDao
     abstract fun backup(): BackupDao
+    abstract fun meds(): MedDao
 
     companion object {
         fun create(context: Context): AppDatabase =

@@ -34,6 +34,8 @@ class BatbloomApp : Application() {
         com.malluwayne.batbloom.guard.Reminders.ensureChannels(this)
         com.malluwayne.batbloom.guard.Reminders.scheduleAll(this)
         appScope.launch { DoseAlarms.checkBadges(this@BatbloomApp) }
+        com.malluwayne.batbloom.meds.MedAlarms.ensureChannel(this)
+        appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(this@BatbloomApp) }
     }
 
     /** The phone switched dark/light mode: widgets on System follow it. */

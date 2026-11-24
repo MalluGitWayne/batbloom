@@ -149,7 +149,7 @@ private fun SetupView() {
             Spacer(Modifier.width(10.dp))
             Text("Batbloom", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         }
-        UpdateBanner { com.malluwayne.batbloom.Nav.tab.value = 3 }
+        UpdateBanner { com.malluwayne.batbloom.Nav.tab.value = 4 }
         Spacer(Modifier.height(8.dp))
 
         // The plant; tap it to choose another

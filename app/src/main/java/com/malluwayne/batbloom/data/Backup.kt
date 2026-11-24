@@ -1,5 +1,6 @@
 package com.malluwayne.batbloom.data
 
+import androidx.core.content.edit
 import android.content.Context
 import androidx.room.Dao
 import androidx.room.Insert
@@ -59,18 +60,20 @@ object Backup {
             d.putDoses(b.doses); d.putBadges(b.badges)
             d.putMeds(b.meds); d.putMedLogs(b.medLogs)
         }
-        val e = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit().clear()
-        b.prefs.forEach { (k, v) ->
-            when (v) {
-                is Boolean -> e.putBoolean(k, v)
-                is Int -> e.putInt(k, v)
-                is Long -> e.putLong(k, v)
-                is Float -> e.putFloat(k, v)
-                is String -> e.putString(k, v)
-                is Set<*> -> e.putStringSet(k, v.filterIsInstance<String>().toSet())
+        // commit = true: written before the app restarts to load them.
+        context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit(commit = true) {
+            clear()
+            b.prefs.forEach { (k, v) ->
+                when (v) {
+                    is Boolean -> putBoolean(k, v)
+                    is Int -> putInt(k, v)
+                    is Long -> putLong(k, v)
+                    is Float -> putFloat(k, v)
+                    is String -> putString(k, v)
+                    is Set<*> -> putStringSet(k, v.filterIsInstance<String>().toSet())
+                }
             }
         }
-        e.commit()
     }
 
     // --- JSON (pure, unit tested) ---

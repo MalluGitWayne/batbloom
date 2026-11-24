@@ -30,6 +30,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -224,7 +225,7 @@ fun QuitScreen(modifier: Modifier) {
 private fun BreathingDialog(onClose: (Boolean) -> Unit) {
     val scale = remember { androidx.compose.animation.core.Animatable(0.55f) }
     var phase by remember { mutableStateOf("Breathe in") }
-    var left by remember { mutableStateOf(112) }
+    var left by remember { mutableIntStateOf(112) }
     LaunchedEffect(Unit) {
         val tween = { ms: Int -> androidx.compose.animation.core.tween<Float>(ms, easing = androidx.compose.animation.core.FastOutSlowInEasing) }
         while (left > 0) {

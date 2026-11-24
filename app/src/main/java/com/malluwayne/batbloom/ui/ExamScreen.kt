@@ -84,6 +84,15 @@ fun ExamScreen(modifier: Modifier) {
     val summary = remember(sessions, today) { Stats.compute(sessions, today, zone) }
 
     val subjects = remember(sessions, today) { Revision.subjects(sessions, today, zone) }
+    // The saved weekly plan: kept for 7 days so ticks and missed subjects stay put.
+    val planJson by prefs.examPlan.collectAsState()
+    val plan = remember(planJson, subjects, today, exam) { ExamPlan.current(ExamPlan.parseSaved(planJson), subjects, today, exam) }
+    androidx.compose.runtime.LaunchedEffect(plan) { ExamPlan.formatSaved(plan).let { if (it != planJson) prefs.setExamPlan(it) } }
+    val studiedDays = remember(sessions) {
+        sessions.filter { it.tag == Tags.FMGE && it.status == Status.DONE && it.subject != null }
+            .groupBy({ it.subject!! }, { Stats.dayOf(it.startedAt, zone) }).mapValues { it.value.toSet() }
+    }
+    val planView = remember(plan, studiedDays, today) { ExamPlan.view(plan, studiedDays, today) }
     val streak = remember(sessions, today) { Revision.streak(sessions, today, zone) }
     val week = remember(sessions, today) {
         (6 downTo 0).map { today.minusDays(it.toLong()) }.map { d ->
@@ -177,7 +186,7 @@ fun ExamScreen(modifier: Modifier) {
             )
             WeekBars(week, today)
             val current by prefs.subject.collectAsState()
-            val next = ExamPlan.week(subjects, today, exam).firstOrNull()?.second?.firstOrNull() ?: current
+            val next = ExamPlan.next(planView, today) ?: current
             Button({ study(next) }, Modifier.fillMaxWidth()) { Text("Study now \u00B7 $next") }
         }
 
@@ -207,19 +216,44 @@ fun ExamScreen(modifier: Modifier) {
         }
 
         // This week's plan
-        val plan = remember(subjects, today, exam) { ExamPlan.week(subjects, today, exam) }
-        if (plan.any { it.second.isNotEmpty() }) SectionCard("This week") {
-            plan.forEach { (d, list) ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        if (planView.any { it.second.isNotEmpty() }) SectionCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("This week", style = MaterialTheme.typography.titleMedium)
+                    val all = planView.filter { !it.first.isAfter(today) }.flatMap { it.second }.filter { !it.carried }
+                    Text("${all.count { it.done }} of ${all.size} done so far \u00b7 until ${DateTimeFormatter.ofPattern("EEE d MMM").format(plan.end)}", color = Muted, fontSize = 12.sp)
+                }
+                TextButton({ prefs.setExamPlan(ExamPlan.formatSaved(ExamPlan.Saved(today, ExamPlan.week(subjects, today, exam).toMap()))) }) { Text("Replan") }
+            }
+            val teal = Teal
+            val gold = Gold
+            planView.forEach { (d, items) ->
+                Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                     Text(
                         if (d == today) "Today" else d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " ${d.dayOfMonth}",
-                        Modifier.weight(0.32f), fontWeight = if (d == today) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp,
+                        Modifier.weight(0.28f), fontWeight = if (d == today) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp,
                         color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
                     )
-                    Text(list.joinToString(", ").ifBlank { "\u2014" }, Modifier.weight(0.68f), fontSize = 13.sp)
+                    Column(Modifier.weight(0.72f)) {
+                        if (items.isEmpty()) Text("\u2014", fontSize = 13.sp, color = Muted)
+                        items.forEach { it ->
+                            val past = d.isBefore(today)
+                            Text(
+                                when {
+                                    it.done -> "\u2713 ${it.subject}"
+                                    it.carried -> "${it.subject} \u00b7 carried over"
+                                    past -> "${it.subject} \u00b7 missed"
+                                    else -> it.subject
+                                },
+                                fontSize = 13.sp,
+                                color = when { it.done -> teal; it.carried || past -> gold; else -> MaterialTheme.colorScheme.onSurface },
+                                modifier = if (d == today && !it.done) Modifier.clickable { study(it.subject) } else Modifier,
+                            )
+                        }
+                    }
                 }
             }
-            Text("Least-studied subjects come first, and every subject gets a turn before any repeats.", color = Muted, fontSize = 11.sp)
+            Text("Missed subjects move to today. Tap one of today's to study it.", color = Muted, fontSize = 11.sp)
         }
 
         // All subjects

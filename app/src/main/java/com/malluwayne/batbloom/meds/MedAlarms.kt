@@ -1,5 +1,6 @@
 package com.malluwayne.batbloom.meds
 
+import androidx.core.content.edit
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -58,7 +59,7 @@ object Meds {
         if (days > 3) return
         val sp = context.getSharedPreferences("med_alerts", Context.MODE_PRIVATE)
         if (sp.getString("low_${m.id}", "") == today.toString()) return
-        sp.edit().putString("low_${m.id}", today.toString()).apply()
+        sp.edit { putString("low_${m.id}", today.toString()) }
         val openApp = PendingIntent.getActivity(
             context, 33, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_MEDS).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

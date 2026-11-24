@@ -2,6 +2,8 @@
 
 package com.malluwayne.batbloom.ui
 
+import androidx.core.net.toUri
+
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -157,7 +159,7 @@ fun SettingsScreen(modifier: Modifier) {
                 fontSize = 13.sp, color = Muted,
             )
             TextButton({
-                ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
+                ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ("package:${ctx.packageName}").toUri()))
             }) { Text("App info") }
         }
     }

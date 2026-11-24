@@ -30,6 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -139,7 +140,7 @@ internal fun MedListRow(art: @Composable () -> Unit, title: String, subtitle: St
 
 @Composable
 internal fun LogAsNeededDialog(m: MedEntity, onDismiss: () -> Unit, onLog: (Double) -> Unit) {
-    var qty by remember { mutableStateOf(MedSchedule.parseTimes(m.times).firstOrNull()?.qty ?: 1.0) }
+    var qty by remember { mutableDoubleStateOf(MedSchedule.parseTimes(m.times).firstOrNull()?.qty ?: 1.0) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Log ${m.name}") },

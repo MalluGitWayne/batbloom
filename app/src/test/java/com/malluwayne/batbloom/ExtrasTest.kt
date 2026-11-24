@@ -80,6 +80,26 @@ class ExtrasTest {
         assertEquals(b.all.size, b.all.map { it.id }.toSet().size)
     }
 
+    @Test fun savedPlanCarriesOver() {
+        val d = { n: Long -> start.plusDays(n) }
+        val p = ExamPlan.Saved(start, mapOf(d(0) to listOf("Anatomy", "ENT"), d(1) to listOf("Physiology"), d(2) to listOf("Pathology")))
+        assertEquals(p, ExamPlan.parseSaved(ExamPlan.formatSaved(p)))
+        // Day 3 (d(2)): Anatomy studied on day 1, ENT never, Physiology studied a day late (day 3).
+        val studied = mapOf("Anatomy" to setOf(d(0)), "Physiology" to setOf(d(2)))
+        val v = ExamPlan.view(p, studied, d(2)).toMap()
+        assertTrue(v.getValue(d(0)).first { it.subject == "Anatomy" }.done)
+        assertFalse(v.getValue(d(0)).first { it.subject == "ENT" }.done)
+        val today = v.getValue(d(2))
+        assertEquals(listOf("Pathology", "ENT"), today.map { it.subject })   // ENT carried; Physiology caught up so not carried
+        assertTrue(today.last().carried)
+        assertEquals("Pathology", ExamPlan.next(ExamPlan.view(p, studied, d(2)), d(2)))
+        // The saved plan is kept within its 7 days and replaced after.
+        val subjects = Tags.fmgeSubjects.filter { it != Tags.MCQ }.map { st(it, 0) }
+        assertEquals(p, ExamPlan.current(p, subjects, d(6), null))
+        assertEquals(d(7), ExamPlan.current(p, subjects, d(7), null).start)
+        assertEquals(d(0), ExamPlan.current(null, subjects, d(0), null).start)
+    }
+
     @Test fun mcqAndTests() {
         val m = mapOf(start to 40, start.minusDays(1) to 60, start.minusDays(3) to 10, start.minusDays(200) to 5)
         val back = ExamPlan.parseMcq(ExamPlan.formatMcq(m, start))

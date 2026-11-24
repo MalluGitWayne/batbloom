@@ -1,5 +1,7 @@
 package com.malluwayne.batbloom.ui
 
+import androidx.core.net.toUri
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -98,12 +100,12 @@ fun UpdateSection() {
                 } else if (r.apkUrl != null && SelfUpdate.trusted(r.apkUrl)) {
                     Button({ SelfUpdate.start(ctx, r.apkUrl, r.version) }) { Text("Update to ${r.version}") }
                 } else {
-                    OutlinedButton({ ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(r.pageUrl))) }) { Text("Open on GitHub") }
+                    OutlinedButton({ ctx.startActivity(Intent(Intent.ACTION_VIEW, r.pageUrl.toUri())) }) { Text("Open on GitHub") }
                 }
             }
             else -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton({ check() }, enabled = !checking) { Text(if (checking) "Checking…" else "Check for updates") }
-                TextButton({ ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$GITHUB_URL/releases"))) }) { Text("Releases") }
+                TextButton({ ctx.startActivity(Intent(Intent.ACTION_VIEW, ("$GITHUB_URL/releases").toUri())) }) { Text("Releases") }
             }
         }
         (state as? SelfUpdate.State.Failed)?.let { Text(it.message, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }

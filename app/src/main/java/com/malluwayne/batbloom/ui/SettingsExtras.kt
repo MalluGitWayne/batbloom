@@ -2,6 +2,8 @@
 
 package com.malluwayne.batbloom.ui
 
+import androidx.core.net.toUri
+
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
@@ -183,7 +185,7 @@ fun BackupSection() {
     val auto = com.malluwayne.batbloom.data.AutoBackup
     var autoOn by remember { mutableStateOf(auto.enabled(ctx)) }
     var folderName by remember { mutableStateOf(auto.folderName(ctx)) }
-    var last by remember { mutableStateOf(auto.lastMs(ctx)) }
+    var last by remember { androidx.compose.runtime.mutableLongStateOf(auto.lastMs(ctx)) }
     var autoError by remember { mutableStateOf(auto.lastError(ctx)) }
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -267,7 +269,7 @@ fun BackgroundSection(refreshKey: Long) {
     val maker = Build.MANUFACTURER.lowercase()
     SubSection("Battery") {
         StatusRow("Run freely in the background", unrestricted, "Allow") {
-            ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")))
+            ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, ("package:${ctx.packageName}").toUri()))
         }
         val tip = when {
             listOf("oneplus", "oppo", "realme").any { it in maker } ->
@@ -279,7 +281,7 @@ fun BackgroundSection(refreshKey: Long) {
         }
         tip?.let { Text(it, fontSize = 13.sp) }
         TextButton({
-            ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
+            ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ("package:${ctx.packageName}").toUri()))
         }) { Text("Open app info") }
     }
 }

@@ -231,6 +231,11 @@ class DoseReceiver : BroadcastReceiver() {
 /** Alarms are cleared by a reboot, an app update or a clock change: set the next one again. */
 class RescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // Only the system broadcasts this receiver listens for (it is exported for them).
+        if (intent.action !in setOf(
+                Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED,
+            )
+        ) return
         DoseAlarms.ensureChannels(context)
         DoseAlarms.scheduleNext(context)
         com.malluwayne.batbloom.meds.MedAlarms.ensureChannel(context)

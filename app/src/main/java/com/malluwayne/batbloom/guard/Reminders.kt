@@ -1,5 +1,6 @@
 package com.malluwayne.batbloom.guard
 
+import androidx.core.content.edit
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -99,7 +100,7 @@ object Reminders {
         val m = com.malluwayne.batbloom.quit.Milestones.reached(since).lastOrNull() ?: return
         val sp = c.getSharedPreferences("batbloom", Context.MODE_PRIVATE)
         if (sp.getString("milestone_told", "") == "$quit-${m.short}") return
-        sp.edit().putString("milestone_told", "$quit-${m.short}").apply()
+        sp.edit { putString("milestone_told", "$quit-${m.short}") }
         val open = PendingIntent.getActivity(
             c, 205, Intent(c, MainActivity::class.java).setAction(MainActivity.ACTION_QUIT).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -178,8 +179,12 @@ object Reminders {
         val goal = a.prefs.dailyGoal.value
         val exam = a.prefs.examDate.value?.let { Stats.examLine(it, today) }
         // Today's subjects from the weekly plan: the least-studied ones.
-        val plan = com.malluwayne.batbloom.stats.ExamPlan.week(Revision.subjects(sessions, today, zone), today, a.prefs.examDate.value)
-            .firstOrNull()?.second.orEmpty()
+        val ep = com.malluwayne.batbloom.stats.ExamPlan
+        val saved = ep.current(ep.parseSaved(a.prefs.examPlan.value), Revision.subjects(sessions, today, zone), today, a.prefs.examDate.value)
+        val studied = sessions.filter { it.tag == com.malluwayne.batbloom.data.Tags.FMGE && it.status == com.malluwayne.batbloom.data.Status.DONE && it.subject != null }
+            .groupBy({ it.subject!! }, { Stats.dayOf(it.startedAt, zone) }).mapValues { it.value.toSet() }
+        // Today's unfinished subjects from the saved plan, including any carried over.
+        val plan = ep.view(saved, studied, today).firstOrNull { it.first == today }?.second.orEmpty().filter { !it.done }.map { it.subject }
         val mcqDone = com.malluwayne.batbloom.stats.ExamPlan.parseMcq(a.prefs.mcq.value)[today] ?: 0
         val text = buildString {
             append("Goal today: ${Rules.formatMinutes(goal)}")

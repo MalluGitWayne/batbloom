@@ -1,5 +1,7 @@
 package com.malluwayne.batbloom.data
 
+import androidx.core.content.edit
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -38,14 +40,14 @@ object AutoBackup {
     fun lastMs(c: Context) = prefs(c).getLong("last", 0L)
     fun lastError(c: Context): String? = prefs(c).getString("error", null)
 
-    fun setEnabled(c: Context, on: Boolean) = prefs(c).edit().putBoolean("on", on).apply()
+    fun setEnabled(c: Context, on: Boolean) = prefs(c).edit { putBoolean("on", on) }
 
     /** Saves the picked folder and keeps permission to write there after restarts. */
     fun setFolder(c: Context, tree: Uri) {
         runCatching {
             c.contentResolver.takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         }
-        prefs(c).edit().putString("tree", tree.toString()).putBoolean("on", true).apply()
+        prefs(c).edit { putString("tree", tree.toString()).putBoolean("on", true) }
     }
 
     fun folderName(c: Context): String? {
@@ -88,10 +90,10 @@ object AutoBackup {
             toDelete(names.toList()).forEach { old ->
                 existing[old]?.let { id -> runCatching { DocumentsContract.deleteDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, id)) } }
             }
-            prefs(c).edit().putLong("last", System.currentTimeMillis()).remove("error").apply()
+            prefs(c).edit { putLong("last", System.currentTimeMillis()).remove("error") }
             true
         }.getOrElse {
-            prefs(c).edit().putString("error", it.message ?: "Backup failed").apply()
+            prefs(c).edit { putString("error", it.message ?: "Backup failed") }
             false
         }
     }

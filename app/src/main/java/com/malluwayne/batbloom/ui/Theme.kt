@@ -156,6 +156,8 @@ fun DarkArt(content: @Composable () -> Unit) {
     }
 }
 
+// The title comes first so every call can read SectionCard("Title") { … }.
+@Suppress("ModifierParameter")
 @Composable
 fun SectionCard(
     title: String? = null,

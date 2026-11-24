@@ -1,5 +1,7 @@
 package com.malluwayne.batbloom.data
 
+import androidx.core.content.edit
+
 import android.content.Context
 import com.malluwayne.batbloom.focus.PomodoroPlan
 import com.malluwayne.batbloom.stats.SmokingProfile
@@ -16,74 +18,79 @@ class Prefs(context: Context) {
 
     private val _selectedPlant = MutableStateFlow(sp.getString("plant", "moonflower")!!)
     val selectedPlant: StateFlow<String> = _selectedPlant
-    fun setSelectedPlant(id: String) { sp.edit().putString("plant", id).apply(); _selectedPlant.value = id }
+    fun setSelectedPlant(id: String) { sp.edit { putString("plant", id) }; _selectedPlant.value = id }
 
     /** Whether the Meds tab shows. Off also pauses reminders for the medications added there (not varenicline). */
     private val _medsTab = MutableStateFlow(sp.getBoolean("meds_tab", true))
     val medsTab: StateFlow<Boolean> = _medsTab
-    fun setMedsTab(on: Boolean) { sp.edit().putBoolean("meds_tab", on).apply(); _medsTab.value = on }
+    fun setMedsTab(on: Boolean) { sp.edit { putBoolean("meds_tab", on) }; _medsTab.value = on }
 
     /** Mock test results as JSON (see [com.malluwayne.batbloom.stats.ExamPlan]). */
     private val _mockTests = MutableStateFlow(sp.getString("mock_tests", "[]")!!)
     val mockTests: StateFlow<String> = _mockTests
-    fun setMockTests(json: String) { sp.edit().putString("mock_tests", json).apply(); _mockTests.value = json }
+    fun setMockTests(json: String) { sp.edit { putString("mock_tests", json) }; _mockTests.value = json }
+
+    /** The saved weekly study plan as JSON (see [com.malluwayne.batbloom.stats.ExamPlan.Saved]). */
+    private val _examPlan = MutableStateFlow(sp.getString("exam_plan", "")!!)
+    val examPlan: StateFlow<String> = _examPlan
+    fun setExamPlan(json: String) { sp.edit { putString("exam_plan", json) }; _examPlan.value = json }
 
     /** Questions done per day as JSON {"2026-11-25": 120}. */
     private val _mcq = MutableStateFlow(sp.getString("mcq_log", "{}")!!)
     val mcq: StateFlow<String> = _mcq
-    fun setMcq(json: String) { sp.edit().putString("mcq_log", json).apply(); _mcq.value = json }
+    fun setMcq(json: String) { sp.edit { putString("mcq_log", json) }; _mcq.value = json }
 
     /** All-time questions done (the daily log only keeps 120 days). */
     private val _mcqTotal = MutableStateFlow(sp.getInt("mcq_total", 0))
     val mcqTotal: StateFlow<Int> = _mcqTotal
-    fun addMcqTotal(k: Int) { val v = (_mcqTotal.value + k).coerceAtLeast(0); sp.edit().putInt("mcq_total", v).apply(); _mcqTotal.value = v }
+    fun addMcqTotal(k: Int) { val v = (_mcqTotal.value + k).coerceAtLeast(0); sp.edit { putInt("mcq_total", v) }; _mcqTotal.value = v }
 
     /** Craving breathing exercises finished. */
     private val _breathing = MutableStateFlow(sp.getInt("breathing_done", 0))
     val breathing: StateFlow<Int> = _breathing
-    fun addBreathing() { val v = _breathing.value + 1; sp.edit().putInt("breathing_done", v).apply(); _breathing.value = v }
+    fun addBreathing() { val v = _breathing.value + 1; sp.edit { putInt("breathing_done", v) }; _breathing.value = v }
 
     private val _mcqGoal = MutableStateFlow(sp.getInt("mcq_goal", 100))
     val mcqGoal: StateFlow<Int> = _mcqGoal
-    fun setMcqGoal(n: Int) { sp.edit().putInt("mcq_goal", n).apply(); _mcqGoal.value = n }
+    fun setMcqGoal(n: Int) { sp.edit { putInt("mcq_goal", n) }; _mcqGoal.value = n }
 
     /** Slips logged on the Quit tab (epoch millis). */
     private val _slips = MutableStateFlow(sp.getStringSet("slips", emptySet())!!.mapNotNull { it.toLongOrNull() }.sorted())
     val slips: StateFlow<List<Long>> = _slips
     fun addSlip(at: Long) {
         val l = (_slips.value + at).sorted()
-        sp.edit().putStringSet("slips", l.map { it.toString() }.toSet()).apply(); _slips.value = l
+        sp.edit { putStringSet("slips", l.map { it.toString() }.toSet()) }; _slips.value = l
     }
 
     /** Whether the Exam tab shows. Off also pauses the daily study reminder. */
     private val _examTab = MutableStateFlow(sp.getBoolean("exam_tab", true))
     val examTab: StateFlow<Boolean> = _examTab
-    fun setExamTab(on: Boolean) { sp.edit().putBoolean("exam_tab", on).apply(); _examTab.value = on }
+    fun setExamTab(on: Boolean) { sp.edit { putBoolean("exam_tab", on) }; _examTab.value = on }
 
     /** Whether the Quit tab shows. Off also pauses health-milestone notifications. */
     private val _quitTab = MutableStateFlow(sp.getBoolean("quit_tab", true))
     val quitTab: StateFlow<Boolean> = _quitTab
-    fun setQuitTab(on: Boolean) { sp.edit().putBoolean("quit_tab", on).apply(); _quitTab.value = on }
+    fun setQuitTab(on: Boolean) { sp.edit { putBoolean("quit_tab", on) }; _quitTab.value = on }
 
     /** Achievements whose unlock celebration has been shown. Null until first set (then everything already earned counts as seen). */
     private val _seenBadges = MutableStateFlow(sp.getStringSet("seen_badges", null)?.toSet())
     val seenBadges: StateFlow<Set<String>?> = _seenBadges
     fun markBadgesSeen(ids: Collection<String>) {
         val s = (_seenBadges.value ?: emptySet()) + ids
-        sp.edit().putStringSet("seen_badges", s).apply(); _seenBadges.value = s
+        sp.edit { putStringSet("seen_badges", s) }; _seenBadges.value = s
     }
 
     private val _minutes = MutableStateFlow(sp.getInt("minutes", 25))
     val minutes: StateFlow<Int> = _minutes
-    fun setMinutes(m: Int) { sp.edit().putInt("minutes", m).apply(); _minutes.value = m }
+    fun setMinutes(m: Int) { sp.edit { putInt("minutes", m) }; _minutes.value = m }
 
     private val _tag = MutableStateFlow(sp.getString("tag", Tags.FMGE)!!)
     val tag: StateFlow<String> = _tag
-    fun setTag(t: String) { sp.edit().putString("tag", t).apply(); _tag.value = t }
+    fun setTag(t: String) { sp.edit { putString("tag", t) }; _tag.value = t }
 
     private val _subject = MutableStateFlow(sp.getString("subject", "Anatomy")!!)
     val subject: StateFlow<String> = _subject
-    fun setSubject(s: String) { sp.edit().putString("subject", s).apply(); _subject.value = s }
+    fun setSubject(s: String) { sp.edit { putString("subject", s) }; _subject.value = s }
 
     private val _quitDate = MutableStateFlow(date("quit_date", "2026-11-28"))
     val quitDate: StateFlow<LocalDate?> = _quitDate
@@ -95,13 +102,13 @@ class Prefs(context: Context) {
     /** Time of the last cigarette on the quit day (milestones count from here). Default: midnight. */
     private val _quitTime = MutableStateFlow(LocalTime.ofSecondOfDay(sp.getInt("quit_time", 0).toLong()))
     val quitTime: StateFlow<LocalTime> = _quitTime
-    fun setQuitTime(t: LocalTime) { sp.edit().putInt("quit_time", t.toSecondOfDay()).apply(); _quitTime.value = t; quitChanged() }
+    fun setQuitTime(t: LocalTime) { sp.edit { putInt("quit_time", t.toSecondOfDay()) }; _quitTime.value = t; quitChanged() }
 
     /** Quit right now: today, this minute. */
     fun quitNow() {
         val now = java.time.LocalDateTime.now().withSecond(0).withNano(0)
         putDate("quit_date", now.toLocalDate()); _quitDate.value = now.toLocalDate()
-        sp.edit().putInt("quit_time", now.toLocalTime().toSecondOfDay()).apply(); _quitTime.value = now.toLocalTime()
+        sp.edit { putInt("quit_time", now.toLocalTime().toSecondOfDay()) }; _quitTime.value = now.toLocalTime()
         quitChanged()
     }
 
@@ -122,17 +129,17 @@ class Prefs(context: Context) {
     /** Daily FMGE study goal in minutes. */
     private val _dailyGoal = MutableStateFlow(sp.getInt("daily_goal", 240))
     val dailyGoal: StateFlow<Int> = _dailyGoal
-    fun setDailyGoal(m: Int) { sp.edit().putInt("daily_goal", m).apply(); _dailyGoal.value = m }
+    fun setDailyGoal(m: Int) { sp.edit { putInt("daily_goal", m) }; _dailyGoal.value = m }
 
     private val _stopwatch = MutableStateFlow(sp.getBoolean("stopwatch", false))
     val stopwatch: StateFlow<Boolean> = _stopwatch
-    fun setStopwatch(on: Boolean) { sp.edit().putBoolean("stopwatch", on).apply(); _stopwatch.value = on; if (on) setPomodoro(false) }
+    fun setStopwatch(on: Boolean) { sp.edit { putBoolean("stopwatch", on) }; _stopwatch.value = on; if (on) setPomodoro(false) }
 
     private val _pomodoro = MutableStateFlow(sp.getBoolean("pomodoro", false))
     val pomodoro: StateFlow<Boolean> = _pomodoro
     fun setPomodoro(on: Boolean) {
-        sp.edit().putBoolean("pomodoro", on).apply(); _pomodoro.value = on
-        if (on && _stopwatch.value) { sp.edit().putBoolean("stopwatch", false).apply(); _stopwatch.value = false }
+        sp.edit { putBoolean("pomodoro", on) }; _pomodoro.value = on
+        if (on && _stopwatch.value) { sp.edit { putBoolean("stopwatch", false) }; _stopwatch.value = false }
     }
 
     private val _plan = MutableStateFlow(
@@ -140,8 +147,10 @@ class Prefs(context: Context) {
     )
     val plan: StateFlow<PomodoroPlan> = _plan
     fun setPlan(p: PomodoroPlan) {
-        sp.edit().putInt("p_focus", p.focusMinutes).putInt("p_short", p.shortBreak).putInt("p_long", p.longBreak)
-            .putInt("p_rounds", p.rounds).apply()
+        sp.edit {
+            putInt("p_focus", p.focusMinutes).putInt("p_short", p.shortBreak).putInt("p_long", p.longBreak)
+                .putInt("p_rounds", p.rounds)
+        }
         _plan.value = p
     }
 
@@ -151,11 +160,11 @@ class Prefs(context: Context) {
         val clean = t.trim().take(20)
         if (clean.isEmpty() || clean in Tags.all || clean in _customTags.value) return
         val next = (_customTags.value + clean).sorted()
-        sp.edit().putStringSet("custom_tags", next.toSet()).apply(); _customTags.value = next
+        sp.edit { putStringSet("custom_tags", next.toSet()) }; _customTags.value = next
     }
     fun removeTag(t: String) {
         val next = _customTags.value - t
-        sp.edit().putStringSet("custom_tags", next.toSet()).apply(); _customTags.value = next
+        sp.edit { putStringSet("custom_tags", next.toSet()) }; _customTags.value = next
         if (_tag.value == t) setTag(Tags.STUDY)
     }
 
@@ -165,18 +174,18 @@ class Prefs(context: Context) {
     )
     val smoking: StateFlow<SmokingProfile> = _smoking
     fun setSmoking(s: SmokingProfile) {
-        sp.edit().putInt("cigs_day", s.perDay).putInt("pack_size", s.packSize).putFloat("pack_price", s.packPrice.toFloat()).apply()
+        sp.edit { putInt("cigs_day", s.perDay).putInt("pack_size", s.packSize).putFloat("pack_price", s.packPrice.toFloat()) }
         _smoking.value = s
     }
 
     private val _quitReason = MutableStateFlow(sp.getString("quit_reason", "")!!)
     val quitReason: StateFlow<String> = _quitReason
-    fun setQuitReason(s: String) { sp.edit().putString("quit_reason", s).apply(); _quitReason.value = s }
+    fun setQuitReason(s: String) { sp.edit { putString("quit_reason", s) }; _quitReason.value = s }
 
     private val _treat = MutableStateFlow(Treat(sp.getString("treat_name", "")!!, sp.getFloat("treat_price", 0f).toDouble()))
     val treat: StateFlow<Treat> = _treat
     fun setTreat(t: Treat) {
-        sp.edit().putString("treat_name", t.name).putFloat("treat_price", t.price.toFloat()).apply(); _treat.value = t
+        sp.edit { putString("treat_name", t.name).putFloat("treat_price", t.price.toFloat()) }; _treat.value = t
     }
 
     // --- Varenicline course (defaults: the user's prescribed plan) ---
@@ -201,54 +210,54 @@ class Prefs(context: Context) {
     private val _schedule = MutableStateFlow(readSchedule())
     val schedule: StateFlow<DoseSchedule> = _schedule
     fun setSchedule(s: DoseSchedule) {
-        sp.edit()
-            .putString("course_start", s.start.toString()).putInt("course_days", s.courseDays)
-            .putInt("p1_end", s.phase1End).putInt("p2_end", s.phase2End)
-            .putFloat("mg1a", s.mg[0].first.toFloat()).putFloat("mg1p", s.mg[0].second.toFloat())
-            .putFloat("mg2a", s.mg[1].first.toFloat()).putFloat("mg2p", s.mg[1].second.toFloat())
-            .putFloat("mg3a", s.mg[2].first.toFloat()).putFloat("mg3p", s.mg[2].second.toFloat())
-            .putInt("am_time", s.amTime.toSecondOfDay()).putInt("pm_time", s.pmTime.toSecondOfDay())
-            .apply()
+        sp.edit {
+            putString("course_start", s.start.toString()).putInt("course_days", s.courseDays)
+                .putInt("p1_end", s.phase1End).putInt("p2_end", s.phase2End)
+                .putFloat("mg1a", s.mg[0].first.toFloat()).putFloat("mg1p", s.mg[0].second.toFloat())
+                .putFloat("mg2a", s.mg[1].first.toFloat()).putFloat("mg2p", s.mg[1].second.toFloat())
+                .putFloat("mg3a", s.mg[2].first.toFloat()).putFloat("mg3p", s.mg[2].second.toFloat())
+                .putInt("am_time", s.amTime.toSecondOfDay()).putInt("pm_time", s.pmTime.toSecondOfDay())
+        }
         _schedule.value = s
     }
 
     /** Tablets left; negative means "not entered yet". */
     private val _tablets = MutableStateFlow(sp.getFloat("tablets_left", -1f).toDouble())
     val tabletsLeft: StateFlow<Double> = _tablets
-    fun setTabletsLeft(t: Double) { sp.edit().putFloat("tablets_left", t.toFloat()).apply(); _tablets.value = t }
+    fun setTabletsLeft(t: Double) { sp.edit { putFloat("tablets_left", t.toFloat()) }; _tablets.value = t }
 
     private val _strength = MutableStateFlow(sp.getFloat("tablet_mg", 0.5f).toDouble())
     val tabletStrength: StateFlow<Double> = _strength
-    fun setTabletStrength(mg: Double) { sp.edit().putFloat("tablet_mg", mg.toFloat()).apply(); _strength.value = mg }
+    fun setTabletStrength(mg: Double) { sp.edit { putFloat("tablet_mg", mg.toFloat()) }; _strength.value = mg }
 
     private val _reminders = MutableStateFlow(sp.getBoolean("reminders", true))
     val reminders: StateFlow<Boolean> = _reminders
-    fun setReminders(on: Boolean) { sp.edit().putBoolean("reminders", on).apply(); _reminders.value = on }
+    fun setReminders(on: Boolean) { sp.edit { putBoolean("reminders", on) }; _reminders.value = on }
 
     private val _snooze = MutableStateFlow(sp.getInt("snooze_min", 15))
     val snoozeMinutes: StateFlow<Int> = _snooze
-    fun setSnoozeMinutes(m: Int) { sp.edit().putInt("snooze_min", m).apply(); _snooze.value = m }
+    fun setSnoozeMinutes(m: Int) { sp.edit { putInt("snooze_min", m) }; _snooze.value = m }
 
     /** A missed dose is skipped when the next one is this close. */
     private val _closeHours = MutableStateFlow(sp.getInt("close_hours", 4))
     val closeHours: StateFlow<Int> = _closeHours
-    fun setCloseHours(h: Int) { sp.edit().putInt("close_hours", h).apply(); _closeHours.value = h }
+    fun setCloseHours(h: Int) { sp.edit { putInt("close_hours", h) }; _closeHours.value = h }
 
     private val _smokingSetup = MutableStateFlow(sp.getBoolean("smoking_setup", false))
     val smokingSetupDone: StateFlow<Boolean> = _smokingSetup
-    fun setSmokingSetupDone() { sp.edit().putBoolean("smoking_setup", true).apply(); _smokingSetup.value = true }
+    fun setSmokingSetupDone() { sp.edit { putBoolean("smoking_setup", true) }; _smokingSetup.value = true }
 
     /** Last low-stock warning, so it is sent once a day at most. */
     var lastStockWarning: String
         get() = sp.getString("stock_warn", "")!!
-        set(v) { sp.edit().putString("stock_warn", v).apply() }
+        set(v) { sp.edit { putString("stock_warn", v) } }
 
     private val _theme = MutableStateFlow(
         runCatching { com.malluwayne.batbloom.ui.ThemeMode.valueOf(sp.getString("theme", "Dark")!!) }.getOrDefault(com.malluwayne.batbloom.ui.ThemeMode.Dark),
     )
     val theme: StateFlow<com.malluwayne.batbloom.ui.ThemeMode> = _theme
     fun setTheme(t: com.malluwayne.batbloom.ui.ThemeMode) {
-        sp.edit().putString("theme", t.name).apply(); _theme.value = t
+        sp.edit { putString("theme", t.name) }; _theme.value = t
         runCatching { com.malluwayne.batbloom.widget.BloomWidget.refresh(com.malluwayne.batbloom.BatbloomApp.instance) }
     }
 
@@ -258,27 +267,29 @@ class Prefs(context: Context) {
     private val _guard = MutableStateFlow(com.malluwayne.batbloom.guard.TimeGuard.parse(sp.getString("guard", "")!!))
     val guard: StateFlow<Map<String, Int>> = _guard
     fun setGuard(m: Map<String, Int>) {
-        sp.edit().putString("guard", com.malluwayne.batbloom.guard.TimeGuard.format(m)).apply(); _guard.value = m
+        sp.edit { putString("guard", com.malluwayne.batbloom.guard.TimeGuard.format(m)) }; _guard.value = m
     }
     fun guardReminded(day: String, pkg: String): Int = sp.getInt("gl_${day}_$pkg", 0)
     fun setGuardReminded(day: String, pkg: String, level: Int) {
         // Old days' entries are dropped so this doesn't grow forever.
-        val e = sp.edit()
-        sp.all.keys.filter { it.startsWith("gl_") && !it.startsWith("gl_${day}_") }.forEach { e.remove(it) }
-        e.putInt("gl_${day}_$pkg", level).apply()
+        val old = sp.all.keys.filter { it.startsWith("gl_") && !it.startsWith("gl_${day}_") }
+        sp.edit {
+            old.forEach { remove(it) }
+            putInt("gl_${day}_$pkg", level)
+        }
     }
 
     private val _fmgeReminder = MutableStateFlow(sp.getBoolean("fmge_rem", true))
     val fmgeReminder: StateFlow<Boolean> = _fmgeReminder
-    fun setFmgeReminder(on: Boolean) { sp.edit().putBoolean("fmge_rem", on).apply(); _fmgeReminder.value = on }
+    fun setFmgeReminder(on: Boolean) { sp.edit { putBoolean("fmge_rem", on) }; _fmgeReminder.value = on }
 
     private val _fmgeTime = MutableStateFlow(LocalTime.ofSecondOfDay(sp.getInt("fmge_time", 9 * 3600).toLong()))
     val fmgeTime: StateFlow<LocalTime> = _fmgeTime
-    fun setFmgeTime(t: LocalTime) { sp.edit().putInt("fmge_time", t.toSecondOfDay()).apply(); _fmgeTime.value = t }
+    fun setFmgeTime(t: LocalTime) { sp.edit { putInt("fmge_time", t.toSecondOfDay()) }; _fmgeTime.value = t }
 
     private fun date(key: String, default: String?): LocalDate? {
         val s = if (sp.contains(key)) sp.getString(key, null) else default
         return s?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
     }
-    private fun putDate(key: String, d: LocalDate?) { sp.edit().putString(key, d?.toString() ?: "").apply() }
+    private fun putDate(key: String, d: LocalDate?) { sp.edit { putString(key, d?.toString() ?: "") } }
 }

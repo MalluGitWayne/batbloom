@@ -34,6 +34,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -95,9 +96,9 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
     var startDate by remember { mutableStateOf(LocalDate.parse(start.startDate)) }
     var endDate by remember { mutableStateOf(start.endDate?.let { LocalDate.parse(it) }) }
     var shape by remember { mutableStateOf(start.shape) }
-    var c1 by remember { mutableStateOf(start.color1) }
-    var c2 by remember { mutableStateOf(start.color2) }
-    var bg by remember { mutableStateOf(start.background) }
+    var c1 by remember { mutableLongStateOf(start.color1) }
+    var c2 by remember { mutableLongStateOf(start.color2) }
+    var bg by remember { mutableLongStateOf(start.background) }
     var notes by remember { mutableStateOf(start.notes ?: "") }
     var stock by remember { mutableStateOf(if (start.stock >= 0) MedSchedule.fmtQty(start.stock) else "") }
 

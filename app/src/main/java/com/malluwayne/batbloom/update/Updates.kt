@@ -1,5 +1,8 @@
 package com.malluwayne.batbloom.update
 
+import androidx.core.content.edit
+import androidx.core.net.toUri
+
 import android.app.DownloadManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -82,8 +85,9 @@ object Updates {
     }
 
     fun remember(context: Context, r: Release) {
-        context.getSharedPreferences("updates", Context.MODE_PRIVATE).edit()
-            .putLong("checked", System.currentTimeMillis()).putString("latest", r.version).apply()
+        context.getSharedPreferences("updates", Context.MODE_PRIVATE).edit {
+            putLong("checked", System.currentTimeMillis()).putString("latest", r.version)
+        }
         known = known(context)
     }
 
@@ -122,7 +126,7 @@ object SelfUpdate {
     fun canInstall(context: Context) = context.packageManager.canRequestPackageInstalls()
 
     fun openInstallPermission(context: Context) = context.startActivity(
-        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, ("package:${context.packageName}").toUri())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
 
@@ -169,7 +173,7 @@ object SelfUpdate {
         val dm = context.getSystemService(DownloadManager::class.java)
         file.delete()
         val id = dm.enqueue(
-            DownloadManager.Request(Uri.parse(url))
+            DownloadManager.Request(url.toUri())
                 .setTitle("Batbloom $version")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                 .setDestinationInExternalFilesDir(context, null, file.name),
@@ -203,10 +207,12 @@ object SelfUpdate {
 
     private fun check(context: Context, file: File): String? {
         val pm = context.packageManager
-        val apk = pm.getPackageArchiveInfo(file.path, PackageManager.GET_SIGNING_CERTIFICATES)
+        // Signing details exist from Android 9; older versions skip the key check below.
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else 0
+        val apk = pm.getPackageArchiveInfo(file.path, flags)
             ?: return "The download is damaged. Try again."
         if (apk.packageName != context.packageName) return "Not a Batbloom APK"
-        val mine = pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        val mine = pm.getPackageInfo(context.packageName, flags)
         val newer = if (Build.VERSION.SDK_INT >= 28) apk.longVersionCode > mine.longVersionCode
         else @Suppress("DEPRECATION") (apk.versionCode > mine.versionCode)
         if (!newer) return "You already have this version"

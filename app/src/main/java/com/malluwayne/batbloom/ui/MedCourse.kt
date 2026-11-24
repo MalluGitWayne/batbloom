@@ -26,6 +26,7 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -161,7 +162,7 @@ fun CourseDetail(modifier: Modifier, onBack: () -> Unit) {
 
     if (stockDialog) {
         var count by remember { mutableStateOf(if (stockLeft >= 0) stockLeft.toString().removeSuffix(".0") else "") }
-        var mg by remember { mutableStateOf(strength) }
+        var mg by remember { mutableDoubleStateOf(strength) }
         AlertDialog(
             onDismissRequest = { stockDialog = false },
             title = { Text("Tablet stock") },

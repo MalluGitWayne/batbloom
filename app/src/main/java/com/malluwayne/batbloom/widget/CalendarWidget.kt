@@ -127,7 +127,7 @@ object Calendars {
         val s = min(density, sqrt(700_000f / (wDp * hDp).coerceAtLeast(1)))
         val w = (wDp * s).toInt().coerceAtLeast(1)
         val h = (hDp * s).toInt().coerceAtLeast(1)
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val bmp = androidx.core.graphics.createBitmap(w, h)
         val c = Canvas(bmp)
         fun dp(v: Float) = v * s
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)

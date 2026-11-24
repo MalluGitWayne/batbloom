@@ -146,13 +146,17 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 
 @Composable
 private fun AppRoot() {
-    val tab by Nav.tab.collectAsState()
+    val rawTab by Nav.tab.collectAsState()
+    val medsTab by BatbloomApp.instance.prefs.medsTab.collectAsState()
+    // Tab numbers stay fixed (notifications and widgets use them); a hidden Meds tab falls back to Focus.
+    val tab = if (!medsTab && rawTab == Tab.Meds.ordinal) 0 else rawTab
     InstallConfirmLauncher()
     com.malluwayne.batbloom.ui.AchievementCelebrations()
     Scaffold(
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEachIndexed { i, t ->
+                    if (t == Tab.Meds && !medsTab) return@forEachIndexed
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { Nav.tab.value = i },

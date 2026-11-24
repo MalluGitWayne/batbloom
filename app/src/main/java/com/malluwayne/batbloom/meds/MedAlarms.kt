@@ -130,7 +130,8 @@ object MedAlarms {
         val meds = app(context).db.meds().allNow()
         val next = MedSchedule.nextTime(meds, LocalDateTime.now())
         val am = context.getSystemService(AlarmManager::class.java)
-        if (next == null || !app(context).prefs.reminders.value) {
+        val p = app(context).prefs
+        if (next == null || !p.reminders.value || !p.medsTab.value) {
             am.cancel(pi(context, ACTION_DUE, null, RC_NEXT)); return
         }
         setAlarm(context, millis(next), pi(context, ACTION_DUE, next.toString(), RC_NEXT))

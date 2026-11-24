@@ -18,6 +18,11 @@ class Prefs(context: Context) {
     val selectedPlant: StateFlow<String> = _selectedPlant
     fun setSelectedPlant(id: String) { sp.edit().putString("plant", id).apply(); _selectedPlant.value = id }
 
+    /** Whether the Meds tab shows. Off also pauses reminders for the medications added there (not varenicline). */
+    private val _medsTab = MutableStateFlow(sp.getBoolean("meds_tab", true))
+    val medsTab: StateFlow<Boolean> = _medsTab
+    fun setMedsTab(on: Boolean) { sp.edit().putBoolean("meds_tab", on).apply(); _medsTab.value = on }
+
     /** Achievements whose unlock celebration has been shown. Null until first set (then everything already earned counts as seen). */
     private val _seenBadges = MutableStateFlow(sp.getStringSet("seen_badges", null)?.toSet())
     val seenBadges: StateFlow<Set<String>?> = _seenBadges

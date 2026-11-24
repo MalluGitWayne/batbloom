@@ -202,12 +202,33 @@ fun SettingsScreen(modifier: Modifier) {
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Dose reminders", Modifier.weight(1f))
-                Switch(reminders, { prefs.setReminders(it); DoseAlarms.scheduleNext(ctx) })
+                Switch(reminders, {
+                    prefs.setReminders(it); DoseAlarms.scheduleNext(ctx)
+                    BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
+                })
             }
             if (!exactOk) Text("Exact alarms are off, so reminders may be a few minutes late.", color = Muted, fontSize = 12.sp)
             Stepper2("Snooze (minutes)", snooze, 5, 60, 5) { prefs.setSnoozeMinutes(it) }
             Stepper2("Skip a missed dose if the next is within (hours)", close, 1, 8, 1) { prefs.setCloseHours(it) }
             TextButton({ prefs.setSchedule(com.malluwayne.batbloom.quit.DoseSchedule()); DoseAlarms.scheduleNext(ctx) }) { Text("Reset to my original plan") }
+        }
+
+        SectionCard("Medications") {
+            val medsTab by prefs.medsTab.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Show Meds tab")
+                    Text(
+                        if (medsTab) "For other medicines, vitamins and supplements" else "Hidden. Reminders for medications you added are paused.",
+                        color = Muted, fontSize = 12.sp,
+                    )
+                }
+                Switch(medsTab, {
+                    prefs.setMedsTab(it)
+                    BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
+                })
+            }
+            Text("Varenicline stays on the Quit tab either way.", color = Muted, fontSize = 12.sp)
         }
 
         BackupSection()

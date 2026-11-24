@@ -6,6 +6,7 @@ import com.malluwayne.batbloom.data.Tags
 import com.malluwayne.batbloom.stats.Revision
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -21,11 +22,11 @@ class RevisionTest {
         val st = Revision.subjects(l, today, zone).associateBy { it.subject }
         assertEquals(75, st.getValue("Anatomy").minutes)
         assertEquals(today.minusDays(1), st.getValue("Anatomy").lastStudied)
-        // second study day -> next revision 3 days after the last
-        assertEquals(today.plusDays(2), st.getValue("Anatomy").nextDue)
+        assertEquals(2, st.getValue("Anatomy").days)
         assertEquals(0, st.getValue("Physiology").minutes)
-        assertNull(st.getValue("Physiology").nextDue)
-        assertEquals(Tags.fmgeSubjects.size, st.size)
+        assertNull(st.getValue("Physiology").lastStudied)
+        assertEquals(Tags.fmgeSubjects.size - 1, st.size)
+        assertTrue(Tags.MCQ !in st)
     }
 
     @Test fun streak() {

@@ -43,6 +43,14 @@ data class FocusFacts(
     val maxBloomsInDay: Int = 0,
     /** Longest run of days with every dose taken. */
     val doseStreak: Int = 0,
+    /** Questions done, all time. */
+    val mcqTotal: Int = 0,
+    /** Best mock test, percent. */
+    val bestMock: Int = 0,
+    /** Craving breathing exercises finished. */
+    val breathing: Int = 0,
+    /** Longest run of days with every scheduled dose of your other medications taken. */
+    val medStreak: Int = 0,
 )
 
 object Badges {
@@ -100,7 +108,15 @@ object Badges {
         Badge("fmge10", "FMGE 10 hours", "Ten hours of FMGE study.", Glyph.BOOK, Tier.BRONZE, FMGE, LEAF),
         Badge("fmge50", "FMGE 50 hours", "Fifty hours of FMGE study.", Glyph.BOOK, Tier.SILVER, FMGE, LEAF),
         Badge("fmge100", "FMGE 100 hours", "A hundred hours of FMGE study.", Glyph.BOOK, Tier.GOLD, FMGE, AMBER),
-        Badge("all_subjects", "Full syllabus", "Studied every FMGE subject and MCQ practice at least once.", Glyph.TARGET, Tier.PLATINUM, FMGE, LEAF),
+        Badge("all_subjects", "Full syllabus", "Studied every FMGE subject at least once.", Glyph.TARGET, Tier.PLATINUM, FMGE, LEAF),
+        Badge("mcq500", "500 questions", "Five hundred questions done.", Glyph.CHECK_PILL, Tier.SILVER, FMGE, SKY),
+        Badge("mcq2000", "2,000 questions", "Two thousand questions done.", Glyph.CHECK_PILL, Tier.GOLD, FMGE, AMBER),
+        Badge("mock_pass", "Pass mark", "Scored 50% or more in a mock test.", Glyph.TROPHY, Tier.SILVER, FMGE, LEAF),
+        Badge("mock60", "Top of the class", "Scored 60% or more in a mock test.", Glyph.CROWN, Tier.GOLD, FMGE, AMBER),
+        Badge("breathe1", "Rode it out", "Breathed through a craving.", Glyph.HEART, Tier.BRONZE, QUIT, TEAL),
+        Badge("breathe10", "Steady breath", "Breathed through ten cravings.", Glyph.HEART, Tier.SILVER, QUIT, VIOLET),
+        Badge("meds7", "On schedule", "Every medication taken on time for a week.", Glyph.CHECK_PILL, Tier.SILVER, MEDS, TEAL),
+        Badge("meds30", "Clockwork", "Every medication taken for thirty days running.", Glyph.HOURGLASS, Tier.GOLD, MEDS, AMBER),
     )
 
     fun byId(id: String) = all.firstOrNull { it.id == id } ?: Badge(id, id, "", Glyph.STAR, Tier.BRONZE, "Other", 0xFF9C9CA8)
@@ -123,7 +139,11 @@ object Badges {
         "night_owl" to ({ f: FocusFacts -> f.nightOwl } to 5), "early_bird" to ({ f: FocusFacts -> f.earlyBird } to 5),
         "fmge10" to ({ f: FocusFacts -> f.fmgeMinutes / 60 } to 10), "fmge50" to ({ f: FocusFacts -> f.fmgeMinutes / 60 } to 50),
         "fmge100" to ({ f: FocusFacts -> f.fmgeMinutes / 60 } to 100),
-        "all_subjects" to ({ f: FocusFacts -> f.subjects } to Tags.fmgeSubjects.size),
+        "all_subjects" to ({ f: FocusFacts -> f.subjects } to Tags.fmgeSubjects.size - 1),
+        "mcq500" to ({ f: FocusFacts -> f.mcqTotal } to 500), "mcq2000" to ({ f: FocusFacts -> f.mcqTotal } to 2000),
+        "mock_pass" to ({ f: FocusFacts -> f.bestMock } to 50), "mock60" to ({ f: FocusFacts -> f.bestMock } to 60),
+        "breathe1" to ({ f: FocusFacts -> f.breathing } to 1), "breathe10" to ({ f: FocusFacts -> f.breathing } to 10),
+        "meds7" to ({ f: FocusFacts -> f.medStreak } to 7), "meds30" to ({ f: FocusFacts -> f.medStreak } to 30),
         "hat_trick" to ({ f: FocusFacts -> f.maxBloomsInDay } to 3),
         "dose3" to ({ f: FocusFacts -> f.doseStreak } to 3), "dose7" to ({ f: FocusFacts -> f.doseStreak } to 7),
         "dose21" to ({ f: FocusFacts -> f.doseStreak } to 21),
@@ -133,6 +153,7 @@ object Badges {
     fun facts(
         sessions: List<SessionEntity>, streak: Int, zone: ZoneId,
         doseStreak: Int = 0,
+        extra: Extra = Extra(),
     ): FocusFacts {
         val done = sessions.filter { it.status == Status.DONE }
         val hours = done.map { Instant.ofEpochMilli(it.startedAt).atZone(zone).hour }
@@ -145,16 +166,43 @@ object Badges {
             nightOwl = hours.count { it >= 22 || it < 4 },
             earlyBird = hours.count { it in 5..6 },
             fmgeMinutes = fmge.sumOf { it.plannedMinutes },
-            subjects = fmge.mapNotNull { it.subject }.toSet().count { it in Tags.fmgeSubjects },
+            subjects = fmge.mapNotNull { it.subject }.toSet().count { it in Tags.fmgeSubjects && it != Tags.MCQ },
             maxBloomsInDay = done.groupingBy { Instant.ofEpochMilli(it.startedAt).atZone(zone).toLocalDate() }.eachCount().values.maxOrNull() ?: 0,
             doseStreak = doseStreak,
+            mcqTotal = extra.mcqTotal,
+            bestMock = extra.bestMock,
+            breathing = extra.breathing,
+            medStreak = extra.medStreak,
         )
     }
+
+    /** Facts that come from outside the session list. */
+    data class Extra(val mcqTotal: Int = 0, val bestMock: Int = 0, val breathing: Int = 0, val medStreak: Int = 0)
 
     /**
      * Longest run of course days, up to [today], on which every scheduled dose was logged as taken.
      * [taken] holds the keys of taken doses. Today counts only once all of its doses are taken.
      */
+    /**
+     * Longest run of days, up to [today], on which every scheduled dose of your own medications was taken.
+     * Days with nothing scheduled neither break nor extend the run; today counts once it is complete.
+     */
+    fun bestMedStreak(
+        meds: List<com.malluwayne.batbloom.data.MedEntity>, taken: Set<Pair<Long, String>>, today: LocalDate, from: LocalDate,
+    ): Int {
+        var best = 0
+        var run = 0
+        var d = from
+        while (!d.isAfter(today)) {
+            val doses = com.malluwayne.batbloom.meds.MedSchedule.dosesOn(meds, d)
+            if (doses.isNotEmpty()) {
+                if (doses.all { (it.med.id to it.slot) in taken }) { run++; best = maxOf(best, run) } else if (d != today) run = 0
+            }
+            d = d.plusDays(1)
+        }
+        return best
+    }
+
     fun bestDoseStreak(schedule: DoseSchedule, taken: Set<String>, today: LocalDate): Int {
         var best = 0
         var run = 0

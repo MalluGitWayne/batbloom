@@ -49,8 +49,8 @@ object ExamPlan {
     }
 
     /**
-     * A plan for the next 7 days: revisions that fall due go on their day; the other slots go to the least-studied
-     * subjects (not started first), without repeating a subject in the week until every subject has had a turn.
+     * A plan for the next 7 days: the least-studied subjects first (not started first), without repeating a subject
+     * in the week until every subject has had a turn.
      * Two subjects a day, three in the last two weeks before the exam.
      */
     fun week(subjects: List<Revision.SubjectStatus>, today: LocalDate, exam: LocalDate?): List<Pair<LocalDate, List<String>>> {
@@ -63,10 +63,7 @@ object ExamPlan {
         return (0 until 7).map { i ->
             val day = today.plusDays(i.toLong())
             if (exam != null && day.isAfter(exam)) return@map day to emptyList()
-            val due = subjects.filter { s -> s.nextDue != null && (s.nextDue == day || (i == 0 && s.nextDue.isBefore(day))) }
-                .map { it.subject }.filter { it !in used }.take(perDay)
-            val picks = due.toMutableList()
-            used += due
+            val picks = mutableListOf<String>()
             var guard = 0
             while (picks.size < perDay && pool.isNotEmpty() && guard++ < pool.size * 2) {
                 if (queue.isEmpty()) { queue.addAll(pool); used.clear(); used += picks }

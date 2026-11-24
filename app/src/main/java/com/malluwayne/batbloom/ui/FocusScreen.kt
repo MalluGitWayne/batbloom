@@ -136,7 +136,7 @@ private fun SetupView() {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val summary = remember(sessions, today) { Stats.compute(sessions, today, zone) }
-    val due = remember(sessions, today) { com.malluwayne.batbloom.stats.Revision.due(sessions, today, zone) }
+
     val hasUsage = remember(now) { Device.hasUsageAccess(ctx) }
 
     Column(
@@ -174,11 +174,6 @@ private fun SetupView() {
             } else null,
         ).joinToString("  \u00B7  ")
         if (status.isNotEmpty()) Text(status, color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
-        if (due.isNotEmpty() && examOn) Text(
-            "Revise today: " + due.take(3).joinToString(", ") { it.subject },
-            color = Gold, fontSize = 13.sp, textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp).clickable { prefs.setTag(Tags.FMGE); prefs.setSubject(due.first().subject) },
-        )
 
         Spacer(Modifier.height(24.dp))
 

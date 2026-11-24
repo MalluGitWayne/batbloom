@@ -33,6 +33,16 @@ class Prefs(context: Context) {
     val mcq: StateFlow<String> = _mcq
     fun setMcq(json: String) { sp.edit().putString("mcq_log", json).apply(); _mcq.value = json }
 
+    /** All-time questions done (the daily log only keeps 120 days). */
+    private val _mcqTotal = MutableStateFlow(sp.getInt("mcq_total", 0))
+    val mcqTotal: StateFlow<Int> = _mcqTotal
+    fun addMcqTotal(k: Int) { val v = (_mcqTotal.value + k).coerceAtLeast(0); sp.edit().putInt("mcq_total", v).apply(); _mcqTotal.value = v }
+
+    /** Craving breathing exercises finished. */
+    private val _breathing = MutableStateFlow(sp.getInt("breathing_done", 0))
+    val breathing: StateFlow<Int> = _breathing
+    fun addBreathing() { val v = _breathing.value + 1; sp.edit().putInt("breathing_done", v).apply(); _breathing.value = v }
+
     private val _mcqGoal = MutableStateFlow(sp.getInt("mcq_goal", 100))
     val mcqGoal: StateFlow<Int> = _mcqGoal
     fun setMcqGoal(n: Int) { sp.edit().putInt("mcq_goal", n).apply(); _mcqGoal.value = n }

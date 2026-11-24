@@ -173,28 +173,34 @@ object Reminders {
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         val sessions = a.repo.sessions.first()
-        val due = Revision.due(sessions, today, zone)
+
         val s = Stats.compute(sessions, today, zone)
         val goal = a.prefs.dailyGoal.value
         val exam = a.prefs.examDate.value?.let { Stats.examLine(it, today) }
+        // Today's subjects from the weekly plan: the least-studied ones.
+        val plan = com.malluwayne.batbloom.stats.ExamPlan.week(Revision.subjects(sessions, today, zone), today, a.prefs.examDate.value)
+            .firstOrNull()?.second.orEmpty()
+        val mcqDone = com.malluwayne.batbloom.stats.ExamPlan.parseMcq(a.prefs.mcq.value)[today] ?: 0
         val text = buildString {
             append("Goal today: ${Rules.formatMinutes(goal)}")
             if (s.fmgeTodayMinutes > 0) append(" (${Rules.formatMinutes(s.fmgeTodayMinutes)} done)")
             exam?.let { append(" · $it") }
-            if (due.isNotEmpty()) append("\nRevise today: " + due.take(4).joinToString(", ") { it.subject })
+
+            append("\nQuestions: $mcqDone of ${a.prefs.mcqGoal.value}")
         }
+        val first = plan.firstOrNull()
         val open = PendingIntent.getActivity(
             c, 203, Intent(c, MainActivity::class.java).setAction(MainActivity.ACTION_FMGE)
-                .putExtra(MainActivity.EXTRA_SUBJECT, due.firstOrNull()?.subject).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                .putExtra(MainActivity.EXTRA_SUBJECT, first).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val n = NotificationCompat.Builder(c, CH_STUDY)
             .setSmallIcon(R.drawable.ic_stat_bloom)
-            .setContentTitle(if (due.isNotEmpty()) "FMGE: ${due.size} subject${if (due.size == 1) "" else "s"} to revise" else "Time for FMGE")
+            .setContentTitle(if (plan.isNotEmpty()) "Today: " + plan.joinToString(", ") else "Time for FMGE")
             .setContentText(text.lineSequence().first())
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open)
-            .addAction(0, "Plan a session", open)
+            .addAction(0, first?.let { "Study $it" } ?: "Plan a session", open)
             .setAutoCancel(true)
             .build()
         runCatching { NotificationManagerCompat.from(c).notify(NOTIF_STUDY, n) }

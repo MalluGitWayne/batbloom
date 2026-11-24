@@ -72,14 +72,28 @@ class Repository(private val db: AppDatabase) {
         }
     }
 
+    /** Achievement facts kept outside the session list: questions, mock tests, breathing, medication streak. */
+    suspend fun extraFacts(prefs: Prefs, today: LocalDate): Badges.Extra {
+        val meds = db.meds().allNow()
+        val taken = db.meds().takenScheduled().map { it.medId to it.slot!! }.toSet()
+        val from = meds.mapNotNull { runCatching { LocalDate.parse(it.startDate) }.getOrNull() }.minOrNull()?.coerceAtLeast(today.minusDays(400)) ?: today
+        return Badges.Extra(
+            mcqTotal = prefs.mcqTotal.value,
+            bestMock = com.malluwayne.batbloom.stats.ExamPlan.parseTests(prefs.mockTests.value).maxOfOrNull { it.percent } ?: 0,
+            breathing = prefs.breathing.value,
+            medStreak = Badges.bestMedStreak(meds, taken, today, from),
+        )
+    }
+
     /** Awards any badges now earned and returns the new ones. */
-    suspend fun awardBadges(today: LocalDate, schedule: DoseSchedule, quitDate: LocalDate?): List<String> {
+    suspend fun awardBadges(today: LocalDate, schedule: DoseSchedule, quitDate: LocalDate?, extra: Badges.Extra = Badges.Extra()): List<String> {
         val done = db.backup().sessions()
         val zone = java.time.ZoneId.systemDefault()
         val st = com.malluwayne.batbloom.stats.Stats.compute(done, today, zone)
         val earned = Badges.earned(today, schedule, quitDate, facts = Badges.facts(
             done, maxOf(st.bestStreak, st.streakDays), zone,
             doseStreak = Badges.bestDoseStreak(schedule, db.backup().doses().filter { it.status == DoseStatus.TAKEN }.map { it.key }.toSet(), today),
+            extra = extra,
         ))
         return earned.filter { id ->
             quit.award(BadgeEntity(id, System.currentTimeMillis())) != -1L

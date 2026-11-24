@@ -35,16 +35,16 @@ class ExtrasTest {
         assertTrue(MedSchedule.summary(m).contains("2 steps"))
     }
 
-    private fun st(s: String, min: Int, next: LocalDate? = null) = Revision.SubjectStatus(s, min, if (min > 0) start.minusDays(1) else null, next, if (min > 0) 1 else 0)
+    private fun st(s: String, min: Int) = Revision.SubjectStatus(s, min, if (min > 0) start.minusDays(1) else null, if (min > 0) 1 else 0)
 
     @Test fun weekPlan() {
-        val subjects = Tags.fmgeSubjects.map { st(it, 0) }.toMutableList()
-        subjects[subjects.indexOfFirst { it.subject == "Anatomy" }] = st("Anatomy", 300, start.plusDays(2))
+        val subjects = Tags.fmgeSubjects.filter { it != Tags.MCQ }.map { st(it, 0) }.toMutableList()
+        subjects[subjects.indexOfFirst { it.subject == "Anatomy" }] = st("Anatomy", 300)
         subjects[subjects.indexOfFirst { it.subject == "ENT" }] = st("ENT", 30)
         val plan = ExamPlan.week(subjects, start, null)
         assertEquals(7, plan.size)
         assertTrue(plan.all { it.second.size == 2 })
-        assertTrue("Anatomy" in plan[2].second)               // revision on its due day
+        assertTrue("Anatomy" !in plan[0].second)              // most-studied comes last
         assertTrue(plan.flatMap { it.second }.none { it == Tags.MCQ })
         val week = plan.flatMap { it.second }
         assertEquals(week.size, week.toSet().size)             // no repeats within the week (14 of 19)
@@ -53,6 +53,31 @@ class ExtrasTest {
         val close = ExamPlan.week(subjects, start, start.plusDays(3))
         assertEquals(3, close[0].second.size)
         assertTrue(close[5].second.isEmpty())
+    }
+
+    @Test fun courseEndAndMedStreak() {
+        val taper = MedEntity(id = 1, name = "Pred", form = "Tablet", frequency = "Taper", times = "1-3=08:00*1|4-5=08:00*0.5", startDate = start.toString())
+        assertEquals(start.plusDays(4), MedSchedule.courseEnd(taper))
+        assertFalse(MedSchedule.finished(taper, start.plusDays(4)))
+        assertTrue(MedSchedule.finished(taper, start.plusDays(5)))
+        assertEquals(null, MedSchedule.courseEnd(taper.copy(frequency = "Daily", times = "08:00*1")))
+        val daily = MedEntity(id = 2, name = "D", form = "Tablet", times = "08:00*1;20:00*1", startDate = start.toString())
+        val taken = (0..4).flatMap { d -> listOf("08:00", "20:00").map { 2L to "${start.plusDays(d.toLong())}T$it" } }.toMutableSet()
+        assertEquals(5, com.malluwayne.batbloom.quit.Badges.bestMedStreak(listOf(daily), taken, start.plusDays(4), start))
+        taken.remove(2L to "${start.plusDays(2)}T20:00")
+        assertEquals(2, com.malluwayne.batbloom.quit.Badges.bestMedStreak(listOf(daily), taken, start.plusDays(4), start))
+        // Today unfinished doesn't break the run
+        taken.add(2L to "${start.plusDays(2)}T20:00"); taken.remove(2L to "${start.plusDays(4)}T20:00")
+        assertEquals(4, com.malluwayne.batbloom.quit.Badges.bestMedStreak(listOf(daily), taken, start.plusDays(4), start))
+    }
+
+    @Test fun newBadges() {
+        val b = com.malluwayne.batbloom.quit.Badges
+        val f = com.malluwayne.batbloom.quit.FocusFacts(mcqTotal = 600, bestMock = 55, breathing = 1, medStreak = 7)
+        val e = b.earned(start, DoseSchedule(), null, facts = f)
+        assertTrue(listOf("mcq500", "mock_pass", "breathe1", "meds7").all { it in e })
+        assertTrue(listOf("mcq2000", "mock60", "breathe10", "meds30").none { it in e })
+        assertEquals(b.all.size, b.all.map { it.id }.toSet().size)
     }
 
     @Test fun mcqAndTests() {

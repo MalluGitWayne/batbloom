@@ -29,25 +29,6 @@ class FeaturesTest {
         status = if (ok) Status.DONE else Status.FAILED,
     )
 
-    @Test fun revisionSteps() {
-        // Studied once yesterday: due today (+1).
-        assertEquals(listOf("Anatomy"), Revision.due(listOf(study("Anatomy", 1)), today, zone).map { it.subject })
-        // Two study days, last 2 days ago: next interval is 3 days, not due yet.
-        assertTrue(Revision.due(listOf(study("Anatomy", 5), study("Anatomy", 2)), today, zone).isEmpty())
-        // ...but due once 3 days have passed (and overdue after).
-        val due = Revision.due(listOf(study("Anatomy", 8), study("Anatomy", 4)), today, zone).single()
-        assertEquals(1L, due.overdueDays(today))
-        // Studied today: not due. Failed sessions don't count.
-        assertTrue(Revision.due(listOf(study("Anatomy", 1), study("Anatomy", 0)), today, zone).isEmpty())
-        assertTrue(Revision.due(listOf(study("Anatomy", 1, ok = false)), today, zone).isEmpty())
-        // After the 5th step it's every 30 days.
-        val five = (0 until 5).map { study("Pathology", 200L - it * 30) }
-        assertEquals(1, Revision.due(five, today, zone).size)
-        // MCQ practice is tracked but never "due".
-        assertTrue(Revision.due(listOf(study(Tags.MCQ, 1)), today, zone).isEmpty())
-        assertEquals("Anatomy · yesterday", Revision.label(Revision.due(listOf(study("Anatomy", 1)), today, zone).first(), today))
-    }
-
     @Test fun timeGuard() {
         val m = TimeGuard.parse("com.instagram.android=30;com.google.android.youtube=45;bad;x=;=5")
         assertEquals(mapOf("com.instagram.android" to 30, "com.google.android.youtube" to 45), m)

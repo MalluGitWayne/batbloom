@@ -168,11 +168,11 @@ class BloomWidget : AppWidgetProvider() {
                 // Today's bloom: a sapling to start with, in full flower when the daily goal is met.
                 else -> prefs.selectedPlant.value to (0.62f + 0.38f * if (goal > 0) (s.todayMinutes.toFloat() / goal).coerceIn(0f, 1f) else 0f)
             }
-            val doseDue = com.malluwayne.batbloom.quit.DoseAlarms.dueNow(context)
+            val doseDue = com.malluwayne.batbloom.meds.MedAlarms.widgetDose(context)
             val all = app.repo.sessions.first()
             val garden = all.take(6).map { it.plantId to (it.status != com.malluwayne.batbloom.data.Status.DONE) }
             val allStats = Stats.compute(all, today, zone)
-            val due = com.malluwayne.batbloom.stats.Revision.due(all, today, zone)
+
             val lines = buildList {
                 if (allStats.streakDays > 0 || s.completed > 0) {
                     add(listOfNotNull(
@@ -180,10 +180,11 @@ class BloomWidget : AppWidgetProvider() {
                         "${s.completed} bloom${if (s.completed == 1) "" else "s"} today",
                     ).joinToString(" · "))
                 }
-                if (due.isNotEmpty()) add("Revise: " + due.take(3).joinToString(", ") { it.subject })
-                if (goal > 0) add("FMGE ${Rules.formatMinutes(s.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}")
-                prefs.examDate.value?.let { add(Stats.examLine(it, today)) }
-                prefs.quitDate.value?.let { q ->
+                val examOn = prefs.examTab.value
+
+                if (examOn && goal > 0) add("FMGE ${Rules.formatMinutes(s.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}")
+                if (examOn) prefs.examDate.value?.let { add(Stats.examLine(it, today)) }
+                if (prefs.quitTab.value) prefs.quitDate.value?.let { q ->
                     val since = java.time.Duration.between(prefs.quitStart(zone) ?: q.atStartOfDay(zone), java.time.ZonedDateTime.now(zone))
                     add(listOfNotNull(Stats.quitLine(q, today), com.malluwayne.batbloom.quit.Milestones.nextLine(since)).joinToString(" \u00B7 "))
                 }
@@ -227,8 +228,8 @@ class BloomWidget : AppWidgetProvider() {
                 // A dose that is due now gets its own button: one tap marks it taken.
                 if (doseDue != null) {
                     v.setViewVisibility(R.id.w_dose, View.VISIBLE)
-                    v.setTextViewText(R.id.w_dose, "\u2713  Took ${doseDue.label.lowercase()} ${com.malluwayne.batbloom.quit.Doses.formatMg(doseDue.mg)}")
-                    v.setOnClickPendingIntent(R.id.w_dose, com.malluwayne.batbloom.quit.DoseAlarms.takenIntent(context, doseDue.key))
+                    v.setTextViewText(R.id.w_dose, doseDue.first)
+                    v.setOnClickPendingIntent(R.id.w_dose, doseDue.second)
                 } else v.setViewVisibility(R.id.w_dose, View.GONE)
                 // While a session runs, one button that opens it; otherwise quick-start buttons.
                 v.setTextViewText(

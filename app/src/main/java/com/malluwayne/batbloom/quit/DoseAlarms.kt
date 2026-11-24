@@ -152,6 +152,7 @@ object DoseAlarms {
         if (status != null) cancelDoseNotification(context, slot.key)
         checkStock(context)
         com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
+        checkBadges(context)
     }
 
     suspend fun checkStock(context: Context) {
@@ -178,7 +179,8 @@ object DoseAlarms {
 
     suspend fun checkBadges(context: Context) {
         val a = app(context)
-        val new = a.repo.awardBadges(LocalDate.now(ZoneId.systemDefault()), a.prefs.schedule.value, a.prefs.quitDate.value)
+        val today = LocalDate.now(ZoneId.systemDefault())
+        val new = a.repo.awardBadges(today, a.prefs.schedule.value, a.prefs.quitDate.value, a.repo.extraFacts(a.prefs, today))
         val openAwards = PendingIntent.getActivity(
             context, 31, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_AWARDS)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),

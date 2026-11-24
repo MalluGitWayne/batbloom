@@ -85,6 +85,17 @@ object MedSchedule {
 
     fun formatPhases(l: List<Phase>): String = l.sortedBy { it.from }.joinToString("|") { "${it.from}-${it.to}=${formatTimes(it.times)}" }
 
+    /** Last day of a course: the end date, or the last step of a tapering course; null if it never ends. */
+    fun courseEnd(m: MedEntity): LocalDate? {
+        val end = m.endDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val taper = if (Frequency.of(m.frequency) == Frequency.Taper)
+            parsePhases(m.times).maxOfOrNull { it.to }?.let { LocalDate.parse(m.startDate).plusDays(it - 1L) } else null
+        return listOfNotNull(end, taper).minOrNull()
+    }
+
+    /** The course is over: [today] is after its last day. */
+    fun finished(m: MedEntity, today: LocalDate): Boolean = courseEnd(m)?.let { today.isAfter(it) } == true
+
     /** Day number of [date] in the course (1 = start date). */
     fun dayNumber(m: MedEntity, date: LocalDate): Int = (ChronoUnit.DAYS.between(LocalDate.parse(m.startDate), date) + 1).toInt()
 

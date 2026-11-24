@@ -12,8 +12,8 @@ android {
         applicationId = "com.malluwayne.batbloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.22"
+        versionCode = 24
+        versionName = "1.23"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -67,8 +67,12 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("junit:junit:4.13.2")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2026.02.01"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 // The logic tests run before every release build, so a broken one stops the release.

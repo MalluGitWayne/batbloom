@@ -81,6 +81,13 @@ object Meds {
         val isTaken = status == DoseStatus.TAKEN
         adjustStock(context, dose.med.id, if (isTaken && !wasTaken) -dose.qty else if (wasTaken && !isTaken) before!!.quantity else 0.0)
         MedAlarms.clearIfDone(context, dose.at)
+        changed(context)
+    }
+
+    /** After any log change: the widget shows the next dose, and achievements are checked (also from notifications). */
+    private suspend fun changed(context: Context) {
+        com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
+        DoseAlarms.checkBadges(context)
     }
 
     /** Removes a log entry (scheduled or as-needed), giving back the stock if it was taken. */
@@ -88,11 +95,13 @@ object Meds {
         val l = dao(context).logById(logId) ?: return
         dao(context).deleteLog(logId)
         if (l.status == DoseStatus.TAKEN) adjustStock(context, l.medId, l.quantity)
+        changed(context)
     }
 
     suspend fun logAsNeeded(context: Context, m: MedEntity, qty: Double, at: Long = System.currentTimeMillis()) {
         dao(context).log(MedLogEntity(0, m.id, null, DoseStatus.TAKEN, qty, at))
         adjustStock(context, m.id, -qty)
+        changed(context)
     }
 
     suspend fun setTime(context: Context, logId: Long, at: Long) = dao(context).setLogTime(logId, at)
@@ -168,7 +177,10 @@ object MedAlarms {
         val time = DateTimeFormatter.ofPattern("h:mm a").format(at)
         val names = open.joinToString(", ") { it.med.name }
         val lines = open.joinToString("\n") { d ->
-            listOf(d.med.name, MedSchedule.strengthLabel(d.med), MedSchedule.qtyLabel(d.med, d.qty)).filter { it.isNotBlank() }.joinToString(" · ")
+            // The very last dose of a course says so.
+            val last = MedSchedule.courseEnd(d.med) == d.date && MedSchedule.timesOn(d.med, d.date).maxOfOrNull { it.time } == d.time
+            listOf(d.med.name, MedSchedule.strengthLabel(d.med), MedSchedule.qtyLabel(d.med, d.qty)).filter { it.isNotBlank() }.joinToString(" · ") +
+                if (last) " · last dose of the course" else ""
         }
         val openApp = PendingIntent.getActivity(
             context, 32, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_MEDS).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -200,6 +212,33 @@ object MedAlarms {
     suspend fun markAll(context: Context, at: LocalDateTime, status: String) {
         Meds.openAt(context, at).forEach { Meds.mark(context, it, status) }
         NotificationManagerCompat.from(context).cancel(notifId(at))
+    }
+
+    /**
+     * The widget's dose button: today's earliest unlogged dose, varenicline or any medication, whatever the time.
+     * For medications one tap logs everything open at that time.
+     */
+    suspend fun widgetDose(context: Context): Pair<String, PendingIntent>? {
+        val a = app(context)
+        if (!a.prefs.medsTab.value) return DoseAlarms.dueNow(context)?.let {
+            "✓  Took ${it.label.lowercase()} ${com.malluwayne.batbloom.quit.Doses.formatMg(it.mg)}" to DoseAlarms.takenIntent(context, it.key)
+        }
+        val now = LocalDateTime.now()
+        val today = now.toLocalDate()
+        val course = DoseAlarms.dueNow(context)?.let { s -> a.prefs.schedule.value.timeOf(s, ZoneId.systemDefault()).toLocalDateTime() to s }
+        val meds = a.db.meds().allNow()
+        val medTime = MedSchedule.dosesOn(meds, today).map { it.at }.distinct().firstOrNull { Meds.openAt(context, it).isNotEmpty() }
+        return when {
+            medTime != null && (course == null || !medTime.isAfter(course.first)) -> {
+                val open = Meds.openAt(context, medTime)
+                val label = "✓  Took " + DateTimeFormatter.ofPattern("h:mm a").format(medTime) + ": " +
+                    open.joinToString(", ") { it.med.name }.let { if (it.length > 28) it.take(26) + "…" else it }
+                label to pi(context, ACTION_TAKEN, medTime.toString(), 600 + (medTime.toString().hashCode() and 0xFF))
+            }
+            course != null -> "✓  Took ${course.second.label.lowercase()} ${com.malluwayne.batbloom.quit.Doses.formatMg(course.second.mg)}" to
+                DoseAlarms.takenIntent(context, course.second.key)
+            else -> null
+        }
     }
 
     fun snooze(context: Context, at: LocalDateTime) {

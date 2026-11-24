@@ -39,7 +39,6 @@ import com.malluwayne.batbloom.plants.PlantCatalog
 import com.malluwayne.batbloom.quit.Badges
 import com.malluwayne.batbloom.quit.Doses
 import com.malluwayne.batbloom.quit.QuitMath
-import com.malluwayne.batbloom.stats.Revision
 import com.malluwayne.batbloom.stats.Stats
 import java.time.Instant
 import java.time.ZoneId
@@ -176,7 +175,7 @@ fun HomeScreen(modifier: Modifier) {
         if (examOn) {
             val exam by prefs.examDate.collectAsState()
             val goal by prefs.dailyGoal.collectAsState()
-            val due = remember(sessions, today) { Revision.due(sessions, today, zone) }
+
             SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.EXAM }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -186,9 +185,8 @@ fun HomeScreen(modifier: Modifier) {
                             fontWeight = FontWeight.Bold, fontSize = 20.sp,
                         )
                         Text(
-                            "${Rules.formatMinutes(stats.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)} today" +
-                                if (due.isNotEmpty()) " · ${due.size} to revise" else "",
-                            color = if (due.isNotEmpty()) Gold else Muted, fontSize = 13.sp,
+                            "${Rules.formatMinutes(stats.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)} today",
+                            color = Muted, fontSize = 13.sp,
                         )
                     }
                     Text("›", color = Muted, fontSize = 22.sp)

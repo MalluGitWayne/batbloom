@@ -22,6 +22,9 @@ object MedListPdf {
     private const val H = 842
     private const val M = 40f
 
+    private val df = DateTimeFormatter.ofPattern("d MMM yyyy")
+    private fun d(iso: String) = runCatching { df.format(LocalDate.parse(iso)) }.getOrDefault(iso)
+
     data class Row(val name: String, val detail: String, val schedule: String, val notes: String?)
 
     fun rows(meds: List<MedEntity>, course: DoseSchedule, today: LocalDate): List<Row> = buildList {
@@ -34,7 +37,7 @@ object MedListPdf {
                     "Day $day of ${course.courseDays} · now " + listOfNotNull(
                         if (am > 0) "${Doses.formatMg(am)} morning" else null, if (pm > 0) "${Doses.formatMg(pm)} evening" else null,
                     ).joinToString(", "),
-                    "Started ${course.start}, ends ${course.endDate}",
+                    "Started ${df.format(course.start)}, ends ${df.format(course.endDate)}",
                 ),
             )
         }
@@ -49,7 +52,7 @@ object MedListPdf {
                 Row(
                     m.name,
                     listOf(MedForm.of(m.form).label, MedSchedule.strengthLabel(m)).filter { it.isNotBlank() }.joinToString(" · "),
-                    sched + " · since ${m.startDate}" + (m.endDate?.let { " until $it" } ?: ""),
+                    sched + " · since ${d(m.startDate)}" + (m.endDate?.let { " until ${d(it)}" } ?: ""),
                     m.notes,
                 ),
             )

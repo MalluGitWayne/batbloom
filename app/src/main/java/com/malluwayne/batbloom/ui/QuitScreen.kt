@@ -50,6 +50,7 @@ import com.malluwayne.batbloom.BatbloomApp
 import com.malluwayne.batbloom.quit.DoseAlarms
 import com.malluwayne.batbloom.quit.QuitMath
 import com.malluwayne.batbloom.stats.Treat
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -204,7 +205,10 @@ fun QuitScreen(modifier: Modifier) {
     }
 
     if (setup || !setupDone) QuitSetupDialog(firstRun = !setupDone) { setup = false; prefs.setSmokingSetupDone() }
-    if (breathe) BreathingDialog { breathe = false }
+    if (breathe) BreathingDialog { done ->
+        breathe = false
+        if (done) { prefs.addBreathing(); app.appScope.launch { DoseAlarms.checkBadges(app) } }
+    }
     if (slipAsk) AlertDialog(
         onDismissRequest = { slipAsk = false },
         title = { Text("It happens") },
@@ -216,7 +220,8 @@ fun QuitScreen(modifier: Modifier) {
 
 /** Guided breathing for a craving: in for 4, hold for 4, out for 6, for about two minutes. */
 @Composable
-private fun BreathingDialog(onClose: () -> Unit) {
+/** [onClose] gets true when the exercise ran to the end or the craving passed (counts toward achievements). */
+private fun BreathingDialog(onClose: (Boolean) -> Unit) {
     val scale = remember { androidx.compose.animation.core.Animatable(0.55f) }
     var phase by remember { mutableStateOf("Breathe in") }
     var left by remember { mutableStateOf(112) }
@@ -229,7 +234,7 @@ private fun BreathingDialog(onClose: () -> Unit) {
         }
         phase = "Well done"
     }
-    androidx.compose.ui.window.Dialog(onClose, androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+    androidx.compose.ui.window.Dialog({ onClose(left <= 0) }, androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             Modifier.fillMaxSize().background(Color(0xF0081018)).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
@@ -245,7 +250,7 @@ private fun BreathingDialog(onClose: () -> Unit) {
             Text(if (left > 0) "${left / 60}:${"%02d".format(left % 60)} left" else "The craving should be easing now.", color = Color(0xFFCBD2F0))
             Text("Cravings usually pass in 3 to 5 minutes.", color = Color(0xFF8FA3C7), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(24.dp))
-            Button(onClose) { Text("The craving has passed") }
+            Button({ onClose(true) }) { Text("The craving has passed") }
         }
     }
 }

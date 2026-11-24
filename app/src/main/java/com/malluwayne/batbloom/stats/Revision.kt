@@ -5,46 +5,20 @@ import com.malluwayne.batbloom.data.Status
 import com.malluwayne.batbloom.data.Tags
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
-/**
- * Spaced revision for FMGE subjects. Each day you study a subject moves it up a step; the next revision is due
- * 1, 3, 7, 14 and then every 30 days after the last time you studied it.
- */
+/** Where each FMGE subject stands, and the study streak. (Spaced revision was removed in 1.23.) */
 object Revision {
-    val intervals = listOf(1, 3, 7, 14, 30)
-
-    data class Due(val subject: String, val lastStudied: LocalDate, val dueOn: LocalDate, val step: Int) {
-        fun overdueDays(today: LocalDate) = ChronoUnit.DAYS.between(dueOn, today)
-    }
-
-    /** Subjects due for revision today (overdue first). A subject studied today is not due. */
-    fun due(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId): List<Due> {
-        val days = sessions
-            .filter { it.tag == Tags.FMGE && it.status == Status.DONE && it.subject != null && it.subject != Tags.MCQ }
-            .groupBy({ it.subject!! }, { Stats.dayOf(it.startedAt, zone) })
-            .mapValues { (_, d) -> d.toSortedSet() }
-        return days.mapNotNull { (subject, studied) ->
-            val last = studied.last()
-            if (!last.isBefore(today)) return@mapNotNull null
-            val step = studied.size
-            val dueOn = last.plusDays(intervals[(step - 1).coerceAtMost(intervals.size - 1)].toLong())
-            if (dueOn.isAfter(today)) null else Due(subject, last, dueOn, step)
-        }.sortedWith(compareBy<Due> { it.dueOn }.thenBy { Tags.fmgeSubjects.indexOf(it.subject) })
-    }
-
-    /** Where a subject stands: total minutes, last day studied, and when it is next due (null if never studied). */
-    data class SubjectStatus(val subject: String, val minutes: Int, val lastStudied: LocalDate?, val nextDue: LocalDate?, val days: Int)
+    /** A subject's total minutes, last day studied and how many days it has been studied on. */
+    data class SubjectStatus(val subject: String, val minutes: Int, val lastStudied: LocalDate?, val days: Int)
 
     fun subjects(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId): List<SubjectStatus> {
         val done = sessions.filter { it.tag == Tags.FMGE && it.status == Status.DONE && it.subject != null }
         val bySubject = done.groupBy { it.subject!! }
-        return Tags.fmgeSubjects.map { s ->
+        // MCQ practice is counted separately (questions done), so it is not a subject here.
+        return Tags.fmgeSubjects.filter { it != Tags.MCQ }.map { s ->
             val l = bySubject[s].orEmpty()
             val days = l.map { Stats.dayOf(it.startedAt, zone) }.toSortedSet()
-            val last = days.lastOrNull()
-            val next = if (last == null || s == Tags.MCQ) null else last.plusDays(intervals[(days.size - 1).coerceAtMost(intervals.size - 1)].toLong())
-            SubjectStatus(s, l.sumOf { it.plannedMinutes }, last, next, days.size)
+            SubjectStatus(s, l.sumOf { it.plannedMinutes }, days.lastOrNull(), days.size)
         }
     }
 
@@ -55,10 +29,5 @@ object Revision {
         var n = 0
         while (d in days) { n++; d = d.minusDays(1) }
         return n
-    }
-
-    fun label(d: Due, today: LocalDate): String {
-        val ago = ChronoUnit.DAYS.between(d.lastStudied, today)
-        return "${d.subject} · ${if (ago == 1L) "yesterday" else "$ago days ago"}"
     }
 }

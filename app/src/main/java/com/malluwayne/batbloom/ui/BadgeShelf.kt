@@ -93,12 +93,19 @@ private fun rememberAchievements(
 ): AchievementState {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
-    return remember(earnedAt, schedule, quit, sessions, doses, today) {
+    val app = BatbloomApp.instance
+    val mcqTotal by app.prefs.mcqTotal.collectAsState()
+    val tests by app.prefs.mockTests.collectAsState()
+    val breathing by app.prefs.breathing.collectAsState()
+    val extra by androidx.compose.runtime.produceState(Badges.Extra(), earnedAt, mcqTotal, tests, breathing, today) {
+        value = app.repo.extraFacts(app.prefs, today)
+    }
+    return remember(earnedAt, schedule, quit, sessions, doses, today, extra) {
         val st = Stats.compute(sessions, today, zone)
         val taken = doses.filter { it.status == DoseStatus.TAKEN }.map { it.key }.toSet()
         AchievementState(
             earnedAt, schedule, quit, today,
-            Badges.facts(sessions, maxOf(st.bestStreak, st.streakDays), zone, Badges.bestDoseStreak(schedule, taken, today)),
+            Badges.facts(sessions, maxOf(st.bestStreak, st.streakDays), zone, Badges.bestDoseStreak(schedule, taken, today), extra),
         )
     }
 }
@@ -232,6 +239,10 @@ private fun progressLabel(b: Badge, have: Int, target: Int): String = when {
     b.id == "marathon" -> "Longest: $have of $target min"
     b.id.startsWith("streak") -> "Best streak: $have of $target days"
     b.id.startsWith("dose") -> "Best run: $have of $target days with every tablet"
+    b.id.startsWith("meds") -> "Best run: $have of $target days with every medication"
+    b.id.startsWith("mcq") -> "$have of $target questions"
+    b.id.startsWith("mock") -> "Best: $have% of $target%"
+    b.id.startsWith("breathe") -> "$have of $target cravings"
     b.id == "hat_trick" -> "Best day: $have of $target sessions"
     b.id == "all_subjects" -> "$have of $target subjects"
     else -> "$have of $target"

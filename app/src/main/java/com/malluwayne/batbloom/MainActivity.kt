@@ -79,10 +79,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: Intent?) {
-        when (intent?.action) {
+        // Each launch intent is handled once (not again when the screen rotates). It's marked with an extra rather
+        // than by clearing its action, so the intent still matches the one that started the activity.
+        if (intent == null || intent.getBooleanExtra(HANDLED, false)) return
+        when (intent.action) {
             ACTION_FOCUS -> Starter.fromPrefs(this)
             ACTION_QUIT -> Nav.tab.value = 2
-            ACTION_OPEN -> Nav.tab.value = 0
+            ACTION_OPEN -> Nav.tab.value = Tab.Home.ordinal
             ACTION_STATS -> { Nav.tab.value = 1; Nav.garden.value = 1 }
             ACTION_AWARDS -> { Nav.tab.value = 1; Nav.garden.value = 2 }
             ACTION_MEDS -> Nav.tab.value = 3
@@ -94,8 +97,8 @@ class MainActivity : ComponentActivity() {
                 Nav.tab.value = 0
             }
         }
-        if (intent?.action == ACTION_FOCUS) Nav.tab.value = 0
-        intent?.action = null
+        if (intent.action == ACTION_FOCUS) Nav.tab.value = 0
+        intent.putExtra(HANDLED, true)
     }
 
     companion object {
@@ -108,6 +111,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_MEDS = "batbloom.MEDS"
         const val ACTION_EXAM = "batbloom.EXAM"
         const val EXTRA_SUBJECT = "subject"
+        private const val HANDLED = "batbloom.handled"
     }
 }
 

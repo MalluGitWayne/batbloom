@@ -55,6 +55,7 @@ import com.malluwayne.batbloom.stats.ExamPlan
 import com.malluwayne.batbloom.stats.MockTest
 import com.malluwayne.batbloom.stats.Revision
 import com.malluwayne.batbloom.stats.Stats
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -66,7 +67,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * The Exam tab: countdown, today's study goal, subjects due for spaced revision, and every FMGE subject with
+ * The Exam tab: countdown, today's study goal, questions, the weekly plan, and every FMGE subject with
  * its time and next revision. "Study" sets up a Focus session for that subject.
  */
 @Composable
@@ -79,7 +80,7 @@ fun ExamScreen(modifier: Modifier) {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val summary = remember(sessions, today) { Stats.compute(sessions, today, zone) }
-    val due = remember(sessions, today) { Revision.due(sessions, today, zone) }
+
     val subjects = remember(sessions, today) { Revision.subjects(sessions, today, zone) }
     val streak = remember(sessions, today) { Revision.streak(sessions, today, zone) }
     val week = remember(sessions, today) {
@@ -98,6 +99,8 @@ fun ExamScreen(modifier: Modifier) {
         val m = ExamPlan.parseMcq(prefs.mcq.value).toMutableMap()
         m[today] = ((m[today] ?: 0) + k).coerceAtLeast(0)
         prefs.setMcq(ExamPlan.formatMcq(m, today))
+        prefs.addMcqTotal(k)
+        app.appScope.launch { com.malluwayne.batbloom.quit.DoseAlarms.checkBadges(app) }
     }
 
     fun study(subject: String) {
@@ -171,9 +174,8 @@ fun ExamScreen(modifier: Modifier) {
                 color = Teal, drawStopIndicator = {}, gapSize = 0.dp,
             )
             WeekBars(week, today)
-            Button({ study(due.firstOrNull()?.subject ?: prefs.subject.value) }, Modifier.fillMaxWidth()) {
-                Text("Study now" + (due.firstOrNull()?.subject ?: prefs.subject.value).let { " · $it" })
-            }
+            val next = ExamPlan.week(subjects, today, exam).firstOrNull()?.second?.firstOrNull() ?: prefs.subject.value
+            Button({ study(next) }, Modifier.fillMaxWidth()) { Text("Study now \u00B7 $next") }
         }
 
         // Questions (MCQs) done today
@@ -190,32 +192,14 @@ fun ExamScreen(modifier: Modifier) {
                     Text("this week \u00B7 ${ExamPlan.mcqStreak(mcq, today)}-day streak", color = Muted, fontSize = 12.sp)
                 }
             }
+            val timed = remember(sessions, today) {
+                sessions.filter { it.tag == Tags.FMGE && it.subject == Tags.MCQ && it.status == Status.DONE && Stats.dayOf(it.startedAt, zone) == today }.sumOf { it.plannedMinutes }
+            }
+            if (timed > 0) Text("Plus ${Rules.formatMinutes(timed)} of timed MCQ practice today", color = Muted, fontSize = 12.sp)
             LinearProgressIndicator({ (done.toFloat() / mcqGoal.coerceAtLeast(1)).coerceAtMost(1f) }, Modifier.fillMaxWidth().height(8.dp), color = Lavender, drawStopIndicator = {}, gapSize = 0.dp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 listOf(10, 25, 50).forEach { k -> OutlinedButton({ addMcq(k) }) { Text("+$k") } }
                 TextButton({ askMcq = true }) { Text("Other\u2026") }
-            }
-        }
-
-        // Spaced revision
-        SectionCard("Revise today") {
-            if (due.isEmpty()) Text(
-                if (subjects.all { it.minutes == 0 }) "Study a subject and it comes back here for revision after 1, 3, 7, 14 and then every 30 days."
-                else "Nothing due. You're up to date.",
-                color = Muted, fontSize = 13.sp,
-            )
-            due.forEach { d ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.weight(1f)) {
-                        Text(d.subject, fontWeight = FontWeight.SemiBold)
-                        val over = d.overdueDays(today)
-                        Text(
-                            "Revision ${d.step} · last studied ${ago(d.lastStudied, today)}" + if (over > 0) " · $over days late" else "",
-                            color = if (over > 0) Gold else Muted, fontSize = 12.sp,
-                        )
-                    }
-                    TextButton({ study(d.subject) }) { Text("Study") }
-                }
             }
         }
 
@@ -232,7 +216,7 @@ fun ExamScreen(modifier: Modifier) {
                     Text(list.joinToString(", ").ifBlank { "\u2014" }, Modifier.weight(0.68f), fontSize = 13.sp)
                 }
             }
-            Text("Revisions due go on their day; the rest goes to your least-studied subjects.", color = Muted, fontSize = 11.sp)
+            Text("Least-studied subjects come first, and every subject gets a turn before any repeats.", color = Muted, fontSize = 11.sp)
         }
 
         // All subjects
@@ -250,13 +234,7 @@ fun ExamScreen(modifier: Modifier) {
                     }
                     if (s.minutes > 0) {
                         LinearProgressIndicator({ s.minutes.toFloat() / max }, Modifier.fillMaxWidth().height(5.dp).padding(top = 2.dp), color = Teal, drawStopIndicator = {}, gapSize = 0.dp)
-                        Text(
-                            "Last ${ago(s.lastStudied!!, today)}" + (s.nextDue?.let { n ->
-                                val d = ChronoUnit.DAYS.between(today, n)
-                                when { d <= 0 -> " · revise now"; d == 1L -> " · revise tomorrow"; else -> " · revise in $d days" }
-                            } ?: ""),
-                            color = if (s.nextDue?.let { !it.isAfter(today) } == true) Gold else Muted, fontSize = 11.sp,
-                        )
+                        Text("Last studied ${ago(s.lastStudied!!, today)} \u00B7 ${s.days} day${if (s.days == 1) "" else "s"}", color = Muted, fontSize = 11.sp)
                     }
                 }
             }
@@ -325,7 +303,10 @@ fun ExamScreen(modifier: Modifier) {
             confirmButton = {
                 TextButton({
                     val s = score.toIntOrNull(); val tt = total.toIntOrNull()
-                    if (s != null && tt != null && tt > 0) prefs.setMockTests(ExamPlan.formatTests(ExamPlan.parseTests(prefs.mockTests.value) + MockTest(today, name.trim(), s.coerceIn(0, tt), tt)))
+                    if (s != null && tt != null && tt > 0) {
+                        prefs.setMockTests(ExamPlan.formatTests(ExamPlan.parseTests(prefs.mockTests.value) + MockTest(today, name.trim(), s.coerceIn(0, tt), tt)))
+                        app.appScope.launch { com.malluwayne.batbloom.quit.DoseAlarms.checkBadges(app) }
+                    }
                     addTest = false
                 }) { Text("Save") }
             },

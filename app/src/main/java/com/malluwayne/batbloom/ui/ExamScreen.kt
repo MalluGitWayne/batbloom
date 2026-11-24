@@ -74,6 +74,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun ExamScreen(modifier: Modifier) {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val app = BatbloomApp.instance
     val prefs = app.prefs
     val sessions by app.repo.sessions.collectAsState(emptyList())
@@ -230,7 +231,7 @@ fun ExamScreen(modifier: Modifier) {
             planView.forEach { (d, items) ->
                 Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                     Text(
-                        if (d == today) "Today" else d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " ${d.dayOfMonth}",
+                        if (d == today) "Today" else d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " ${d.dayOfMonth}",
                         Modifier.weight(0.28f), fontWeight = if (d == today) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp,
                         color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
                     )
@@ -358,10 +359,11 @@ private fun ago(d: LocalDate, today: LocalDate): String = when (val n = ChronoUn
 
 @Composable
 private fun WeekBars(week: List<Pair<LocalDate, Int>>, today: LocalDate) {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val max = week.maxOf { it.second }.coerceAtLeast(30)
     val teal = Teal
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
-    val desc = "Study time, last 7 days: " + week.joinToString(", ") { (d, m) -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + Rules.formatMinutes(m) }
+    val desc = "Study time, last 7 days: " + week.joinToString(", ") { (d, m) -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " " + Rules.formatMinutes(m) }
     Canvas(Modifier.fillMaxWidth().height(56.dp).semantics { contentDescription = desc }) {
         val gap = size.width / week.size
         val bw = gap * 0.42f
@@ -375,7 +377,7 @@ private fun WeekBars(week: List<Pair<LocalDate, Int>>, today: LocalDate) {
     Row(Modifier.fillMaxWidth()) {
         week.forEach { (d, _) ->
             Text(
-                d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()), Modifier.weight(1f), textAlign = TextAlign.Center,
+                d.dayOfWeek.getDisplayName(TextStyle.NARROW, locale), Modifier.weight(1f), textAlign = TextAlign.Center,
                 fontSize = 11.sp, color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
             )
         }

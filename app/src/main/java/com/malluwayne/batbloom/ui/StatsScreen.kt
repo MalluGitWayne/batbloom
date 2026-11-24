@@ -45,6 +45,7 @@ import java.util.Locale
 
 @Composable
 fun StatsScreen(modifier: Modifier) {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val app = BatbloomApp.instance
     val sessions by app.repo.sessions.collectAsState(emptyList())
     var month by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
@@ -103,7 +104,7 @@ fun StatsScreen(modifier: Modifier) {
         val insights = buildList {
             p.timeOfDay.maxByOrNull { it.second }?.let { (part, m) -> add("You focus best in the ${part.lowercase()}" to Rules.formatMinutes(m)) }
             if (p.sessions > 0) add("Average session" to Rules.formatMinutes(p.avgSession))
-            p.bestDay?.let { (d, m) -> add("Best day: ${d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${d.dayOfMonth}" to Rules.formatMinutes(m)) }
+            p.bestDay?.let { (d, m) -> add("Best day: ${d.dayOfWeek.getDisplayName(TextStyle.FULL, locale)} ${d.dayOfMonth}" to Rules.formatMinutes(m)) }
             if (p.sessions > 0) add("Bloomed, not wilted" to "${p.successRate}%")
         }
         if (insights.isNotEmpty()) SectionCard {
@@ -141,9 +142,10 @@ private fun HBar(label: String, value: String, fraction: Float, color: Color) {
 
 @Composable
 private fun Bars(data: List<Pair<LocalDate, Double>>, color: Color, today: LocalDate, compact: Boolean) {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val max = data.maxOf { it.second }.coerceAtLeast(1.0)
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
-    val desc = "Focus time: " + data.filter { it.second > 0 }.joinToString(", ") { (d, v) -> "${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${Rules.formatMinutes(v.toInt())}" }.ifBlank { "no sessions" }
+    val desc = "Focus time: " + data.filter { it.second > 0 }.joinToString(", ") { (d, v) -> "${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, locale)} ${Rules.formatMinutes(v.toInt())}" }.ifBlank { "no sessions" }
     Canvas(Modifier.fillMaxWidth().height(110.dp).semantics { contentDescription = desc }) {
         val gap = size.width / data.size
         val bw = gap * if (compact) 0.6f else 0.42f
@@ -159,7 +161,7 @@ private fun Bars(data: List<Pair<LocalDate, Double>>, color: Color, today: Local
         data.forEachIndexed { i, (d, _) ->
             val show = !compact || i % 7 == (data.size - 1) % 7
             Text(
-                if (!show) "" else if (compact) "${d.dayOfMonth}" else d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                if (!show) "" else if (compact) "${d.dayOfMonth}" else d.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
                 Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 11.sp, maxLines = 1,
                 color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
                 fontWeight = if (d == today) FontWeight.Bold else FontWeight.Normal,

@@ -96,6 +96,8 @@ fun QuitScreen(modifier: Modifier) {
     val today = now.toLocalDate()
     var setup by remember { mutableStateOf(false) }
     var breathe by remember { mutableStateOf(false) }
+    val askBreathe by com.malluwayne.batbloom.Nav.breathe.collectAsState()
+    LaunchedEffect(askBreathe) { if (askBreathe) { breathe = true; com.malluwayne.batbloom.Nav.breathe.value = false } }
     var slipAsk by remember { mutableStateOf(false) }
     val slips by prefs.slips.collectAsState()
     val since = remember { DateTimeFormatter.ofPattern("EEE d MMM, h:mm a") }

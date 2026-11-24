@@ -100,6 +100,30 @@ class ExtrasTest {
         assertEquals(d(0), ExamPlan.current(null, subjects, d(0), null).start)
     }
 
+    @Test fun paceAndWeakSubjects() {
+        val subjects = Tags.fmgeSubjects.filter { it != Tags.MCQ }.mapIndexed { i, s -> st(s, if (i < 4) 60 else 0) } // 4 of 19 started
+        assertEquals(null, ExamPlan.pace(subjects, null, start, null))
+        // 4 started over 14 days -> 15 remaining take ceil(15 * 14 / 4) = 53 days
+        val p = ExamPlan.pace(subjects, start.minusDays(13), start, start.plusDays(30))!!
+        assertEquals(start.plusDays(53), p.finishOn)
+        assertFalse(p.onTrack)
+        assertEquals(4, p.neededPerWeek) // 15 subjects / (30/7 weeks) = 3.5 -> 4
+        assertTrue(ExamPlan.pace(subjects, start.minusDays(13), start, start.plusDays(60))!!.onTrack)
+        // First day counts as a week: 4 subjects on day one doesn't promise 15 in 4 days
+        assertEquals(start.plusDays(27), ExamPlan.pace(subjects, start, start, null)!!.finishOn)
+
+        val t1 = MockTest(start, "GT 1", 150, 300, mapOf("Anatomy" to (5 to 17), "ENT" to (12 to 15), "Pathology" to (1 to 2)))
+        val t2 = MockTest(start.plusDays(7), "GT 2", 170, 300, mapOf("Anatomy" to (9 to 17)))
+        val weak = ExamPlan.weakSubjects(listOf(t1, t2))
+        assertEquals(listOf("Anatomy", "ENT"), weak.map { it.subject }) // Pathology: too few questions
+        assertEquals(41, weak.first().percent) // 14 of 34
+        // Round trip with and without parts; old saved results still read
+        val back = ExamPlan.parseTests(ExamPlan.formatTests(listOf(t1, t2.copy(parts = emptyMap()))))
+        assertEquals(t1.parts, back.first().parts)
+        assertTrue(back.last().parts.isEmpty())
+        assertEquals(1, ExamPlan.parseTests("""[{"d":"2026-11-20","n":"old","s":120,"t":300}]""").size)
+    }
+
     @Test fun mcqAndTests() {
         val m = mapOf(start to 40, start.minusDays(1) to 60, start.minusDays(3) to 10, start.minusDays(200) to 5)
         val back = ExamPlan.parseMcq(ExamPlan.formatMcq(m, start))

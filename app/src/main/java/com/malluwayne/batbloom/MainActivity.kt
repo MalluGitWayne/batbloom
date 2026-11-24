@@ -82,6 +82,9 @@ class MainActivity : ComponentActivity() {
         // Each launch intent is handled once (not again when the screen rotates). It's marked with an extra rather
         // than by clearing its action, so the intent still matches the one that started the activity.
         if (intent == null || intent.getBooleanExtra(HANDLED, false)) return
+        // Tell Android which shortcut was used, so the launcher can rank them.
+        when (intent.action) { ACTION_FOCUS -> "focus"; ACTION_BREATHE -> "breathe"; ACTION_MEDS -> "dose"; else -> null }
+            ?.let { androidx.core.content.pm.ShortcutManagerCompat.reportShortcutUsed(this, it) }
         when (intent.action) {
             ACTION_FOCUS -> Starter.fromPrefs(this)
             ACTION_QUIT -> Nav.tab.value = 2
@@ -90,6 +93,8 @@ class MainActivity : ComponentActivity() {
             ACTION_AWARDS -> { Nav.tab.value = 1; Nav.garden.value = 2 }
             ACTION_MEDS -> Nav.tab.value = 3
             ACTION_EXAM -> Nav.tab.value = Tab.Exam.ordinal
+            ACTION_BREATHE -> { Nav.tab.value = Tab.Quit.ordinal; Nav.breathe.value = true }
+            ACTION_OPEN_FOCUS -> Nav.tab.value = Tab.Focus.ordinal
             ACTION_FMGE -> {
                 val p = BatbloomApp.instance.prefs
                 p.setTag(Tags.FMGE)
@@ -110,6 +115,8 @@ class MainActivity : ComponentActivity() {
         const val ACTION_AWARDS = "batbloom.AWARDS"
         const val ACTION_MEDS = "batbloom.MEDS"
         const val ACTION_EXAM = "batbloom.EXAM"
+        const val ACTION_BREATHE = "batbloom.BREATHE"
+        const val ACTION_OPEN_FOCUS = "batbloom.OPEN_FOCUS"
         const val EXTRA_SUBJECT = "subject"
         private const val HANDLED = "batbloom.handled"
     }
@@ -140,6 +147,8 @@ object Nav {
     val tab = MutableStateFlow(6) // Home
     /** Inside the Garden tab: 0 = garden, 1 = stats. */
     val garden = MutableStateFlow(0)
+    /** Opens the craving breathing exercise on the Quit tab (from the shortcut). */
+    val breathe = MutableStateFlow(false)
 }
 
 private enum class Tab(val label: String, val icon: ImageVector) {

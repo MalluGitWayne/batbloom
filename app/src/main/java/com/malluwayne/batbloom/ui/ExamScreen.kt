@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -261,6 +262,19 @@ fun ExamScreen(modifier: Modifier) {
         SectionCard("Subjects") {
             val covered = subjects.count { it.minutes > 0 }
             Text("$covered of ${subjects.size} started", color = Muted, fontSize = 13.sp)
+            // Pace: when every subject will have been started, at the rate so far.
+            val first = remember(studiedDays) { studiedDays.values.flatten().minOrNull() }
+            ExamPlan.pace(subjects, first, today, exam)?.let { p ->
+                val df = DateTimeFormatter.ofPattern("d MMM")
+                Text(
+                    when {
+                        p.started == p.total -> "Every subject started. Keep revising."
+                        p.onTrack -> "At this pace, all ${p.total} started by ${df.format(p.finishOn)}" + (exam?.let { " · before your exam" } ?: "")
+                        else -> "At this pace, all ${p.total} started by ${df.format(p.finishOn)}, after your exam. Start about ${p.neededPerWeek} new a week to finish in time."
+                    },
+                    color = if (p.onTrack) Teal else Gold, fontSize = 13.sp,
+                )
+            }
             LinearProgressIndicator({ covered.toFloat() / subjects.size }, Modifier.fillMaxWidth().height(6.dp), color = Lavender, drawStopIndicator = {}, gapSize = 0.dp)
             val max = subjects.maxOf { it.minutes }.coerceAtLeast(1)
             val list = subjects.sortedWith(compareByDescending<Revision.SubjectStatus> { it.minutes > 0 }.thenByDescending { it.minutes })
@@ -296,6 +310,18 @@ fun ExamScreen(modifier: Modifier) {
                     }
                 }
                 TestChart(tests.takeLast(10))
+                val weak = remember(tests) { ExamPlan.weakSubjects(tests) }
+                if (weak.isNotEmpty()) {
+                    Text("Weakest subjects", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    weak.forEach { w ->
+                        Row(Modifier.fillMaxWidth().clickable { study(w.subject) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(w.subject, Modifier.weight(1f), fontSize = 13.sp)
+                            Text("${w.percent}% · ${w.correct}/${w.asked}", color = if (w.percent >= ExamPlan.PASS_PERCENT) Muted else Gold, fontSize = 13.sp)
+                            Text("  Study ›", color = Lavender, fontSize = 13.sp)
+                        }
+                    }
+                    androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                }
                 tests.takeLast(5).reversed().forEach { tst ->
                     Row {
                         Text(DateTimeFormatter.ofPattern("d MMM").format(tst.date) + tst.name.let { if (it.isBlank()) "" else " \u00B7 $it" }, Modifier.weight(1f), fontSize = 13.sp)
@@ -328,21 +354,41 @@ fun ExamScreen(modifier: Modifier) {
         var name by remember { mutableStateOf("") }
         var score by remember { mutableStateOf("") }
         var total by remember { mutableStateOf("300") }
+        var breakdown by remember { mutableStateOf(false) }
+        // Per subject: correct and asked, both optional; a subject counts only when both are filled in.
+        val correct = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
+        val asked = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
         AlertDialog(
             onDismissRequest = { addTest = false },
             title = { Text("Add a test result") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     androidx.compose.material3.OutlinedTextField(name, { name = it.take(30) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Name (e.g. GT 3)") })
                     NumberBox("Score", score) { score = it }
                     NumberBox("Out of", total) { total = it }
+                    TextButton({ breakdown = !breakdown }) { Text(if (breakdown) "Hide subject scores" else "Add subject scores (optional)") }
+                    if (breakdown) {
+                        Text("Correct / questions for any subjects you know. This finds your weakest subjects.", color = Muted, fontSize = 12.sp)
+                        subjects.forEach { st ->
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(st.subject, Modifier.weight(1f), fontSize = 13.sp)
+                                SmallNumber(correct[st.subject].orEmpty()) { correct[st.subject] = it }
+                                Text("/", color = Muted)
+                                SmallNumber(asked[st.subject].orEmpty()) { asked[st.subject] = it }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton({
                     val s = score.toIntOrNull(); val tt = total.toIntOrNull()
                     if (s != null && tt != null && tt > 0) {
-                        prefs.setMockTests(ExamPlan.formatTests(ExamPlan.parseTests(prefs.mockTests.value) + MockTest(today, name.trim(), s.coerceIn(0, tt), tt)))
+                        val parts = subjects.mapNotNull { st ->
+                            val c = correct[st.subject]?.toIntOrNull(); val a = asked[st.subject]?.toIntOrNull()
+                            if (c != null && a != null && a > 0) st.subject to (c.coerceIn(0, a) to a) else null
+                        }.toMap()
+                        prefs.setMockTests(ExamPlan.formatTests(ExamPlan.parseTests(prefs.mockTests.value) + MockTest(today, name.trim(), s.coerceIn(0, tt), tt, parts)))
                         app.appScope.launch { com.malluwayne.batbloom.quit.DoseAlarms.checkBadges(app) }
                     }
                     addTest = false
@@ -382,6 +428,15 @@ private fun WeekBars(week: List<Pair<LocalDate, Int>>, today: LocalDate) {
             )
         }
     }
+}
+
+@Composable
+private fun SmallNumber(value: String, onChange: (String) -> Unit) {
+    androidx.compose.material3.OutlinedTextField(
+        value, { onChange(it.filter(Char::isDigit).take(3)) }, Modifier.width(64.dp), singleLine = true,
+        textStyle = MaterialTheme.typography.bodyMedium,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+    )
 }
 
 /** Test scores over time, with the pass mark as a dashed line. */

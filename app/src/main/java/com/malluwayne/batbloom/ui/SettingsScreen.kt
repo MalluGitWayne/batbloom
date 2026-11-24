@@ -120,6 +120,7 @@ fun SettingsScreen(modifier: Modifier) {
                 Text("Allowed apps", Modifier.weight(1f))
                 TextButton({ showApps = true }) { Text(if (allowed.isEmpty()) "Choose" else "${allowed.size} chosen  \u203A") }
             }
+            DndRow(now)
             TimeGuardSection(now)
             if (custom.isNotEmpty()) SubSection("Custom tags") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -134,13 +135,13 @@ fun SettingsScreen(modifier: Modifier) {
             val quitTab by prefs.quitTab.collectAsState()
             val medsTab by prefs.medsTab.collectAsState()
             TabSwitch("Exam", "FMGE countdown, subjects, questions and mock tests", "Hidden. The daily study reminder is paused.", examTab) {
-                prefs.setExamTab(it); com.malluwayne.batbloom.guard.Reminders.scheduleAll(ctx)
+                prefs.setExamTab(it); com.malluwayne.batbloom.Shortcuts.update(ctx); com.malluwayne.batbloom.guard.Reminders.scheduleAll(ctx)
             }
             TabSwitch("Quit", "Smoke-free timer, savings and milestones", "Hidden. Milestone notifications are paused.", quitTab) {
-                prefs.setQuitTab(it); com.malluwayne.batbloom.guard.Reminders.scheduleMilestone(ctx)
+                prefs.setQuitTab(it); com.malluwayne.batbloom.Shortcuts.update(ctx); com.malluwayne.batbloom.guard.Reminders.scheduleMilestone(ctx)
             }
             TabSwitch("Meds", "Your medications and the varenicline course", "Hidden. Reminders for medications you added are paused.", medsTab) {
-                prefs.setMedsTab(it)
+                prefs.setMedsTab(it); com.malluwayne.batbloom.Shortcuts.update(ctx)
                 BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
             }
         }
@@ -166,6 +167,32 @@ fun SettingsScreen(modifier: Modifier) {
 
     }
     if (showApps) AllowListDialog(allowed) { showApps = false }
+}
+
+/** Do Not Disturb during sessions. Needs Android's "Do Not Disturb access" once; [now] re-checks it on return. */
+@Composable
+private fun DndRow(now: Long) {
+    val ctx = LocalContext.current
+    val access = remember(now) { com.malluwayne.batbloom.focus.Dnd.hasAccess(ctx) }
+    var on by remember { mutableStateOf(com.malluwayne.batbloom.focus.Dnd.enabled(ctx)) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Do Not Disturb while focusing")
+            Text(
+                when {
+                    on && !access -> "Allow Do Not Disturb access to turn this on"
+                    on -> "Silences notifications during a session. Medication reminders and alarms still come."
+                    else -> "Off"
+                },
+                color = Muted, fontSize = 12.sp,
+            )
+        }
+        Switch(on && access, {
+            on = it; com.malluwayne.batbloom.focus.Dnd.setEnabled(ctx, it)
+            if (it && !access) ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+        })
+    }
+    if (on && !access) TextButton({ ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }) { Text("Allow access") }
 }
 
 @Composable

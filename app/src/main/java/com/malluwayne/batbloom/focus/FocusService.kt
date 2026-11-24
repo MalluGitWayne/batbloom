@@ -77,6 +77,7 @@ class FocusService : Service() {
     }
 
     private fun begin(req: FocusEngine.Request) {
+        Dnd.start(this)
         systemAllowed = Device.systemAllowed(this)
         reader = if (Device.hasUsageAccess(this)) ForegroundAppReader(this) else null
         startRound(req, if (req.plan != null) 1 else null, blooms = 0)
@@ -180,6 +181,7 @@ class FocusService : Service() {
 
     private fun finishAll(f: State.Finished) {
         cancelAlarm()
+        Dnd.restore(this)
         FocusEngine.state.value = f
         val name = PlantCatalog.byId(f.request.plantId).name
         val title = when {
@@ -208,6 +210,8 @@ class FocusService : Service() {
     }
 
     override fun onDestroy() {
+        // However the session ended, Do Not Disturb goes back to how it was.
+        if (!FocusEngine.isActive) Dnd.restore(this)
         FocusEngine.alarmTick = null
         scope.cancel()
         super.onDestroy()

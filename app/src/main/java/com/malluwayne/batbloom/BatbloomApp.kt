@@ -25,6 +25,8 @@ class BatbloomApp : Application() {
         repo = Repository(db)
         prefs = Prefs(this)
         // A fresh process cannot have a live session, so a row still RUNNING was cut off (phone restart, app killed).
+        // Closed mid-session (phone restart, app killed): undo the session's Do Not Disturb.
+        if (FocusEngine.state.value is FocusEngine.State.Idle) com.malluwayne.batbloom.focus.Dnd.restore(this)
         if (FocusEngine.state.value is FocusEngine.State.Idle) appScope.launch {
             repo.failStaleRunning()
             BloomWidget.refresh(this@BatbloomApp)
@@ -34,6 +36,7 @@ class BatbloomApp : Application() {
         com.malluwayne.batbloom.guard.Reminders.ensureChannels(this)
         com.malluwayne.batbloom.guard.Reminders.scheduleAll(this)
         appScope.launch { DoseAlarms.checkBadges(this@BatbloomApp) }
+        Shortcuts.update(this)
         com.malluwayne.batbloom.meds.MedAlarms.ensureChannel(this)
         appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(this@BatbloomApp) }
     }

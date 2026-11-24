@@ -27,4 +27,25 @@ class WidgetRenderTest {
             ).compress(android.graphics.Bitmap.CompressFormat.PNG, 90, File(out, "bloom_$name.png").outputStream())
         }
     }
+
+    /** The dose button with a long label at a narrow widget width: it must stay on one line, ending in "…". */
+    @Test fun doseButtonLongLabel() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val out = File(ctx.getExternalFilesDir(null), "widgets").apply { mkdirs() }
+        val dm = ctx.resources.displayMetrics
+        for ((dp, label) in listOf(250 to "✓  Took Vitamin D3 Cholecalciferol +2", 180 to "✓  Took Metformin +1")) {
+            val root = android.view.LayoutInflater.from(ctx).inflate(R.layout.widget_bloom, null)
+            val dose = root.findViewById<android.widget.TextView>(R.id.w_dose)
+            dose.text = label
+            dose.visibility = android.view.View.VISIBLE
+            val w = (dp * dm.density).toInt()
+            val h = (190 * dm.density).toInt()
+            root.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, w, h)
+            assert(dose.lineCount == 1) { "label wrapped to ${dose.lineCount} lines at ${dp}dp" }
+            val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+            root.draw(android.graphics.Canvas(bmp))
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, File(out, "dose_${dp}dp.png").outputStream())
+        }
+    }
 }

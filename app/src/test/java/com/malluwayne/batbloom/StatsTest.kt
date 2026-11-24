@@ -43,8 +43,6 @@ class StatsTest {
         assertEquals(1, st.failed)
         assertEquals(86, st.successRate)
         assertEquals(50, st.fmgeTodayMinutes)
-        assertEquals("Pathology" to 50, st.subjectMinutes.first())
-        assertEquals(Tags.fmgeSubjects.size, st.subjectMinutes.size)
         assertEquals(7, st.last7.size)
         assertEquals(today to 75, st.last7.last())
     }
@@ -64,15 +62,6 @@ class StatsTest {
         assertEquals("FMGE in 10 days", Stats.examLine(today.plusDays(10), today))
     }
 
-    @Test fun smokeFreeMoney() {
-        val quit = LocalDate.of(2026, 11, 28)
-        val p = SmokingProfile(perDay = 10, packSize = 20, packPrice = 340.0)
-        val twoDays = quit.atStartOfDay(zone).toInstant().toEpochMilli() + 2 * 86_400_000L
-        val sf = Stats.smokeFree(quit, twoDays, zone, p)
-        assertEquals(20, sf.notSmoked)
-        assertEquals(340.0, sf.moneySaved, 0.001)
-        val before = Stats.smokeFree(quit, at(LocalDate.of(2026, 11, 21)), zone, p)
-        assertEquals(0, before.notSmoked)
-    }
+
 
 }

@@ -16,9 +16,6 @@ data class StatsSummary(
     val allMinutes: Int,
     /** Oldest first, 7 entries ending today. */
     val last7: List<Pair<LocalDate, Int>>,
-    val tagMinutesWeek: List<Pair<String, Int>>,
-    /** Every FMGE subject with its all-time minutes, most studied first. */
-    val subjectMinutes: List<Pair<String, Int>>,
     val fmgeTodayMinutes: Int,
     val completed: Int,
     val failed: Int,
@@ -31,22 +28,7 @@ data class StatsSummary(
 data class SmokingProfile(val perDay: Int, val packSize: Int, val packPrice: Double)
 data class Treat(val name: String, val price: Double)
 
-data class SmokeFree(val days: Double, val notSmoked: Int, val moneySaved: Double)
-
-
 object Stats {
-    data class SmokeFreeView(val started: Boolean, val notSmoked: Int, val moneySaved: Double)
-
-    /** Time since the start of the quit day; zero before it. */
-    fun smokeFree(quit: LocalDate, nowMillis: Long, zone: ZoneId, p: SmokingProfile): SmokeFree {
-        val start = quit.atStartOfDay(zone).toInstant().toEpochMilli()
-        val days = ((nowMillis - start).coerceAtLeast(0)) / 86_400_000.0
-        val cigs = (days * p.perDay).toInt()
-        val money = if (p.packSize > 0) cigs.toDouble() / p.packSize * p.packPrice else 0.0
-        return SmokeFree(days, cigs, money)
-    }
-
-
     fun dayOf(millis: Long, zone: ZoneId): LocalDate = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
 
     fun compute(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId): StatsSummary {
@@ -55,12 +37,6 @@ object Stats {
         val byDay = done.groupBy { dayOf(it.startedAt, zone) }.mapValues { (_, l) -> l.sumOf { it.plannedMinutes } }
         val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val thisWeek = done.filter { !dayOf(it.startedAt, zone).isBefore(weekStart) && !dayOf(it.startedAt, zone).isAfter(today) }
-
-        val subjects = done.filter { it.tag == Tags.FMGE && it.subject != null }
-            .groupBy { it.subject!! }.mapValues { (_, l) -> l.sumOf { it.plannedMinutes } }
-        val subjectList = (Tags.fmgeSubjects.map { it to (subjects[it] ?: 0) } +
-            subjects.filterKeys { it !in Tags.fmgeSubjects }.toList())
-            .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { Tags.fmgeSubjects.indexOf(it.first) })
 
         // Streak: consecutive days with a bloom, counting back from today (or from yesterday if today has none yet).
         var day = if (byDay.containsKey(today)) today else today.minusDays(1)
@@ -73,8 +49,6 @@ object Stats {
             weekMinutes = thisWeek.sumOf { it.plannedMinutes },
             allMinutes = done.sumOf { it.plannedMinutes },
             last7 = (6 downTo 0).map { today.minusDays(it.toLong()) }.map { it to (byDay[it] ?: 0) },
-            tagMinutesWeek = thisWeek.groupBy { it.tag }.map { (t, l) -> t to l.sumOf { it.plannedMinutes } }.sortedByDescending { it.second },
-            subjectMinutes = subjectList,
             fmgeTodayMinutes = done.filter { it.tag == Tags.FMGE && dayOf(it.startedAt, zone) == today }.sumOf { it.plannedMinutes },
             completed = done.size,
             failed = failed,

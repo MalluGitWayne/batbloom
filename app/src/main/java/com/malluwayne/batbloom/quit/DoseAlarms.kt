@@ -129,7 +129,7 @@ object DoseAlarms {
             .addAction(0, "Skip", receiverIntent(context, ACTION_SKIP, slot.key, rc + 2))
             .addAction(0, "Snooze ${prefs.snoozeMinutes.value} min", receiverIntent(context, ACTION_SNOOZE, slot.key, rc + 3))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(notifId(slot.key), n) }
+        com.malluwayne.batbloom.Notify.post(context, notifId(slot.key), n)
     }
 
     private fun notifId(key: String) = 1000 + (key.hashCode() and 0xFFFF)
@@ -174,7 +174,7 @@ object DoseAlarms {
             )
             .setAutoCancel(true)
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(NOTIF_STOCK, n) }
+        com.malluwayne.batbloom.Notify.post(context, NOTIF_STOCK, n)
     }
 
     suspend fun checkBadges(context: Context) {
@@ -196,7 +196,7 @@ object DoseAlarms {
                 .setContentIntent(openAwards)
                 .setAutoCancel(true)
                 .build()
-            runCatching { NotificationManagerCompat.from(context).notify(NOTIF_BADGE + i, n) }
+            com.malluwayne.batbloom.Notify.post(context, NOTIF_BADGE + i, n)
         }
     }
 }

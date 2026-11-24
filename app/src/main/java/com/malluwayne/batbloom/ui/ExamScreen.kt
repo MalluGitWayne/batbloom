@@ -44,6 +44,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malluwayne.batbloom.BatbloomApp
@@ -128,7 +130,7 @@ fun ExamScreen(modifier: Modifier) {
             val e = exam
             if (e == null) Column {
                 Text("When is your exam?", color = Color.White, style = MaterialTheme.typography.titleLarge)
-                Text("Set the date to see a countdown and plan your revision.", color = Color(0xFFCBD2F0), fontSize = 13.sp)
+                Text("Set the date to see a countdown and a study plan for each week.", color = Color(0xFFCBD2F0), fontSize = 13.sp)
                 Button({ settings = true }, Modifier.padding(top = 10.dp)) { Text("Set exam date") }
             } else {
                 val days = ChronoUnit.DAYS.between(today, e)
@@ -174,7 +176,8 @@ fun ExamScreen(modifier: Modifier) {
                 color = Teal, drawStopIndicator = {}, gapSize = 0.dp,
             )
             WeekBars(week, today)
-            val next = ExamPlan.week(subjects, today, exam).firstOrNull()?.second?.firstOrNull() ?: prefs.subject.value
+            val current by prefs.subject.collectAsState()
+            val next = ExamPlan.week(subjects, today, exam).firstOrNull()?.second?.firstOrNull() ?: current
             Button({ study(next) }, Modifier.fillMaxWidth()) { Text("Study now \u00B7 $next") }
         }
 
@@ -324,7 +327,8 @@ private fun WeekBars(week: List<Pair<LocalDate, Int>>, today: LocalDate) {
     val max = week.maxOf { it.second }.coerceAtLeast(30)
     val teal = Teal
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
-    Canvas(Modifier.fillMaxWidth().height(56.dp)) {
+    val desc = "Study time, last 7 days: " + week.joinToString(", ") { (d, m) -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + Rules.formatMinutes(m) }
+    Canvas(Modifier.fillMaxWidth().height(56.dp).semantics { contentDescription = desc }) {
         val gap = size.width / week.size
         val bw = gap * 0.42f
         week.forEachIndexed { i, (d, m) ->
@@ -351,7 +355,8 @@ private fun TestChart(tests: List<MockTest>) {
     val teal = Teal
     val gold = Gold
     val grid = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-    Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+    val desc = "Mock test scores: " + tests.joinToString(", ") { "${it.percent}%" } + ". Pass mark ${ExamPlan.PASS_PERCENT}%."
+    Canvas(Modifier.fillMaxWidth().height(90.dp).semantics { contentDescription = desc }) {
         // Zoom to the scores (and the pass mark) so changes are visible.
         val lo = (minOf(tests.minOf { it.percent }, ExamPlan.PASS_PERCENT) - 8).coerceAtLeast(0)
         val hi = (maxOf(tests.maxOf { it.percent }, ExamPlan.PASS_PERCENT) + 8).coerceAtMost(100)

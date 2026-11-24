@@ -63,7 +63,6 @@ import androidx.core.graphics.drawable.toBitmap
 import com.malluwayne.batbloom.BatbloomApp
 import com.malluwayne.batbloom.focus.Device
 import com.malluwayne.batbloom.focus.Rules
-import com.malluwayne.batbloom.stats.Treat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -132,7 +131,7 @@ fun SettingsScreen(modifier: Modifier) {
             val examTab by prefs.examTab.collectAsState()
             val quitTab by prefs.quitTab.collectAsState()
             val medsTab by prefs.medsTab.collectAsState()
-            TabSwitch("Exam", "FMGE countdown, subjects and revision", "Hidden. The daily study reminder is paused.", examTab) {
+            TabSwitch("Exam", "FMGE countdown, subjects, questions and mock tests", "Hidden. The daily study reminder is paused.", examTab) {
                 prefs.setExamTab(it); com.malluwayne.batbloom.guard.Reminders.scheduleAll(ctx)
             }
             TabSwitch("Quit", "Smoke-free timer, savings and milestones", "Hidden. Milestone notifications are paused.", quitTab) {

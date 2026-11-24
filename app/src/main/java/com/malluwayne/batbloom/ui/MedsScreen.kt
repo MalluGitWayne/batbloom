@@ -140,9 +140,17 @@ fun MedsScreen(modifier: Modifier) {
                 Text("Medications", style = MaterialTheme.typography.headlineMedium)
                 Text(dayFmt.format(today), color = Muted, fontSize = 13.sp)
             }
-            TextButton({ reminderSettings = true }) { Text("Reminders") }
-            TextButton({ MedListPdf.share(ctx, meds.filter { !it.archived }, schedule, today) }) { Text("Share") }
             TextButton({ editing = newMed(today) }) { Text("+ Add", fontWeight = FontWeight.SemiBold) }
+            Box {
+                var menu by remember { mutableStateOf(false) }
+                TextButton({ menu = true }) { Text("⋮", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                    androidx.compose.material3.DropdownMenuItem({ Text("Reminders") }, { menu = false; reminderSettings = true })
+                    androidx.compose.material3.DropdownMenuItem({ Text("Share medication list (PDF)") }, {
+                        menu = false; MedListPdf.share(ctx, meds.filter { !it.archived }, schedule, today)
+                    })
+                }
+            }
         }
 
         // Today's progress, like the Health app's summary ring

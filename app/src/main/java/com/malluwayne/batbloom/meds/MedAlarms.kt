@@ -70,7 +70,7 @@ object Meds {
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(4000 + (m.id % 1000).toInt(), n) }
+        com.malluwayne.batbloom.Notify.post(context, 4000 + (m.id % 1000).toInt(), n)
     }
 
     /** Logs a scheduled dose as Taken or Skipped (replacing what was logged before). */
@@ -200,7 +200,7 @@ object MedAlarms {
             .addAction(0, "Skip", pi(context, ACTION_SKIP, key, rc + 2))
             .addAction(0, "Snooze ${app(context).prefs.snoozeMinutes.value} min", pi(context, ACTION_SNOOZE, key, rc + 3))
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(rc, n) }
+        com.malluwayne.batbloom.Notify.post(context, rc, n)
         if (!followUp) setAlarm(context, System.currentTimeMillis() + FOLLOW_UP_MIN * 60_000, pi(context, ACTION_DUE, key, RC_FOLLOW, followUp = true))
     }
 
@@ -231,8 +231,8 @@ object MedAlarms {
         return when {
             medTime != null && (course == null || !medTime.isAfter(course.first)) -> {
                 val open = Meds.openAt(context, medTime)
-                val label = "✓  Took " + DateTimeFormatter.ofPattern("h:mm a").format(medTime) + ": " +
-                    open.joinToString(", ") { it.med.name }.let { if (it.length > 28) it.take(26) + "…" else it }
+                // The name matters more than the time on a small widget.
+                val label = "✓  Took " + open.first().med.name + if (open.size > 1) " +${open.size - 1}" else ""
                 label to pi(context, ACTION_TAKEN, medTime.toString(), 600 + (medTime.toString().hashCode() and 0xFF))
             }
             course != null -> "✓  Took ${course.second.label.lowercase()} ${com.malluwayne.batbloom.quit.Doses.formatMg(course.second.mg)}" to

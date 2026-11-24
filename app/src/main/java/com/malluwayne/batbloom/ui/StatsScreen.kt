@@ -31,6 +31,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malluwayne.batbloom.BatbloomApp
@@ -57,13 +59,14 @@ fun StatsScreen(modifier: Modifier) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
 
+        val plant by app.prefs.selectedPlant.collectAsState()
         if (sessions.isEmpty()) {
             // Nothing yet: one calm card instead of a page of zeros.
             SectionCard {
                 Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(18.dp))) {
                     com.malluwayne.batbloom.plants.NightSky(Modifier.fillMaxSize(), animate = false)
                     com.malluwayne.batbloom.plants.PlantArt(
-                        com.malluwayne.batbloom.plants.PlantCatalog.byId(app.prefs.selectedPlant.value), 0.25f, false,
+                        com.malluwayne.batbloom.plants.PlantCatalog.byId(plant), 0.25f, false,
                         Modifier.fillMaxSize(), animate = false,
                     )
                 }
@@ -140,7 +143,8 @@ private fun HBar(label: String, value: String, fraction: Float, color: Color) {
 private fun Bars(data: List<Pair<LocalDate, Double>>, color: Color, today: LocalDate, compact: Boolean) {
     val max = data.maxOf { it.second }.coerceAtLeast(1.0)
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
-    Canvas(Modifier.fillMaxWidth().height(110.dp)) {
+    val desc = "Focus time: " + data.filter { it.second > 0 }.joinToString(", ") { (d, v) -> "${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${Rules.formatMinutes(v.toInt())}" }.ifBlank { "no sessions" }
+    Canvas(Modifier.fillMaxWidth().height(110.dp).semantics { contentDescription = desc }) {
         val gap = size.width / data.size
         val bw = gap * if (compact) 0.6f else 0.42f
         val r = CornerRadius(bw / 2, bw / 2)

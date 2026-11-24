@@ -285,7 +285,7 @@ class FocusService : Service() {
             .setAutoCancel(true)
             .setContentIntent(openApp())
             .build()
-        runCatching { NotificationManagerCompat.from(this).notify(NOTIF_WARN, n) }
+        com.malluwayne.batbloom.Notify.post(this, NOTIF_WARN, n)
     }
 
     private fun notifyResult(title: String, text: String) {
@@ -296,7 +296,7 @@ class FocusService : Service() {
             .setAutoCancel(true)
             .setContentIntent(openApp())
             .build()
-        runCatching { NotificationManagerCompat.from(this).notify(NOTIF_RESULT, n) }
+        com.malluwayne.batbloom.Notify.post(this, NOTIF_RESULT, n)
     }
 
     // --- End-of-timer alarm: wakes the phone so the bloom (or break end) happens on time with the screen off ---

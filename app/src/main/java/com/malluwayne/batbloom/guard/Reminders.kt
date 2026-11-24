@@ -45,7 +45,7 @@ object Reminders {
             description = "When you reach a smoke-free health milestone"
         })
         nm.createNotificationChannel(NotificationChannel(CH_STUDY, "Study reminder", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "Your daily FMGE reminder with today's revision"
+            description = "Your daily FMGE reminder with today's subjects"
         })
     }
 
@@ -112,7 +112,7 @@ object Reminders {
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
-        runCatching { NotificationManagerCompat.from(c).notify(41, n) }
+        com.malluwayne.batbloom.Notify.post(c, 41, n)
     }
 
     /**
@@ -164,7 +164,7 @@ object Reminders {
                 .setAutoCancel(true)
                 .addAction(0, "Start focusing", open)
                 .build()
-            runCatching { NotificationManagerCompat.from(c).notify(300 + (pkg.hashCode() and 0xFFF), n) }
+            com.malluwayne.batbloom.Notify.post(c, 300 + (pkg.hashCode() and 0xFFF), n)
         }
     }
 
@@ -203,7 +203,7 @@ object Reminders {
             .addAction(0, first?.let { "Study $it" } ?: "Plan a session", open)
             .setAutoCancel(true)
             .build()
-        runCatching { NotificationManagerCompat.from(c).notify(NOTIF_STUDY, n) }
+        com.malluwayne.batbloom.Notify.post(c, NOTIF_STUDY, n)
     }
 }
 

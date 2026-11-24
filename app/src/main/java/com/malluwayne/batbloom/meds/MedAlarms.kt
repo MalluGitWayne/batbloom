@@ -45,7 +45,32 @@ object Meds {
     private suspend fun adjustStock(context: Context, medId: Long, change: Double) {
         if (change == 0.0) return
         val m = dao(context).get(medId) ?: return
-        if (m.stock >= 0) dao(context).setStock(medId, (m.stock + change).coerceAtLeast(0.0))
+        if (m.stock < 0) return
+        val left = (m.stock + change).coerceAtLeast(0.0)
+        dao(context).setStock(medId, left)
+        if (change < 0) warnLowStock(context, m.copy(stock = left))
+    }
+
+    /** Once a day per medication, when about 3 days or less are left. */
+    private fun warnLowStock(context: Context, m: MedEntity) {
+        val today = java.time.LocalDate.now()
+        val days = MedSchedule.daysOfStock(m, today) ?: return
+        if (days > 3) return
+        val sp = context.getSharedPreferences("med_alerts", Context.MODE_PRIVATE)
+        if (sp.getString("low_${m.id}", "") == today.toString()) return
+        sp.edit().putString("low_${m.id}", today.toString()).apply()
+        val openApp = PendingIntent.getActivity(
+            context, 33, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_MEDS).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(context, MedAlarms.CH_MEDS)
+            .setSmallIcon(R.drawable.ic_stat_bloom)
+            .setContentTitle("Running low on ${m.name}")
+            .setContentText("${MedSchedule.fmtQty(m.stock)} left, about $days day${if (days == 1) "" else "s"}. Time to refill.")
+            .setContentIntent(openApp)
+            .setAutoCancel(true)
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(4000 + (m.id % 1000).toInt(), n) }
     }
 
     /** Logs a scheduled dose as Taken or Skipped (replacing what was logged before). */

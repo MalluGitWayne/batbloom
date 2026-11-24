@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
             ACTION_STATS -> { Nav.tab.value = 1; Nav.garden.value = 1 }
             ACTION_AWARDS -> { Nav.tab.value = 1; Nav.garden.value = 2 }
             ACTION_MEDS -> Nav.tab.value = 3
+            ACTION_EXAM -> Nav.tab.value = Tab.Exam.ordinal
             ACTION_FMGE -> {
                 val p = BatbloomApp.instance.prefs
                 p.setTag(Tags.FMGE)
@@ -105,6 +106,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_STATS = "batbloom.STATS"
         const val ACTION_AWARDS = "batbloom.AWARDS"
         const val ACTION_MEDS = "batbloom.MEDS"
+        const val ACTION_EXAM = "batbloom.EXAM"
         const val EXTRA_SUBJECT = "subject"
     }
 }
@@ -142,26 +144,35 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     Quit("Quit", Icons.Filled.Favorite),
     Meds("Meds", com.malluwayne.batbloom.ui.PillIcon),
     Settings("Settings", Icons.Filled.Settings),
+    // Added last so the numbers above (used by notifications and widgets) stay the same.
+    Exam("Exam", com.malluwayne.batbloom.ui.BookIcon),
 }
+
+/** The order tabs show in the bar. */
+private val TabOrder = listOf(Tab.Focus, Tab.Garden, Tab.Exam, Tab.Quit, Tab.Meds, Tab.Settings)
 
 @Composable
 private fun AppRoot() {
     val rawTab by Nav.tab.collectAsState()
-    val medsTab by BatbloomApp.instance.prefs.medsTab.collectAsState()
-    // Tab numbers stay fixed (notifications and widgets use them); a hidden Meds tab falls back to Focus.
-    val tab = if (!medsTab && rawTab == Tab.Meds.ordinal) 0 else rawTab
+    val prefs = BatbloomApp.instance.prefs
+    val medsTab by prefs.medsTab.collectAsState()
+    val quitTab by prefs.quitTab.collectAsState()
+    val examTab by prefs.examTab.collectAsState()
+    val hidden = buildSet { if (!medsTab) add(Tab.Meds); if (!quitTab) add(Tab.Quit); if (!examTab) add(Tab.Exam) }
+    // Tab numbers stay fixed (notifications and widgets use them); a hidden tab falls back to Focus.
+    val tab = if (Tab.entries.getOrNull(rawTab)?.let { it in hidden } != false) 0 else rawTab
     InstallConfirmLauncher()
     com.malluwayne.batbloom.ui.AchievementCelebrations()
     Scaffold(
         bottomBar = {
             NavigationBar {
-                Tab.entries.forEachIndexed { i, t ->
-                    if (t == Tab.Meds && !medsTab) return@forEachIndexed
+                TabOrder.filter { it !in hidden }.forEach { t ->
+                    val i = t.ordinal
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { Nav.tab.value = i },
                         icon = { Icon(t.icon, contentDescription = t.label) },
-                        label = { Text(t.label) },
+                        label = { Text(t.label, maxLines = 1, softWrap = false) },
                     )
                 }
             }
@@ -175,6 +186,7 @@ private fun AppRoot() {
                 Tab.Quit -> QuitScreen(m)
                 Tab.Meds -> com.malluwayne.batbloom.ui.MedsScreen(m)
                 Tab.Settings -> SettingsScreen(m)
+                Tab.Exam -> com.malluwayne.batbloom.ui.ExamScreen(m)
             }
         }
     }

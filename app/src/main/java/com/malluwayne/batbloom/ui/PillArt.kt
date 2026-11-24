@@ -37,6 +37,16 @@ val PillIcon: ImageVector = ImageVector.Builder("Pill", 24.dp, 24.dp, 24f, 24f).
     }
 }.build()
 
+/** The Exam tab icon: an open book. */
+val BookIcon: ImageVector = ImageVector.Builder("Book", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(11f, 6.2f); curveTo(9f, 4.8f, 6f, 4.4f, 3f, 5f); lineTo(3f, 18.6f)
+        curveTo(6f, 18f, 9f, 18.4f, 11f, 19.8f); close()
+        moveTo(13f, 6.2f); curveTo(15f, 4.8f, 18f, 4.4f, 21f, 5f); lineTo(21f, 18.6f)
+        curveTo(18f, 18f, 15f, 18.4f, 13f, 19.8f); close()
+    }
+}.build()
+
 /** Shapes a tablet can have. */
 val TabletShapes = listOf("Round", "Oval", "Oblong")
 

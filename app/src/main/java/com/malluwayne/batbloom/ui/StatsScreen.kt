@@ -45,9 +45,7 @@ import java.util.Locale
 fun StatsScreen(modifier: Modifier) {
     val app = BatbloomApp.instance
     val sessions by app.repo.sessions.collectAsState(emptyList())
-    val goal by app.prefs.dailyGoal.collectAsState()
     var month by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    var allSubjects by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val s = remember(sessions, today) { Stats.compute(sessions, today, zone) }
@@ -78,14 +76,6 @@ fun StatsScreen(modifier: Modifier) {
         Column {
             Text(Rules.formatMinutes(s.todayMinutes), fontSize = 44.sp, fontWeight = FontWeight.Bold)
             Text("focused today", color = Muted, fontSize = 13.sp)
-            if (goal > 0) {
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(
-                    { (s.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f) }, Modifier.fillMaxWidth().height(6.dp),
-                    color = Teal, drawStopIndicator = {},
-                )
-                Text("FMGE ${Rules.formatMinutes(s.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)}", color = Teal, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-            }
         }
         Row(Modifier.fillMaxWidth()) {
             Figure(Rules.formatMinutes(s.weekMinutes), "this week", Modifier.weight(1f))
@@ -117,25 +107,7 @@ fun StatsScreen(modifier: Modifier) {
             insights.forEach { (label, value) -> LabeledRow(label, value) }
         }
 
-        // FMGE subjects: studied ones as bars; the rest as one tappable line.
-        val studied = s.subjectMinutes.filter { it.second > 0 }
-        val untouched = s.subjectMinutes.filter { it.second == 0 }.map { it.first }
-        SectionCard("FMGE subjects") {
-            if (studied.isEmpty()) Text("No FMGE sessions yet.", color = Muted, fontSize = 13.sp)
-            val max = studied.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
-            (if (allSubjects) studied else studied.take(6)).forEach { (n, m) -> HBar(n, Rules.formatMinutes(m), m.toFloat() / max, Teal) }
-            if (studied.size > 6 || untouched.isNotEmpty()) TextButton({ allSubjects = !allSubjects }) {
-                Text(
-                    if (allSubjects) "Show less"
-                    else listOfNotNull(
-                        if (studied.size > 6) "${studied.size - 6} more studied" else null,
-                        if (untouched.isNotEmpty()) "${untouched.size} not started" else null,
-                    ).joinToString(" \u00B7 ") + "  \u203A",
-                    fontSize = 13.sp,
-                )
-            }
-            if (allSubjects && untouched.isNotEmpty()) Text("Not started: ${untouched.joinToString(", ")}", color = Muted, fontSize = 12.sp)
-        }
+        // FMGE subjects live in the Exam tab now.
 
         if (p.tagMinutes.size > 1) SectionCard("By tag \u00B7 $periodName") {
             val max = p.tagMinutes.maxOf { it.second }.coerceAtLeast(1)

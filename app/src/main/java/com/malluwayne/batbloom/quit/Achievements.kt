@@ -48,8 +48,9 @@ data class FocusFacts(
 object Badges {
     const val QUIT = "Quit"
     const val FOCUS = "Focus"
-    const val FMGE = "FMGE"
-    val groups = listOf(QUIT, FOCUS, FMGE)
+    const val MEDS = "Meds"
+    const val FMGE = "Exam"
+    val groups = listOf(QUIT, MEDS, FOCUS, FMGE)
 
     private const val TEAL = 0xFF7FE3D0
     private const val SKY = 0xFF7FB8E3
@@ -61,23 +62,23 @@ object Badges {
     private const val MOON = 0xFFDCE3FF
 
     val all = listOf(
-        Badge("course_start", "First tablet", "Started the varenicline course.", Glyph.PILL, Tier.BRONZE, QUIT, SKY),
+        Badge("course_start", "First tablet", "Started the varenicline course.", Glyph.PILL, Tier.BRONZE, MEDS, SKY),
         Badge("quit_day", "Quit day", "Reached your quit day. The hardest step.", Glyph.NO_SMOKE, Tier.SILVER, QUIT, TEAL),
         Badge("day3", "72 hours free", "Three days smoke-free. Nicotine is out of your body.", Glyph.HEART, Tier.BRONZE, QUIT, ROSE),
         Badge("week1", "1 week smoke-free", "Seven days without smoking.", Glyph.CALENDAR, Tier.BRONZE, QUIT, TEAL),
         Badge("week2", "2 weeks smoke-free", "Fourteen days without smoking.", Glyph.CALENDAR, Tier.SILVER, QUIT, SKY),
         Badge("week3", "3 weeks smoke-free", "Twenty-one days. The habit is breaking.", Glyph.CALENDAR, Tier.SILVER, QUIT, VIOLET),
-        Badge("halfway", "Halfway", "Day 42 of the course.", Glyph.HALF, Tier.SILVER, QUIT, VIOLET),
+        Badge("halfway", "Halfway", "Day 42 of the course.", Glyph.HALF, Tier.SILVER, MEDS, VIOLET),
         Badge("month1", "1 month smoke-free", "A whole month without smoking.", Glyph.MOON, Tier.GOLD, QUIT, MOON),
-        Badge("course", "Course complete", "Finished the full course. Unlocks the Dawnbreath Lily.", Glyph.TROPHY, Tier.PLATINUM, QUIT, AMBER),
+        Badge("course", "Course complete", "Finished the full course. Unlocks the Dawnbreath Lily.", Glyph.TROPHY, Tier.PLATINUM, MEDS, AMBER),
         Badge("month3", "3 months smoke-free", "Ninety days without smoking.", Glyph.MOON, Tier.GOLD, QUIT, AMBER),
         Badge("month6", "6 months smoke-free", "Half a year without smoking.", Glyph.STAR, Tier.PLATINUM, QUIT, TEAL),
         Badge("year1", "1 year smoke-free", "A full year. You did it.", Glyph.CROWN, Tier.PLATINUM, QUIT, AMBER),
 
-        Badge("dose3", "3 perfect days", "Every tablet taken three days running.", Glyph.CHECK_PILL, Tier.BRONZE, QUIT, SKY),
-        Badge("dose7", "Perfect week", "Every tablet taken seven days running.", Glyph.CHECK_PILL, Tier.SILVER, QUIT, TEAL),
-        Badge("dose21", "21 perfect days", "Every tablet taken for three weeks straight.", Glyph.CHECK_PILL, Tier.GOLD, QUIT, AMBER),
-        Badge("dose_all", "Every single tablet", "Took every dose of the whole course.", Glyph.CHECK_PILL, Tier.PLATINUM, QUIT, LEAF),
+        Badge("dose3", "3 perfect days", "Every tablet taken three days running.", Glyph.CHECK_PILL, Tier.BRONZE, MEDS, SKY),
+        Badge("dose7", "Perfect week", "Every tablet taken seven days running.", Glyph.CHECK_PILL, Tier.SILVER, MEDS, TEAL),
+        Badge("dose21", "21 perfect days", "Every tablet taken for three weeks straight.", Glyph.CHECK_PILL, Tier.GOLD, MEDS, AMBER),
+        Badge("dose_all", "Every single tablet", "Took every dose of the whole course.", Glyph.CHECK_PILL, Tier.PLATINUM, MEDS, LEAF),
 
         Badge("bloom1", "First bloom", "Finished your first focus session.", Glyph.FLOWER, Tier.BRONZE, FOCUS, ROSE),
         Badge("bloom10", "10 blooms", "Ten finished sessions.", Glyph.FLOWER, Tier.SILVER, FOCUS, VIOLET),

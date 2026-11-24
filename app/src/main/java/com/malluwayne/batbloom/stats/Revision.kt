@@ -33,6 +33,30 @@ object Revision {
         }.sortedWith(compareBy<Due> { it.dueOn }.thenBy { Tags.fmgeSubjects.indexOf(it.subject) })
     }
 
+    /** Where a subject stands: total minutes, last day studied, and when it is next due (null if never studied). */
+    data class SubjectStatus(val subject: String, val minutes: Int, val lastStudied: LocalDate?, val nextDue: LocalDate?, val days: Int)
+
+    fun subjects(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId): List<SubjectStatus> {
+        val done = sessions.filter { it.tag == Tags.FMGE && it.status == Status.DONE && it.subject != null }
+        val bySubject = done.groupBy { it.subject!! }
+        return Tags.fmgeSubjects.map { s ->
+            val l = bySubject[s].orEmpty()
+            val days = l.map { Stats.dayOf(it.startedAt, zone) }.toSortedSet()
+            val last = days.lastOrNull()
+            val next = if (last == null || s == Tags.MCQ) null else last.plusDays(intervals[(days.size - 1).coerceAtMost(intervals.size - 1)].toLong())
+            SubjectStatus(s, l.sumOf { it.plannedMinutes }, last, next, days.size)
+        }
+    }
+
+    /** Days in a row (ending today, or yesterday if nothing yet today) with FMGE study. */
+    fun streak(sessions: List<SessionEntity>, today: LocalDate, zone: ZoneId): Int {
+        val days = sessions.filter { it.tag == Tags.FMGE && it.status == Status.DONE }.map { Stats.dayOf(it.startedAt, zone) }.toSet()
+        var d = if (today in days) today else today.minusDays(1)
+        var n = 0
+        while (d in days) { n++; d = d.minusDays(1) }
+        return n
+    }
+
     fun label(d: Due, today: LocalDate): String {
         val ago = ChronoUnit.DAYS.between(d.lastStudied, today)
         return "${d.subject} · ${if (ago == 1L) "yesterday" else "$ago days ago"}"

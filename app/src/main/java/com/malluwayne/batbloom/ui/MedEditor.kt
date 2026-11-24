@@ -50,6 +50,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malluwayne.batbloom.BatbloomApp
 import com.malluwayne.batbloom.data.MedEntity
 import com.malluwayne.batbloom.meds.Frequency
 import com.malluwayne.batbloom.meds.MedForm
@@ -114,7 +115,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
                 }
             }
             Spacer(Modifier.weight(1f))
-            if (!isNew) TextButton({ scope.launch { Meds.save(ctx, build()) }; onClose() }, enabled = name.isNotBlank()) { Text("Save") }
+            if (!isNew) TextButton({ BatbloomApp.instance.appScope.launch { Meds.save(ctx, build()) }; onClose() }, enabled = name.isNotBlank()) { Text("Save") }
             else Spacer(Modifier.size(64.dp, 1.dp))
         }
         Column(
@@ -186,7 +187,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
         Button(
             {
                 if (step < steps.lastIndex) step++
-                else { scope.launch { Meds.save(ctx, build()) }; onClose() }
+                else { BatbloomApp.instance.appScope.launch { Meds.save(ctx, build()) }; onClose() }
             },
             Modifier.fillMaxWidth().padding(vertical = 8.dp), enabled = canNext,
         ) { Text(if (step < steps.lastIndex) "Next" else if (isNew) "Add medication" else "Save") }

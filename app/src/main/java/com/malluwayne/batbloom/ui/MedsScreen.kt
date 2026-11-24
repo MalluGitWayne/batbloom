@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -60,6 +61,7 @@ import com.malluwayne.batbloom.quit.Doses
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -69,13 +71,16 @@ private val timeFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 private val dayFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM")
 
 /** The varenicline course shown alongside the user's own medications. */
-private val VareniclineArt = MedEntity(name = "Varenicline", form = "Tablet", shape = "Oval", color1 = 0xFFFFFFFF, color2 = 0xFFFFFFFF, background = 0xFF203A43, startDate = "2000-01-01")
+internal val VareniclineArt = MedEntity(name = "Varenicline", form = "Tablet", shape = "Oval", color1 = 0xFFFFFFFF, color2 = 0xFFFFFFFF, background = 0xFF203A43, startDate = "2000-01-01")
 
-/** One row in today's list: a scheduled dose of a medication, or a varenicline course dose. */
-private sealed class TodayItem(val time: LocalTime) {
-    class Med(val dose: MedDose, val log: MedLogEntity?) : TodayItem(dose.time)
-    class Course(val slot: DoseSlot, val at: LocalTime, val log: DoseLogEntity?) : TodayItem(at)
-    val open get() = when (this) { is Med -> log == null; is Course -> log == null }
+/** One scheduled dose in the log: of a medication, or of the varenicline course. */
+private sealed class DoseItem(val at: LocalDateTime) {
+    class Med(val dose: MedDose, val log: MedLogEntity?) : DoseItem(dose.at)
+    class Course(val slot: DoseSlot, at: LocalDateTime, val log: DoseLogEntity?) : DoseItem(at)
+    val status: String? get() = when (this) { is Med -> log?.status; is Course -> log?.status }
+    val takenAt: Long? get() = when (this) { is Med -> log?.actedAt; is Course -> log?.actedAt }
+    val open get() = status == null
+    val key: String get() = when (this) { is Med -> "m${dose.med.id}-${dose.slot}"; is Course -> "c${slot.key}" }
 }
 
 @Composable
@@ -94,10 +99,16 @@ fun MedsScreen(modifier: Modifier) {
 
     var editing by remember { mutableStateOf<MedEntity?>(null) }
     var detailId by remember { mutableStateOf<Long?>(null) }
+    var courseDetail by remember { mutableStateOf(false) }
 
     editing?.let { m ->
         BackHandler { editing = null }
         MedEditor(m, modifier, onClose = { editing = null })
+        return
+    }
+    if (courseDetail) {
+        BackHandler { courseDetail = false }
+        CourseDetail(modifier) { courseDetail = false }
         return
     }
     detailId?.let { id ->
@@ -106,23 +117,28 @@ fun MedsScreen(modifier: Modifier) {
             BackHandler { detailId = null }
             MedDetail(m, modifier, onBack = { detailId = null }, onEdit = { editing = m })
             return
-        } else detailId = null
+        }
     }
 
-    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    var timeEdit by remember { mutableStateOf<Pair<Long, ZonedDateTime>?>(null) }
+    val ctx = LocalContext.current
     var askLog by remember { mutableStateOf<MedEntity?>(null) }
+    var sheet by remember { mutableStateOf<List<String>?>(null) }
+    var reminderSettings by remember { mutableStateOf(false) }
 
     val logBySlot = logs.filter { it.slot != null }.associateBy { it.medId to it.slot }
     val courseByKey = courseLogs.associateBy { it.key }
-    val items: List<TodayItem> = buildList {
-        MedSchedule.dosesOn(meds, today).forEach { add(TodayItem.Med(it, logBySlot[it.med.id to it.slot])) }
-        schedule.slotsOn(today).forEach { s -> add(TodayItem.Course(s, schedule.timeOf(s, zone).toLocalTime(), courseByKey[s.key])) }
-    }.sortedBy { it.time }
+    fun itemsOn(d: LocalDate): List<DoseItem> = buildList {
+        MedSchedule.dosesOn(meds, d).forEach { add(DoseItem.Med(it, logBySlot[it.med.id to it.slot])) }
+        schedule.slotsOn(d).forEach { s -> add(DoseItem.Course(s, schedule.timeOf(s, zone).toLocalDateTime(), courseByKey[s.key])) }
+    }.sortedBy { it.at }
+    val items = itemsOn(today)
+    val yesterdayOpen = itemsOn(today.minusDays(1)).filter { it.open }
+    val allItems = (yesterdayOpen + items).associateBy { it.key }
     val asNeeded = meds.filter { Frequency.of(it.frequency) == Frequency.AsNeeded && MedSchedule.isActive(it, today) }
     val active = meds.filter { !it.archived }
     val archived = meds.filter { it.archived }
+    val courseOn = schedule.dayNumber(today) in 1..schedule.courseDays
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
@@ -133,10 +149,38 @@ fun MedsScreen(modifier: Modifier) {
                 Text("Medications", style = MaterialTheme.typography.headlineMedium)
                 Text(dayFmt.format(today), color = Muted, fontSize = 13.sp)
             }
+            TextButton({ reminderSettings = true }) { Text("Reminders") }
             TextButton({ editing = newMed(today) }) { Text("+ Add", fontWeight = FontWeight.SemiBold) }
         }
 
-        if (items.isEmpty() && asNeeded.isEmpty() && active.isEmpty()) {
+        // Today's progress, like the Health app's summary ring
+        if (items.isNotEmpty()) {
+            val done = items.count { it.status == DoseStatus.TAKEN }
+            val logged = items.count { !it.open }
+            SectionCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("$done of ${items.size} taken", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        val next = items.firstOrNull { it.open && it.at.isAfter(now.toLocalDateTime()) }
+                        Text(
+                            when {
+                                logged == items.size -> "All logged for today"
+                                next != null -> "Next at ${timeFmt.format(next.at)}"
+                                else -> "${items.size - logged} still to log"
+                            },
+                            color = Muted, fontSize = 13.sp,
+                        )
+                    }
+                    androidx.compose.material3.CircularProgressIndicator(
+                        { if (items.isEmpty()) 0f else done.toFloat() / items.size },
+                        Modifier.size(46.dp), color = Teal, strokeWidth = 6.dp,
+                        trackColor = MaterialTheme.colorScheme.outlineVariant, gapSize = 0.dp,
+                    )
+                }
+            }
+        }
+
+        if (items.isEmpty() && asNeeded.isEmpty() && active.isEmpty() && !courseOn) {
             SectionCard {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     PillArt(MedForm.Capsule, "Round", Color(0xFFFF8FB1), Color(0xFFFFFFFF), Color(0xFF2E3360), 96.dp)
@@ -150,50 +194,14 @@ fun MedsScreen(modifier: Modifier) {
             }
         }
 
-        // Today, grouped by time like the Health app's log
+        if (yesterdayOpen.isNotEmpty()) {
+            Text("Yesterday · not logged", style = MaterialTheme.typography.titleMedium, color = Gold)
+            yesterdayOpen.groupBy { it.at }.forEach { (at, group) -> TimeGroup(at, group, now.toLocalDateTime(), true) { sheet = group.map { it.key } } }
+        }
+
         if (items.isNotEmpty()) {
             Text("Today", style = MaterialTheme.typography.titleMedium)
-            items.groupBy { it.time }.forEach { (t, group) ->
-                val dueAt = today.atTime(t).atZone(zone)
-                val late = group.any { it.open } && now.isAfter(dueAt.plusMinutes(60))
-                SectionCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(timeFmt.format(t), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = if (late) Gold else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                        if (group.count { it.open } > 1) TextButton({
-                            scope.launch {
-                                group.filter { it.open }.forEach { i ->
-                                    when (i) {
-                                        is TodayItem.Med -> Meds.mark(ctx, i.dose, DoseStatus.TAKEN)
-                                        is TodayItem.Course -> DoseAlarms.mark(ctx, i.slot, DoseStatus.TAKEN)
-                                    }
-                                }
-                            }
-                        }) { Text("Log all as taken", fontSize = 13.sp) }
-                    }
-                    group.forEach { i ->
-                        when (i) {
-                            is TodayItem.Med -> DoseLine(
-                                art = { PillArt(i.dose.med, 44.dp) },
-                                title = i.dose.med.name,
-                                subtitle = listOf(MedSchedule.strengthLabel(i.dose.med), MedSchedule.qtyLabel(i.dose.med, i.dose.qty)).filter { it.isNotBlank() }.joinToString(" · "),
-                                status = i.log?.status, takenAt = i.log?.actedAt,
-                                onTake = { scope.launch { Meds.mark(ctx, i.dose, DoseStatus.TAKEN) } },
-                                onSkip = { scope.launch { Meds.mark(ctx, i.dose, DoseStatus.SKIPPED) } },
-                                onLogged = { i.log?.let { timeEdit = it.id to i.dose.at.atZone(zone) } },
-                            )
-                            is TodayItem.Course -> DoseLine(
-                                art = { PillArt(VareniclineArt, 44.dp) },
-                                title = "Varenicline",
-                                subtitle = "${Doses.formatMg(i.slot.mg)} · day ${i.slot.day}",
-                                status = i.log?.status, takenAt = i.log?.actedAt,
-                                onTake = { scope.launch { DoseAlarms.mark(ctx, i.slot, DoseStatus.TAKEN) } },
-                                onSkip = { scope.launch { DoseAlarms.mark(ctx, i.slot, DoseStatus.SKIPPED) } },
-                                onLogged = { Nav.tab.value = 2 },
-                            )
-                        }
-                    }
-                }
-            }
+            items.groupBy { it.at }.forEach { (at, group) -> TimeGroup(at, group, now.toLocalDateTime(), false) { sheet = group.map { it.key } } }
         }
 
         // As needed: log whenever you take one
@@ -219,11 +227,11 @@ fun MedsScreen(modifier: Modifier) {
 
         // Your medications
         SectionCard("Your medications") {
-            if (schedule.dayNumber(today) <= schedule.courseDays) MedListRow(
+            if (courseOn || courseLogs.isNotEmpty()) MedListRow(
                 art = { PillArt(VareniclineArt, 48.dp) },
                 title = "Varenicline",
-                subtitle = "Quit-smoking course · ${schedule.courseDays / 7} weeks · day ${schedule.dayNumber(today).coerceAtLeast(0)}",
-                onClick = { Nav.tab.value = 2 },
+                subtitle = if (courseOn) "Quit-smoking course · day ${schedule.dayNumber(today)} of ${schedule.courseDays}" else "Quit-smoking course",
+                onClick = { courseDetail = true },
             )
             active.forEach { m ->
                 val days = MedSchedule.daysOfStock(m, today)
@@ -239,53 +247,220 @@ fun MedsScreen(modifier: Modifier) {
                     onClick = { detailId = m.id },
                 )
             }
-            if (active.isEmpty()) Text("No medications yet. Tap + Add to add one.", color = Muted, fontSize = 13.sp)
+            if (active.isEmpty() && !courseOn) Text("No medications yet. Tap + Add to add one.", color = Muted, fontSize = 13.sp)
+            TextButton({ editing = newMed(today) }) { Text("+ Add a medication") }
         }
         if (archived.isNotEmpty()) SectionCard("Archived") {
             archived.forEach { m -> MedListRow({ PillArt(m, 40.dp) }, m.name, "Archived", onClick = { detailId = m.id }) }
         }
         Text(
-            "Reminders follow your Dose reminders switch in Settings. Batbloom doesn't check for interactions: ask your doctor or pharmacist.",
+            "Batbloom doesn't check for interactions between medicines: ask your doctor or pharmacist.",
             color = Muted, fontSize = 11.sp, lineHeight = 14.sp,
         )
         Spacer(Modifier.height(8.dp))
     }
 
-    timeEdit?.let { (logId, scheduled) -> TakenTimeDialog(
-        logId, scheduled,
-        onUndo = { scope.launch { Meds.undo(ctx, logId) }; timeEdit = null },
-        onSave = { at -> scope.launch { Meds.setTime(ctx, logId, at) }; timeEdit = null },
-        onDismiss = { timeEdit = null },
-    ) }
-    askLog?.let { m -> LogAsNeededDialog(m, onDismiss = { askLog = null }) { qty -> scope.launch { Meds.logAsNeeded(ctx, m, qty) }; askLog = null } }
+    sheet?.let { keys ->
+        val group = keys.mapNotNull { allItems[it] }
+        if (group.isEmpty()) sheet = null else LogSheet(group, now) { sheet = null }
+    }
+    askLog?.let { m -> LogAsNeededDialog(m, onDismiss = { askLog = null }) { qty -> BatbloomApp.instance.appScope.launch { Meds.logAsNeeded(ctx, m, qty) }; askLog = null } }
+    if (reminderSettings) ReminderSettingsDialog { reminderSettings = false }
 }
 
 fun newMed(today: LocalDate) = MedEntity(name = "", form = MedForm.Tablet.name, startDate = today.toString(), times = "08:00*1")
 
+/** A scheduled time with its doses; "Log" (or tapping a dose) opens the confirmation sheet. */
 @Composable
-private fun DoseLine(
-    art: @Composable () -> Unit, title: String, subtitle: String, status: String?, takenAt: Long?,
-    onTake: () -> Unit, onSkip: () -> Unit, onLogged: () -> Unit,
-) {
+private fun TimeGroup(at: LocalDateTime, group: List<DoseItem>, now: LocalDateTime, past: Boolean, onLog: () -> Unit) {
     val zone = ZoneId.systemDefault()
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        art()
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(title, fontWeight = FontWeight.SemiBold, color = if (status != null) Muted else MaterialTheme.colorScheme.onSurface)
-            if (subtitle.isNotBlank()) Text(subtitle, color = Muted, fontSize = 13.sp)
+    val late = group.any { it.open } && now.isAfter(at.plusMinutes(60))
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(timeFmt.format(at), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = if (late) Gold else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            if (group.any { it.open }) Chip("Log", true, onLog) else TextButton(onLog) { Text("Edit", fontSize = 13.sp) }
         }
-        when (status) {
-            DoseStatus.TAKEN -> Text(
-                "✓ Taken " + (takenAt?.let { timeFmt.format(Instant.ofEpochMilli(it).atZone(zone)) } ?: ""),
-                color = Teal, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
-                modifier = Modifier.clickable(onClick = onLogged).padding(6.dp),
-            )
-            DoseStatus.SKIPPED -> Text("Skipped", color = Muted, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onLogged).padding(6.dp))
-            else -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Chip("Skip", false, onSkip)
-                Chip("Take", true, onTake)
+        group.forEach { i ->
+            val (art, title, sub) = describe(i)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onLog)) {
+                art()
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(title, fontWeight = FontWeight.SemiBold, color = if (i.status != null) Muted else MaterialTheme.colorScheme.onSurface)
+                    if (sub.isNotBlank()) Text(sub, color = Muted, fontSize = 13.sp)
+                }
+                when (i.status) {
+                    DoseStatus.TAKEN -> Text(
+                        "✓ " + (i.takenAt?.let { timeFmt.format(Instant.ofEpochMilli(it).atZone(zone)) } ?: "Taken"),
+                        color = Teal, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                    )
+                    DoseStatus.SKIPPED -> Text("Skipped", color = Muted, fontSize = 13.sp)
+                    else -> if (past) Text("Not logged", color = Gold, fontSize = 12.sp)
+                }
             }
         }
+    }
+}
+
+private fun describe(i: DoseItem): Triple<@Composable () -> Unit, String, String> = when (i) {
+    is DoseItem.Med -> Triple(
+        { PillArt(i.dose.med, 44.dp) }, i.dose.med.name,
+        listOf(MedSchedule.strengthLabel(i.dose.med), MedSchedule.qtyLabel(i.dose.med, i.dose.qty)).filter { it.isNotBlank() }.joinToString(" · "),
+    )
+    is DoseItem.Course -> Triple({ PillArt(VareniclineArt, 44.dp) }, "Varenicline", "${Doses.formatMg(i.slot.mg)} · course day ${i.slot.day}")
+}
+
+/**
+ * The Health-app style log sheet: choose Taken or Skipped for each dose at this time and when you took them,
+ * then confirm with Log. Nothing is saved until you press it.
+ */
+@Composable
+private fun LogSheet(group: List<DoseItem>, now: ZonedDateTime, onClose: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val zone = ZoneId.systemDefault()
+    val scheduled = group.first().at.atZone(zone)
+    val closeHours by BatbloomApp.instance.prefs.closeHours.collectAsState()
+    val schedule by BatbloomApp.instance.prefs.schedule.collectAsState()
+    // A missed varenicline dose with the next one close: the user's rule is to skip it, never double up.
+    val skipCourse = group.filterIsInstance<DoseItem.Course>().filter { c ->
+        c.open && now.isAfter(scheduled.plusMinutes(60)) &&
+            Doses.missedAdvice(now, schedule.slotsFrom(c.slot.date).map { schedule.timeOf(it, zone) }.firstOrNull { it.isAfter(scheduled) }, closeHours) == Doses.Missed.Skip
+    }.map { it.key }.toSet()
+    // Default: Taken for open doses (Skipped where the rule says so), their current status for logged ones.
+    val choice = remember(group.map { it.key }) {
+        androidx.compose.runtime.mutableStateMapOf<String, String?>().apply {
+            group.forEach { put(it.key, it.status ?: if (it.key in skipCourse) DoseStatus.SKIPPED else DoseStatus.TAKEN) }
+        }
+    }
+    val sameDay = scheduled.toLocalDate() == now.toLocalDate()
+    var whenMode by remember { mutableStateOf(if (sameDay) "now" else "scheduled") }
+    var custom by remember { mutableStateOf<ZonedDateTime?>(null) }
+    var pickTime by remember { mutableStateOf(false) }
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, sheetState = sheetState) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                (if (sameDay) "" else "Yesterday, ") + timeFmt.format(scheduled),
+                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+            )
+            // Missed course dose: the user's own rule about doubling up
+            if (skipCourse.isNotEmpty()) Text(
+                "Varenicline: the next dose is close, so skip this one. Never take two at once.", color = Gold, fontSize = 13.sp,
+            )
+            group.forEach { i ->
+                val (art, title, sub) = describe(i)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    art()
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(title, fontWeight = FontWeight.SemiBold)
+                        if (sub.isNotBlank()) Text(sub, color = Muted, fontSize = 12.sp)
+                    }
+                    Segmented(choice[i.key]) { choice[i.key] = it }
+                }
+            }
+            Text("Taken at", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Now", whenMode == "now") { whenMode = "now" }
+                Chip(timeFmt.format(scheduled), whenMode == "scheduled") { whenMode = "scheduled" }
+                Chip(if (whenMode == "custom" && custom != null) timeFmt.format(custom!!) else "Other…", whenMode == "custom") { pickTime = true }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton({ group.forEach { choice[it.key] = DoseStatus.SKIPPED } }) { Text("Skip all") }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClose) { Text("Cancel") }
+                Button({
+                    val at = when (whenMode) {
+                        "scheduled" -> scheduled
+                        "custom" -> custom ?: now
+                        else -> now
+                    }.toInstant().toEpochMilli()
+                    BatbloomApp.instance.appScope.launch {
+                        group.forEach { i ->
+                            val c = choice[i.key]
+                            if (c == i.status && (c != DoseStatus.TAKEN || i.takenAt == at)) {
+                                // unchanged; still update the time of an already-taken dose if a time was chosen
+                                if (c == DoseStatus.TAKEN && whenMode != "now" && i.takenAt != at) save(ctx, i, c, at)
+                                return@forEach
+                            }
+                            save(ctx, i, c, at)
+                        }
+                    }
+                    onClose()
+                }) { Text("Log") }
+            }
+        }
+    }
+    if (pickTime) {
+        val base = custom ?: now
+        val st = rememberTimePickerState(base.hour, base.minute, false)
+        AlertDialog(
+            onDismissRequest = { pickTime = false },
+            confirmButton = {
+                TextButton({
+                    custom = Doses.takenAt(scheduled, LocalTime.of(st.hour, st.minute), ZonedDateTime.now(zone))
+                    whenMode = "custom"; pickTime = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton({ pickTime = false }) { Text("Cancel") } },
+            text = { TimePicker(st) },
+        )
+    }
+}
+
+private suspend fun save(ctx: android.content.Context, i: DoseItem, status: String?, at: Long) {
+    when (i) {
+        is DoseItem.Med -> if (status == null) i.log?.let { Meds.undo(ctx, it.id) } else Meds.mark(ctx, i.dose, status, at)
+        is DoseItem.Course -> DoseAlarms.mark(ctx, i.slot, status, at)
+    }
+}
+
+/** Taken / Skipped toggle; tapping the selected one clears it (not logged). */
+@Composable
+private fun Segmented(value: String?, onChange: (String?) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Chip("Skipped", value == DoseStatus.SKIPPED) { onChange(if (value == DoseStatus.SKIPPED) null else DoseStatus.SKIPPED) }
+        Chip("Taken", value == DoseStatus.TAKEN) { onChange(if (value == DoseStatus.TAKEN) null else DoseStatus.TAKEN) }
+    }
+}
+
+/** Reminders for all medications, including varenicline (moved here from Settings). */
+@Composable
+private fun ReminderSettingsDialog(onClose: () -> Unit) {
+    val ctx = LocalContext.current
+    val prefs = BatbloomApp.instance.prefs
+    val reminders by prefs.reminders.collectAsState()
+    val snooze by prefs.snoozeMinutes.collectAsState()
+    val close by prefs.closeHours.collectAsState()
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Reminders") },
+        confirmButton = { TextButton(onClose) { Text("Done") } },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Medication reminders", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(reminders, {
+                        prefs.setReminders(it); DoseAlarms.scheduleNext(ctx)
+                        BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
+                    })
+                }
+                Text("A follow-up comes 30 minutes later if you haven't logged it.", color = Muted, fontSize = 12.sp)
+                if (!DoseAlarms.canExact(ctx)) Text("Exact alarms are off, so reminders may be a few minutes late.", color = Muted, fontSize = 12.sp)
+                StepRow("Snooze (minutes)", snooze, 5, 60, 5) { prefs.setSnoozeMinutes(it) }
+                StepRow("Varenicline: skip a missed dose if the next is within (hours)", close, 1, 8, 1) { prefs.setCloseHours(it) }
+            }
+        },
+    )
+}
+
+@Composable
+fun StepRow(label: String, value: Int, min: Int, max: Int, step: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), fontSize = 14.sp)
+        TextButton({ onChange((value - step).coerceAtLeast(min)) }) { Text("−", fontSize = 18.sp) }
+        Text("$value", fontWeight = FontWeight.SemiBold)
+        TextButton({ onChange((value + step).coerceAtMost(max)) }) { Text("+", fontSize = 18.sp) }
     }
 }
 
@@ -313,28 +488,6 @@ private fun MedListRow(art: @Composable () -> Unit, title: String, subtitle: Str
         }
         Text("›", color = Muted, fontSize = 20.sp)
     }
-}
-
-@Composable
-private fun TakenTimeDialog(logId: Long, scheduled: ZonedDateTime, onUndo: () -> Unit, onSave: (Long) -> Unit, onDismiss: () -> Unit) {
-    val dao = BatbloomApp.instance.db.meds()
-    var current by remember { mutableStateOf<MedLogEntity?>(null) }
-    androidx.compose.runtime.LaunchedEffect(logId) { current = dao.logById(logId) }
-    val l = current ?: return
-    val zone = ZoneId.systemDefault()
-    val taken = Instant.ofEpochMilli(l.actedAt).atZone(zone)
-    val st = rememberTimePickerState(taken.hour, taken.minute, false)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (l.status == DoseStatus.TAKEN) "When did you take it?" else "Skipped") },
-        text = { if (l.status == DoseStatus.TAKEN) TimePicker(st) else Text("Undo to log it again.") },
-        confirmButton = {
-            if (l.status == DoseStatus.TAKEN) TextButton({
-                onSave(Doses.takenAt(scheduled, LocalTime.of(st.hour, st.minute), ZonedDateTime.now(zone)).toInstant().toEpochMilli())
-            }) { Text("Save") } else TextButton(onDismiss) { Text("OK") }
-        },
-        dismissButton = { TextButton(onUndo) { Text("Undo", color = MaterialTheme.colorScheme.error) } },
-    )
 }
 
 @Composable
@@ -443,7 +596,7 @@ private fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onEd
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton({ scope.launch { Meds.setArchived(ctx, m, !m.archived) }; onBack() }) { Text(if (m.archived) "Unarchive" else "Archive") }
+            TextButton({ BatbloomApp.instance.appScope.launch { Meds.setArchived(ctx, m, !m.archived) }; onBack() }) { Text(if (m.archived) "Unarchive" else "Archive") }
             TextButton({ confirmDelete = true }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         }
         Spacer(Modifier.height(8.dp))
@@ -460,7 +613,7 @@ private fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onEd
             confirmButton = {
                 TextButton({
                     val v = text.trim().toDoubleOrNull()
-                    scope.launch { Meds.save(ctx, m.copy(stock = v ?: -1.0)) }
+                    BatbloomApp.instance.appScope.launch { Meds.save(ctx, m.copy(stock = v ?: -1.0)) }
                     stockDialog = false
                 }) { Text("Save") }
             },
@@ -471,7 +624,7 @@ private fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onEd
         onDismissRequest = { confirmDelete = false },
         title = { Text("Delete ${m.name}?") },
         text = { Text("This removes the medication and its whole log. Archive it instead to keep the history.") },
-        confirmButton = { TextButton({ scope.launch { Meds.delete(ctx, m.id) }; confirmDelete = false; onBack() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        confirmButton = { TextButton({ BatbloomApp.instance.appScope.launch { Meds.delete(ctx, m.id) }; confirmDelete = false; onBack() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancel") } },
     )
 }

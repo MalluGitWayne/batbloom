@@ -70,7 +70,7 @@ object Reminders {
         } else am.cancel(backup)
         // FMGE reminder: once a day at the chosen time.
         val study = pi(c, ACTION_FMGE, 201)
-        if (!prefs.fmgeReminder.value) { am.cancel(study); return }
+        if (!prefs.fmgeReminder.value || !prefs.examTab.value) { am.cancel(study); return }
         val now = ZonedDateTime.now()
         var at = now.toLocalDate().atTime(prefs.fmgeTime.value).atZone(now.zone)
         if (!at.isAfter(now)) at = at.plusDays(1)
@@ -82,7 +82,7 @@ object Reminders {
         val am = c.getSystemService(AlarmManager::class.java)
         val pi = pi(c, ACTION_MILESTONE, 204)
         val start = app(c).prefs.quitStart(ZoneId.systemDefault())
-        if (start == null) { am.cancel(pi); return }
+        if (start == null || !app(c).prefs.quitTab.value) { am.cancel(pi); return }
         val since = java.time.Duration.between(start, ZonedDateTime.now())
         val next = com.malluwayne.batbloom.quit.Milestones.next(since)
         if (next == null) { am.cancel(pi); return }

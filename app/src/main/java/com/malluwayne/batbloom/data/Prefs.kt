@@ -23,6 +23,16 @@ class Prefs(context: Context) {
     val medsTab: StateFlow<Boolean> = _medsTab
     fun setMedsTab(on: Boolean) { sp.edit().putBoolean("meds_tab", on).apply(); _medsTab.value = on }
 
+    /** Whether the Exam tab shows. Off also pauses the daily study reminder. */
+    private val _examTab = MutableStateFlow(sp.getBoolean("exam_tab", true))
+    val examTab: StateFlow<Boolean> = _examTab
+    fun setExamTab(on: Boolean) { sp.edit().putBoolean("exam_tab", on).apply(); _examTab.value = on }
+
+    /** Whether the Quit tab shows. Off also pauses health-milestone notifications. */
+    private val _quitTab = MutableStateFlow(sp.getBoolean("quit_tab", true))
+    val quitTab: StateFlow<Boolean> = _quitTab
+    fun setQuitTab(on: Boolean) { sp.edit().putBoolean("quit_tab", on).apply(); _quitTab.value = on }
+
     /** Achievements whose unlock celebration has been shown. Null until first set (then everything already earned counts as seen). */
     private val _seenBadges = MutableStateFlow(sp.getStringSet("seen_badges", null)?.toSet())
     val seenBadges: StateFlow<Set<String>?> = _seenBadges

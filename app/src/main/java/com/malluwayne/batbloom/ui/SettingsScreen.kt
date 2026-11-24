@@ -85,24 +85,8 @@ fun SettingsScreen(modifier: Modifier) {
             ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
     val allowed by app.repo.allowedApps.collectAsState(emptySet())
-    val quit by prefs.quitDate.collectAsState()
-    val exam by prefs.examDate.collectAsState()
-    val goal by prefs.dailyGoal.collectAsState()
     val custom by prefs.customTags.collectAsState()
-    val smoking by prefs.smoking.collectAsState()
-    val reason by prefs.quitReason.collectAsState()
-    val treat by prefs.treat.collectAsState()
     var showApps by remember { mutableStateOf(false) }
-    var pickDate by remember { mutableStateOf<String?>(null) }
-    val fmt = remember { DateTimeFormatter.ofPattern("EEE d MMM yyyy") }
-    val timeFmt = remember { DateTimeFormatter.ofPattern("h:mm a") }
-    val schedule by prefs.schedule.collectAsState()
-    val reminders by prefs.reminders.collectAsState()
-    val snooze by prefs.snoozeMinutes.collectAsState()
-    val close by prefs.closeHours.collectAsState()
-    val exactOk = remember(now) { DoseAlarms.canExact(ctx) }
-    var pickTime by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(schedule) { DoseAlarms.scheduleNext(ctx) }
 
     androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
     Column(
@@ -143,94 +127,22 @@ fun SettingsScreen(modifier: Modifier) {
             }
         }
 
-        SectionCard("FMGE") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Exam date", Modifier.weight(1f))
-                TextButton({ pickDate = "exam" }) { Text(exam?.let { fmt.format(it) } ?: "Set") }
-                if (exam != null) TextButton({ prefs.setExamDate(null) }) { Text("\u2715", color = Muted) }
-            }
-            Text("Daily goal: ${Rules.formatMinutes(goal)}")
-            Slider(
-                goal.toFloat(), { prefs.setDailyGoal(((it / 30).roundToInt() * 30).coerceAtLeast(30)) }, valueRange = 30f..720f, steps = 22,
-                colors = androidx.compose.material3.SliderDefaults.colors(
-                    activeTickColor = androidx.compose.ui.graphics.Color.Transparent, inactiveTickColor = androidx.compose.ui.graphics.Color.Transparent,
-                ),
-            )
-            StudyReminderSection()
-        }
-
-        SectionCard("Quit smoking") {
-            val quitTime by prefs.quitTime.collectAsState()
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Quit day", Modifier.weight(1f))
-                TextButton({ pickDate = "quit" }) { Text(quit?.let { fmt.format(it) } ?: "Set") }
-            }
-            if (quit != null) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Last cigarette at", Modifier.weight(1f))
-                TextButton({ pickTime = "quit" }) { Text(timeFmt.format(quitTime)) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton({ prefs.quitNow() }) { Text("I've quit now") }
-                if (quit != null) TextButton({ prefs.setQuitDate(null) }) { Text("Clear") }
-            }
-            NumberField("Cigarettes a day (before quitting)", smoking.perDay.toString()) { v -> v.toIntOrNull()?.let { prefs.setSmoking(smoking.copy(perDay = it)) } }
-            NumberField("Cigarettes per pack", smoking.packSize.toString()) { v -> v.toIntOrNull()?.let { prefs.setSmoking(smoking.copy(packSize = it)) } }
-            NumberField("Price per pack (₹)", smoking.packPrice.roundToInt().toString()) { v -> v.toDoubleOrNull()?.let { prefs.setSmoking(smoking.copy(packPrice = it)) } }
-            TextSetting("Why I'm quitting", reason, "e.g. To breathe easy on my runs") { prefs.setQuitReason(it) }
-            TextSetting("Treat I'm saving for", treat.name, "e.g. New headphones") { prefs.setTreat(treat.copy(name = it)) }
-            NumberField("Treat price (₹)", if (treat.price > 0) treat.price.roundToInt().toString() else "") { v ->
-                prefs.setTreat(Treat(treat.name, v.toDoubleOrNull() ?: 0.0))
-            }
-        }
-
-        SectionCard("Varenicline course") {
-            LabeledRow("Day 1", fmt.format(schedule.start))
-            LabeledRow("Last day", "Day ${schedule.courseDays}, ${fmt.format(schedule.endDate)}")
-            OutlinedButton({ pickDate = "course" }) { Text("Change start date") }
-            Stepper2("Course length (days)", schedule.courseDays, 7, 200, 7) { prefs.setSchedule(schedule.copy(courseDays = it)) }
-            Stepper2("Phase 1 ends on day", schedule.phase1End, 1, schedule.phase2End, 1) { prefs.setSchedule(schedule.copy(phase1End = it)) }
-            Stepper2("Phase 2 ends on day", schedule.phase2End, schedule.phase1End, schedule.courseDays, 1) { prefs.setSchedule(schedule.copy(phase2End = it)) }
-            val ranges = listOf("Days 1–${schedule.phase1End}", "Days ${schedule.phase1End + 1}–${schedule.phase2End}", "Days ${schedule.phase2End + 1}–${schedule.courseDays}")
-            schedule.mg.forEachIndexed { i, (am, pm) ->
-                Text(ranges[i], fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                MgRow("Morning", am) { v -> prefs.setSchedule(schedule.copy(mg = schedule.mg.toMutableList().also { it[i] = v to pm })) }
-                MgRow("Evening", pm) { v -> prefs.setSchedule(schedule.copy(mg = schedule.mg.toMutableList().also { it[i] = am to v })) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton({ pickTime = "am" }) { Text("Morning ${timeFmt.format(schedule.amTime)}") }
-                OutlinedButton({ pickTime = "pm" }) { Text("Evening ${timeFmt.format(schedule.pmTime)}") }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Dose reminders", Modifier.weight(1f))
-                Switch(reminders, {
-                    prefs.setReminders(it); DoseAlarms.scheduleNext(ctx)
-                    BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
-                })
-            }
-            if (!exactOk) Text("Exact alarms are off, so reminders may be a few minutes late.", color = Muted, fontSize = 12.sp)
-            Stepper2("Snooze (minutes)", snooze, 5, 60, 5) { prefs.setSnoozeMinutes(it) }
-            Stepper2("Skip a missed dose if the next is within (hours)", close, 1, 8, 1) { prefs.setCloseHours(it) }
-            TextButton({ prefs.setSchedule(com.malluwayne.batbloom.quit.DoseSchedule()); DoseAlarms.scheduleNext(ctx) }) { Text("Reset to my original plan") }
-        }
-
-        SectionCard("Medications") {
+        SectionCard("Tabs") {
+            Text("Turn off what you don't use. Each tab keeps its own settings (tap Edit inside it).", color = Muted, fontSize = 12.sp)
+            val examTab by prefs.examTab.collectAsState()
+            val quitTab by prefs.quitTab.collectAsState()
             val medsTab by prefs.medsTab.collectAsState()
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Show Meds tab")
-                    Text(
-                        if (medsTab) "For other medicines, vitamins and supplements" else "Hidden. Reminders for medications you added are paused.",
-                        color = Muted, fontSize = 12.sp,
-                    )
-                }
-                Switch(medsTab, {
-                    prefs.setMedsTab(it)
-                    BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
-                })
+            TabSwitch("Exam", "FMGE countdown, subjects and revision", "Hidden. The daily study reminder is paused.", examTab) {
+                prefs.setExamTab(it); com.malluwayne.batbloom.guard.Reminders.scheduleAll(ctx)
             }
-            Text("Varenicline stays on the Quit tab either way.", color = Muted, fontSize = 12.sp)
+            TabSwitch("Quit", "Smoke-free timer, savings and milestones", "Hidden. Milestone notifications are paused.", quitTab) {
+                prefs.setQuitTab(it); com.malluwayne.batbloom.guard.Reminders.scheduleMilestone(ctx)
+            }
+            TabSwitch("Meds", "Your medications and the varenicline course", "Hidden. Reminders for medications you added are paused.", medsTab) {
+                prefs.setMedsTab(it)
+                BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
+            }
         }
-
         BackupSection()
 
         SectionCard("About") {
@@ -253,90 +165,18 @@ fun SettingsScreen(modifier: Modifier) {
 
     }
     if (showApps) AllowListDialog(allowed) { showApps = false }
-
-    pickTime?.let { which ->
-        val t = when (which) { "am" -> schedule.amTime; "pm" -> schedule.pmTime; else -> prefs.quitTime.value }
-        val st = rememberTimePickerState(t.hour, t.minute, false)
-        AlertDialog(
-            onDismissRequest = { pickTime = null },
-            confirmButton = {
-                TextButton({
-                    val nt = java.time.LocalTime.of(st.hour, st.minute)
-                    when (which) {
-                        "am" -> prefs.setSchedule(schedule.copy(amTime = nt))
-                        "pm" -> prefs.setSchedule(schedule.copy(pmTime = nt))
-                        else -> prefs.setQuitTime(nt)
-                    }
-                    pickTime = null
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton({ pickTime = null }) { Text("Cancel") } },
-            text = { TimePicker(st) },
-        )
-    }
-
-    pickDate?.let { which ->
-        val initial = (when (which) { "quit" -> quit; "course" -> schedule.start; else -> exam }) ?: LocalDate.now()
-        val state = rememberDatePickerState(initialSelectedDateMillis = initial.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
-        DatePickerDialog(
-            onDismissRequest = { pickDate = null },
-            confirmButton = {
-                TextButton({
-                    state.selectedDateMillis?.let {
-                        val d = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                        when (which) {
-                            "quit" -> prefs.setQuitDate(d)
-                            "course" -> prefs.setSchedule(schedule.copy(start = d))
-                            else -> prefs.setExamDate(d)
-                        }
-                    }
-                    pickDate = null
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton({ pickDate = null }) { Text("Cancel") } },
-        ) { DatePicker(state) }
-    }
 }
 
 @Composable
-private fun Stepper2(label: String, value: Int, min: Int, max: Int, step: Int, onChange: (Int) -> Unit) {
+private fun TabSwitch(name: String, on: String, off: String, value: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), fontSize = 14.sp)
-        TextButton({ onChange((value - step).coerceAtLeast(min)) }) { Text("−", fontSize = 18.sp) }
-        Text("$value", fontWeight = FontWeight.SemiBold)
-        TextButton({ onChange((value + step).coerceAtMost(max)) }) { Text("+", fontSize = 18.sp) }
-    }
-}
-
-@Composable
-private fun MgRow(label: String, mg: Double, onChange: (Double) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, Modifier.weight(1f), fontSize = 13.sp, color = Muted)
-        listOf(0.0, 0.5, 1.0).forEach { v ->
-            androidx.compose.material3.FilterChip(mg == v, { onChange(v) }, { Text(if (v == 0.0) "None" else com.malluwayne.batbloom.quit.Doses.formatMg(v), fontSize = 12.sp) })
+        Column(Modifier.weight(1f)) {
+            Text(name)
+            Text(if (value) on else off, color = Muted, fontSize = 12.sp)
         }
+        Switch(value, onChange)
     }
 }
-
-@Composable
-private fun NumberField(label: String, value: String, onDone: (String) -> Unit) {
-    var text by remember(value) { mutableStateOf(value) }
-    OutlinedTextField(
-        text, { text = it.filter { c -> c.isDigit() || c == '.' }.take(7); onDone(text) },
-        label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-    )
-}
-
-@Composable
-private fun TextSetting(label: String, value: String, hint: String, onChange: (String) -> Unit) {
-    var text by remember { mutableStateOf(value) }
-    OutlinedTextField(
-        text, { text = it.take(80); onChange(text) },
-        label = { Text(label) }, placeholder = { Text(hint) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-    )
-}
-
 private data class AppRow(val pkg: String, val label: String, val icon: ImageBitmap?)
 
 @Composable

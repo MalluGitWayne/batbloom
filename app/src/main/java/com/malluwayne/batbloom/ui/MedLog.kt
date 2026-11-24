@@ -148,7 +148,12 @@ internal fun LogSheet(group: List<DoseItem>, now: ZonedDateTime, onClose: () -> 
     var whenMode by remember { mutableStateOf(if (sameDay) "now" else "scheduled") }
     var custom by remember { mutableStateOf<ZonedDateTime?>(null) }
     var pickTime by remember { mutableStateOf(false) }
-    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Opens fully (no half-open step), like the old skipPartiallyExpanded = true. The set lists the positions the
+    // sheet may take: hidden and fully open only.
+    val sheetState = androidx.compose.material3.rememberBottomSheetState(
+        androidx.compose.material3.SheetValue.Hidden,
+        setOf(androidx.compose.material3.SheetValue.Hidden, androidx.compose.material3.SheetValue.Expanded),
+    )
 
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

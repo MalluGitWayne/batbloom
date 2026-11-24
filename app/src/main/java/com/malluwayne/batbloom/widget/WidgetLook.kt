@@ -2,6 +2,7 @@ package com.malluwayne.batbloom.widget
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.core.graphics.scale
 import com.malluwayne.batbloom.BatbloomApp
 import com.malluwayne.batbloom.ui.ThemeMode
 
@@ -17,6 +18,20 @@ data class WidgetLook(
     val light get() = kind == Kind.Light
 
     companion object {
+        /**
+         * Sends a widget update. From Android 17 the system rejects widget images that use too much memory; our
+         * images are well under the limit, but if a phone ever refuses one, it's resent at half resolution.
+         */
+        fun update(manager: android.appwidget.AppWidgetManager, id: Int, v: android.widget.RemoteViews, artId: Int, art: android.graphics.Bitmap) {
+            try {
+                manager.updateAppWidget(id, v)
+            } catch (_: IllegalArgumentException) {
+                val small = art.scale((art.width / 2).coerceAtLeast(1), (art.height / 2).coerceAtLeast(1))
+                v.setImageViewBitmap(artId, small)
+                runCatching { manager.updateAppWidget(id, v) }
+            }
+        }
+
         val Dark = WidgetLook(
             Kind.Dark, 0xFF18181E.toInt(), 0xFF202027.toInt(),
             0xFFFFFFFF.toInt(), 0xFF9C9CA8.toInt(), 0xFFDADAE2.toInt(), 0x66FFFFFF,

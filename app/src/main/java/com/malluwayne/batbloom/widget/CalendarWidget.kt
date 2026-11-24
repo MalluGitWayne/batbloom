@@ -257,9 +257,10 @@ private fun calendarUpdate(
         for (id in ids) {
             val (wDp, hDp) = BloomWidget.sizeDp(manager, id, 250, 150)
             val v = RemoteViews(context.packageName, R.layout.widget_calendar)
-            v.setImageViewBitmap(R.id.wcal_art, Calendars.draw(context, wDp, hDp, data, today, WidgetLook.current(context)))
+            val art = Calendars.draw(context, wDp, hDp, data, today, WidgetLook.current(context))
+            v.setImageViewBitmap(R.id.wcal_art, art)
             v.setOnClickPendingIntent(R.id.wcal_root, BloomWidget.launch(context, action, rc))
-            manager.updateAppWidget(id, v)
+            WidgetLook.update(manager, id, v, R.id.wcal_art, art)
         }
     }
 }

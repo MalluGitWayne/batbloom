@@ -80,6 +80,23 @@ class ScreensTest {
         rule.onNodeWithText("Medications").assertIsDisplayed()
     }
 
+    /** The confirm-before-log sheet opens fully and closes without logging anything. */
+    @Test fun medLogSheetOpensAndCancels() {
+        tab("Meds")
+        // Today always has varenicline doses during the course; skip when outside it.
+        if (rule.onAllNodesWithText("Log").fetchSemanticsNodes().isEmpty()) return
+        rule.onAllNodesWithText("Log").onFirst().performClick(); rule.waitForIdle()
+        rule.onNodeWithText("Skip all").assertIsDisplayed()
+        rule.onNodeWithText("Cancel").performClick(); rule.waitForIdle()
+        rule.onNodeWithText("Medications").assertIsDisplayed()
+    }
+
+    /** Dragging-free check that the duration slider is on screen with its value. */
+    @Test fun focusSliderShows() {
+        tab("Focus")
+        rule.onNodeWithText("${BatbloomApp.instance.prefs.minutes.value} min").assertIsDisplayed()
+    }
+
     @Test fun cravingBreathingOpensAndCloses() {
         tab("Quit")
         val quit = BatbloomApp.instance.prefs.quitDate.value

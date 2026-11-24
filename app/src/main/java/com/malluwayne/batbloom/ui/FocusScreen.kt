@@ -197,11 +197,15 @@ private fun SetupView() {
             }
             else -> {
                 Text("$minutes min", fontSize = 44.sp, fontWeight = FontWeight.Bold)
+                val slider = androidx.compose.material3.rememberSliderState(
+                    minutes.toFloat(), (Rules.MAX_MINUTES - Rules.MIN_MINUTES) / 5 - 1,
+                    Rules.MIN_MINUTES.toFloat()..Rules.MAX_MINUTES.toFloat(),
+                )
+                // Keep the slider in step when the length changes elsewhere (a widget, a preset).
+                androidx.compose.runtime.LaunchedEffect(minutes) { if (slider.value.roundToInt() != minutes) slider.value = minutes.toFloat() }
                 Slider(
-                    value = minutes.toFloat(),
-                    onValueChange = { prefs.setMinutes((it / 5).roundToInt() * 5) },
-                    valueRange = Rules.MIN_MINUTES.toFloat()..Rules.MAX_MINUTES.toFloat(),
-                    steps = (Rules.MAX_MINUTES - Rules.MIN_MINUTES) / 5 - 1,
+                    slider,
+                    onValueChange = { slider.value = it; prefs.setMinutes((it / 5).roundToInt() * 5) },
                     colors = androidx.compose.material3.SliderDefaults.colors(
                         activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent,
                     ),

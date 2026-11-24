@@ -245,9 +245,10 @@ class BloomWidget : AppWidgetProvider() {
                     R.id.w_focus,
                     launch(context, if (endAt != null) MainActivity.ACTION_OPEN else MainActivity.ACTION_FOCUS, if (endAt != null) 14 else 12),
                 )
-                v.setImageViewBitmap(R.id.w_art, paint(context, wDp, hDp, 24f, box, plantId, growth, false, garden, miniDp = mini, look = look))
+                val art = paint(context, wDp, hDp, 24f, box, plantId, growth, false, garden, miniDp = mini, look = look)
+                v.setImageViewBitmap(R.id.w_art, art)
                 v.setOnClickPendingIntent(R.id.w_root, launch(context, MainActivity.ACTION_OPEN, 10))
-                manager.updateAppWidget(id, v)
+                WidgetLook.update(manager, id, v, R.id.w_art, art)
             }
         }
     }

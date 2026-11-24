@@ -6,16 +6,16 @@ plugins {
 
 android {
     namespace = "com.malluwayne.batbloom"
-    // Compiled against Android 17 for the newest libraries; targetSdk (how the app behaves) stays 36 until tested on a phone.
+    // Built for Android 17. Its target-37 changes were checked (widgets: see WidgetLook.update; no audio is played).
     compileSdk = 37
     compileSdkMinor = 1
 
     defaultConfig {
         applicationId = "com.malluwayne.batbloom"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 27
-        versionName = "1.26"
+        targetSdk = 37
+        versionCode = 28
+        versionName = "1.27"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

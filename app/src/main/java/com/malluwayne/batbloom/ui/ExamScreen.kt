@@ -428,8 +428,10 @@ private fun ExamSettingsDialog(onClose: () -> Unit) {
                     if (exam != null) TextButton({ prefs.setExamDate(null) }) { Text("✕", color = Muted) }
                 }
                 Text("Daily goal: ${Rules.formatMinutes(goal)}")
+                val slider = androidx.compose.material3.rememberSliderState(goal.toFloat(), 22, 30f..720f)
                 Slider(
-                    goal.toFloat(), { prefs.setDailyGoal(((it / 30).roundToInt() * 30).coerceAtLeast(30)) }, valueRange = 30f..720f, steps = 22,
+                    slider,
+                    onValueChange = { slider.value = it; prefs.setDailyGoal(((it / 30).roundToInt() * 30).coerceAtLeast(30)) },
                     colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
                 )
                 val mcqGoal by prefs.mcqGoal.collectAsState()

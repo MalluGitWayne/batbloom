@@ -186,7 +186,7 @@ internal fun WeekDots(days: List<DayDoses>, today: LocalDate, modifier: Modifier
                         .then(if (d.date == today) Modifier.border(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f), RoundedCornerShape(50)) else Modifier),
                 )
                 Text(
-                    d.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, java.util.Locale.getDefault()),
+                    d.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, androidx.compose.ui.platform.LocalLocale.current.platformLocale),
                     color = if (d.date == today) MaterialTheme.colorScheme.onSurface else Muted, fontSize = 11.sp,
                     fontWeight = if (d.date == today) FontWeight.SemiBold else FontWeight.Normal,
                 )

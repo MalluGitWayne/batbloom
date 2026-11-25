@@ -118,7 +118,8 @@ object Meds {
 
 /**
  * Medication reminders: one exact alarm for the next scheduled time across all medications. It posts one
- * notification for everything due then (Taken / Skip / Snooze), and a follow-up 30 minutes later if still open.
+ * notification for everything due then (Taken / Skip / Snooze). Until it's logged it comes back every 30 minutes,
+ * and swiping it away counts as "later": it returns after the snooze time. Both stop 3 hours after the dose time.
  */
 object MedAlarms {
     const val CH_MEDS = "meds"
@@ -126,12 +127,12 @@ object MedAlarms {
     const val ACTION_TAKEN = "batbloom.MED_TAKEN"
     const val ACTION_SKIP = "batbloom.MED_SKIP"
     const val ACTION_SNOOZE = "batbloom.MED_SNOOZE"
+    const val ACTION_DISMISSED = "batbloom.MED_DISMISSED"
     const val EXTRA_AT = "at"
     const val EXTRA_FOLLOW_UP = "followUp"
     private const val RC_NEXT = 500
-    private const val RC_SNOOZE = 501
-    private const val RC_FOLLOW = 502
     private const val FOLLOW_UP_MIN = 30L
+    private const val REMIND_FOR_HOURS = 3L
 
     fun ensureChannel(context: Context) {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -160,6 +161,20 @@ object MedAlarms {
 
     private fun millis(t: LocalDateTime) = t.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     private fun notifId(at: LocalDateTime) = 3000 + (at.toString().hashCode() and 0xFFF)
+    /** The one pending "remind me again" alarm for the doses at [at]: a follow-up, a snooze or after a swipe. */
+    private fun againPi(context: Context, at: LocalDateTime) = pi(context, ACTION_DUE, at.toString(), notifId(at) + 5, followUp = true)
+
+    /** Reminds again about [at] in [minutes], unless that's more than 3 hours after the dose time. */
+    fun remindAgain(context: Context, at: LocalDateTime, minutes: Long, force: Boolean = false) {
+        val time = System.currentTimeMillis() + minutes * 60_000
+        if (!force && time > millis(at.plusHours(REMIND_FOR_HOURS))) return
+        setAlarm(context, time, againPi(context, at))
+    }
+
+    private fun stopReminding(context: Context, at: LocalDateTime) {
+        NotificationManagerCompat.from(context).cancel(notifId(at))
+        context.getSystemService(AlarmManager::class.java).cancel(againPi(context, at))
+    }
 
     suspend fun scheduleNext(context: Context) {
         val meds = app(context).db.meds().allNow()
@@ -200,19 +215,20 @@ object MedAlarms {
             .addAction(0, if (open.size == 1) "Taken" else "All taken", pi(context, ACTION_TAKEN, key, rc + 1))
             .addAction(0, "Skip", pi(context, ACTION_SKIP, key, rc + 2))
             .addAction(0, "Snooze ${app(context).prefs.snoozeMinutes.value} min", pi(context, ACTION_SNOOZE, key, rc + 3))
+            .setDeleteIntent(pi(context, ACTION_DISMISSED, key, rc + 4))
             .build()
         com.malluwayne.batbloom.Notify.post(context, rc, n)
-        if (!followUp) setAlarm(context, System.currentTimeMillis() + FOLLOW_UP_MIN * 60_000, pi(context, ACTION_DUE, key, RC_FOLLOW, followUp = true))
+        remindAgain(context, at, FOLLOW_UP_MIN)
     }
 
     /** Takes the notification away once nothing at [at] is left to log. */
     suspend fun clearIfDone(context: Context, at: LocalDateTime) {
-        if (Meds.openAt(context, at).isEmpty()) NotificationManagerCompat.from(context).cancel(notifId(at))
+        if (Meds.openAt(context, at).isEmpty()) stopReminding(context, at)
     }
 
     suspend fun markAll(context: Context, at: LocalDateTime, status: String) {
         Meds.openAt(context, at).forEach { Meds.mark(context, it, status) }
-        NotificationManagerCompat.from(context).cancel(notifId(at))
+        stopReminding(context, at)
     }
 
     /**
@@ -244,7 +260,7 @@ object MedAlarms {
 
     fun snooze(context: Context, at: LocalDateTime) {
         NotificationManagerCompat.from(context).cancel(notifId(at))
-        setAlarm(context, System.currentTimeMillis() + app(context).prefs.snoozeMinutes.value * 60_000L, pi(context, ACTION_DUE, at.toString(), RC_SNOOZE, followUp = true))
+        remindAgain(context, at, app(context).prefs.snoozeMinutes.value.toLong(), force = true)
     }
 }
 
@@ -263,6 +279,8 @@ class MedReceiver : BroadcastReceiver() {
                     MedAlarms.ACTION_TAKEN -> at?.let { MedAlarms.markAll(context, it, DoseStatus.TAKEN) }
                     MedAlarms.ACTION_SKIP -> at?.let { MedAlarms.markAll(context, it, DoseStatus.SKIPPED) }
                     MedAlarms.ACTION_SNOOZE -> at?.let { MedAlarms.snooze(context, it) }
+                    // Swiped away: not a "no", just "later".
+                    MedAlarms.ACTION_DISMISSED -> at?.let { if (Meds.openAt(context, it).isNotEmpty()) MedAlarms.remindAgain(context, it, app.prefs.snoozeMinutes.value.toLong()) }
                 }
             } finally {
                 pending.finish()

@@ -30,9 +30,9 @@ object DoseAlarms {
     const val ACTION_TAKEN = "batbloom.DOSE_TAKEN"
     const val ACTION_SKIP = "batbloom.DOSE_SKIP"
     const val ACTION_SNOOZE = "batbloom.DOSE_SNOOZE"
+    const val ACTION_DISMISSED = "batbloom.DOSE_DISMISSED"
     const val EXTRA_KEY = "key"
     private const val RC_NEXT = 100
-    private const val RC_SNOOZE = 101
     private const val NOTIF_STOCK = 20
     private const val NOTIF_BADGE = 21
 
@@ -128,8 +128,29 @@ object DoseAlarms {
             .addAction(0, "Taken", receiverIntent(context, ACTION_TAKEN, slot.key, rc + 1))
             .addAction(0, "Skip", receiverIntent(context, ACTION_SKIP, slot.key, rc + 2))
             .addAction(0, "Snooze ${prefs.snoozeMinutes.value} min", receiverIntent(context, ACTION_SNOOZE, slot.key, rc + 3))
+            .setDeleteIntent(receiverIntent(context, ACTION_DISMISSED, slot.key, rc + 4))
             .build()
         com.malluwayne.batbloom.Notify.post(context, notifId(slot.key), n)
+        remindAgain(context, slot, 30)
+    }
+
+    /** The one pending "remind me again" alarm for a dose: a follow-up, a snooze or after a swipe. */
+    private fun againPi(context: Context, key: String) = receiverIntent(context, ACTION_DUE, key, key.hashCode() + 5)
+
+    /**
+     * Reminds again about [slot] in [minutes] while it's still worth taking: within 3 hours of its time and not so
+     * late that the next dose is close (then the advice is to skip it, never double up).
+     */
+    fun remindAgain(context: Context, slot: DoseSlot, minutes: Long) {
+        val prefs = app(context).prefs
+        val s = prefs.schedule.value
+        val zone = java.time.ZoneId.systemDefault()
+        val due = s.timeOf(slot, zone)
+        val at = ZonedDateTime.now(zone).plusMinutes(minutes)
+        if (at.isAfter(due.plusHours(3))) return
+        val next = s.slotsFrom(slot.date).map { s.timeOf(it, zone) }.firstOrNull { it.isAfter(due) }
+        if (Doses.missedAdvice(at, next, prefs.closeHours.value) == Doses.Missed.Skip) return
+        setAlarm(context, at.toInstant().toEpochMilli(), againPi(context, slot.key))
     }
 
     private fun notifId(key: String) = 1000 + (key.hashCode() and 0xFFFF)
@@ -139,7 +160,7 @@ object DoseAlarms {
     fun snooze(context: Context, key: String) {
         cancelDoseNotification(context, key)
         val at = System.currentTimeMillis() + app(context).prefs.snoozeMinutes.value * 60_000L
-        setAlarm(context, at, receiverIntent(context, ACTION_DUE, key, RC_SNOOZE))
+        setAlarm(context, at, againPi(context, key))
     }
 
     /** Logs a dose (from the notification or the app), updates the stock and warns if it is running low. */
@@ -149,7 +170,10 @@ object DoseAlarms {
         val change = a.repo.markDose(slot, status, strength, at)
         val left = a.prefs.tabletsLeft.value
         if (left >= 0 && change != 0.0) a.prefs.setTabletsLeft((left + change).coerceAtLeast(0.0))
-        if (status != null) cancelDoseNotification(context, slot.key)
+        if (status != null) {
+            cancelDoseNotification(context, slot.key)
+            context.getSystemService(AlarmManager::class.java).cancel(againPi(context, slot.key))
+        }
         checkStock(context)
         com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
         checkBadges(context)
@@ -220,6 +244,8 @@ class DoseReceiver : BroadcastReceiver() {
                     DoseAlarms.ACTION_TAKEN -> slot?.let { DoseAlarms.mark(context, it, DoseStatus.TAKEN) }
                     DoseAlarms.ACTION_SKIP -> slot?.let { DoseAlarms.mark(context, it, DoseStatus.SKIPPED) }
                     DoseAlarms.ACTION_SNOOZE -> key?.let { DoseAlarms.snooze(context, it) }
+                    // Swiped away: not a "no", just "later".
+                    DoseAlarms.ACTION_DISMISSED -> slot?.let { if (app.repo.doseStatus(it.key) == null) DoseAlarms.remindAgain(context, it, app.prefs.snoozeMinutes.value.toLong()) }
                 }
             } finally {
                 pending.finish()

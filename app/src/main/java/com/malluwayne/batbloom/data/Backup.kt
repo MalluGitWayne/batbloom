@@ -44,11 +44,14 @@ object Backup {
     /** 2: no coins, cravings, slips or side effects. 3: medications. Older files still restore (missing parts are empty). */
     const val FORMAT = 3
     const val PREFS_FILE = "batbloom"
+    private const val DND_KEY = "focus_dnd"
 
     suspend fun collect(context: Context, db: AppDatabase): BackupData {
         val d = db.backup()
         val sp = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
-        return BackupData(d.sessions(), d.unlocks(), d.allowed(), d.doses(), d.badges(), sp.all, d.meds(), d.medLogs())
+        // Do Not Disturb's switch lives in its own file (beside the state it restores); it travels with the settings.
+        val prefs = sp.all + (DND_KEY to com.malluwayne.batbloom.focus.Dnd.enabled(context))
+        return BackupData(d.sessions(), d.unlocks(), d.allowed(), d.doses(), d.badges(), prefs, d.meds(), d.medLogs())
     }
 
     /** Replaces all data with the backup's. Settings are written too; the app restarts to load them. */
@@ -63,7 +66,7 @@ object Backup {
         // commit = true: written before the app restarts to load them.
         context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).edit(commit = true) {
             clear()
-            b.prefs.forEach { (k, v) ->
+            b.prefs.filterKeys { it != DND_KEY }.forEach { (k, v) ->
                 when (v) {
                     is Boolean -> putBoolean(k, v)
                     is Int -> putInt(k, v)
@@ -74,6 +77,7 @@ object Backup {
                 }
             }
         }
+        (b.prefs[DND_KEY] as? Boolean)?.let { com.malluwayne.batbloom.focus.Dnd.setEnabled(context, it) }
     }
 
     // --- JSON (pure, unit tested) ---

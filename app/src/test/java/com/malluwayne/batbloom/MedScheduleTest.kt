@@ -67,6 +67,9 @@ class MedScheduleTest {
         val m = med("Daily", stock = 30.0) // 3 a day
         assertEquals(10, MedSchedule.daysOfStock(m, start))
         assertNull(MedSchedule.daysOfStock(med("Daily"), start))
+        // 10 days from the start: covers the start day through day 10
+        assertEquals(start.plusDays(9), MedSchedule.runsOutOn(m, start))
+        assertNull(MedSchedule.runsOutOn(med("Daily"), start))
     }
 
     @Test fun backupKeepsMeds() {

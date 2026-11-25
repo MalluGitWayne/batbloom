@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -190,6 +191,51 @@ internal fun WeekDots(days: List<DayDoses>, today: LocalDate, modifier: Modifier
                     color = if (d.date == today) MaterialTheme.colorScheme.onSurface else Muted, fontSize = 11.sp,
                     fontWeight = if (d.date == today) FontWeight.SemiBold else FontWeight.Normal,
                 )
+            }
+        }
+    }
+}
+
+/** A month of days, Monday first, each coloured like [WeekDots]: the history of one medication at a glance. */
+@Composable
+internal fun MonthDots(month: java.time.YearMonth, today: LocalDate, day: (LocalDate) -> DayDoses) {
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+    // Light theme's teal and gold are deeper, so their numbers turn white to stay readable.
+    val light = LocalPalette.current.isLight
+    val lead = month.atDay(1).dayOfWeek.value - 1
+    val cells = List(lead) { null } + (1..month.lengthOfMonth()).map { month.atDay(it) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            java.time.DayOfWeek.entries.forEach {
+                Text(
+                    it.getDisplayName(java.time.format.TextStyle.NARROW, androidx.compose.ui.platform.LocalLocale.current.platformLocale),
+                    Modifier.weight(1f), color = Muted, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
+        cells.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                (0 until 7).forEach { i ->
+                    val d = week.getOrNull(i)
+                    Box(Modifier.weight(1f).padding(2.dp), contentAlignment = Alignment.Center) {
+                        if (d != null) {
+                            val s = day(d)
+                            val (bg, fg) = when {
+                                s.due == 0 -> Color.Transparent to Muted
+                                s.taken >= s.due -> Teal to if (light) Color.White else Color(0xFF0B2A26)
+                                s.taken > 0 -> Gold to if (light) Color.White else Color(0xFF2E2200)
+                                d == today -> track to MaterialTheme.colorScheme.onSurface
+                                else -> MaterialTheme.colorScheme.error.copy(alpha = 0.75f) to Color.White
+                            }
+                            Box(
+                                Modifier.size(32.dp).background(bg, CircleShape).then(
+                                    if (d == today) Modifier.border(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), CircleShape) else Modifier,
+                                ),
+                                contentAlignment = Alignment.Center,
+                            ) { Text("${d.dayOfMonth}", color = fg, fontSize = 12.sp, fontWeight = if (s.due > 0) FontWeight.SemiBold else FontWeight.Normal) }
+                        }
+                    }
+                }
             }
         }
     }

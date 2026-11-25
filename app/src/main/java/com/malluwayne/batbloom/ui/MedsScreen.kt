@@ -256,6 +256,7 @@ fun MedsScreen(modifier: Modifier) {
                     subtitle = if (MedSchedule.finished(m, today)) "Course finished \u00B7 tap to archive" else MedSchedule.summary(m) + when {
                         m.stock < 0 -> ""
                         days != null && days <= 7 -> " · only ${MedSchedule.fmtQty(m.stock)} left"
+                        days != null -> " · ${MedSchedule.fmtQty(m.stock)} left, until ${DateTimeFormatter.ofPattern("d MMM").format(MedSchedule.runsOutOn(m, today))}"
                         else -> " · ${MedSchedule.fmtQty(m.stock)} left"
                     },
                     warn = days != null && days <= 7,

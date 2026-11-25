@@ -67,7 +67,7 @@ object Meds {
         val n = NotificationCompat.Builder(context, MedAlarms.CH_MEDS)
             .setSmallIcon(R.drawable.ic_stat_bloom)
             .setContentTitle("Running low on ${m.name}")
-            .setContentText("${MedSchedule.fmtQty(m.stock)} left, about $days day${if (days == 1) "" else "s"}. Time to refill.")
+            .setContentText("${MedSchedule.fmtQty(m.stock)} left, enough until ${DateTimeFormatter.ofPattern("EEE d MMM").format(MedSchedule.runsOutOn(m, today))}. Time to refill.")
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()
@@ -166,9 +166,11 @@ object MedAlarms {
 
     /** Reminds again about [at] in [minutes], unless that's more than 3 hours after the dose time. */
     fun remindAgain(context: Context, at: LocalDateTime, minutes: Long, force: Boolean = false) {
-        val time = System.currentTimeMillis() + minutes * 60_000
-        if (!force && time > millis(at.plusHours(REMIND_FOR_HOURS))) return
-        setAlarm(context, time, againPi(context, at))
+        val zone = ZoneId.systemDefault()
+        val now = java.time.ZonedDateTime.now(zone)
+        val time = if (force) now.plusMinutes(minutes)
+            else com.malluwayne.batbloom.quit.Doses.remindAgainAt(at.atZone(zone), now, minutes, windowHours = REMIND_FOR_HOURS) ?: return
+        setAlarm(context, time.toInstant().toEpochMilli(), againPi(context, at))
     }
 
     private fun stopReminding(context: Context, at: LocalDateTime) {
@@ -256,6 +258,18 @@ object MedAlarms {
                 DoseAlarms.takenIntent(context, course.second.key)
             else -> null
         }
+    }
+
+    /** Today's scheduled doses, medications and the varenicline course together: (taken, due). */
+    suspend fun todayCounts(context: Context): Pair<Int, Int> {
+        val a = app(context)
+        val today = java.time.LocalDate.now()
+        val doses = MedSchedule.dosesOn(a.db.meds().allNow(), today)
+        val logs = if (doses.isEmpty()) emptyList() else a.db.meds().logsForSlots(doses.map { it.slot }.distinct())
+        val takenMeds = doses.count { d -> logs.any { it.medId == d.med.id && it.slot == d.slot && it.status == DoseStatus.TAKEN } }
+        val course = a.prefs.schedule.value.slotsOn(today)
+        val takenCourse = course.count { a.repo.doseStatus(it.key) == DoseStatus.TAKEN }
+        return (takenMeds + takenCourse) to (doses.size + course.size)
     }
 
     fun snooze(context: Context, at: LocalDateTime) {

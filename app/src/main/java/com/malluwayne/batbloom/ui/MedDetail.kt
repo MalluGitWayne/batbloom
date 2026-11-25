@@ -79,7 +79,7 @@ internal fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onE
     val scope = rememberCoroutineScope()
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
-    val history by remember(m.id) { app.db.meds().history(m.id, 120) }.collectAsState(emptyList())
+    val history by remember(m.id) { app.db.meds().history(m.id, 500) }.collectAsState(emptyList())
     var stockDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val fmt = DateTimeFormatter.ofPattern("EEE d MMM, h:mm a")
@@ -124,7 +124,7 @@ internal fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onE
                 Text(
                     when {
                         m.stock < 0 -> "Not tracked · tap to add how many you have"
-                        days != null -> "${MedSchedule.fmtQty(m.stock)} left · about $days days"
+                        days != null -> "${MedSchedule.fmtQty(m.stock)} left · lasts until ${DateTimeFormatter.ofPattern("EEE d MMM").format(MedSchedule.runsOutOn(m, today))}"
                         else -> "${MedSchedule.fmtQty(m.stock)} left"
                     },
                     color = if (days != null && days <= 7) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
@@ -133,11 +133,25 @@ internal fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onE
                 Text("›", color = Muted, fontSize = 20.sp)
             }
         }
-        if (Frequency.of(m.frequency) != Frequency.AsNeeded) SectionCard("Last 7 days") {
-            WeekDots((6 downTo 0).map { today.minusDays(it.toLong()) }.map { d ->
-                val doses = MedSchedule.dosesOn(listOf(m), d)
-                DayDoses(d, doses.size, doses.count { dose -> history.any { it.slot == dose.slot && it.status == DoseStatus.TAKEN } })
-            }, today)
+        if (Frequency.of(m.frequency) != Frequency.AsNeeded) {
+            val taken = remember(history) { history.filter { it.status == DoseStatus.TAKEN }.mapNotNull { it.slot }.toSet() }
+            var month by remember { mutableStateOf(java.time.YearMonth.from(today)) }
+            val first = java.time.YearMonth.from(LocalDate.parse(m.startDate))
+            SectionCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(DateTimeFormatter.ofPattern("MMMM yyyy").format(month), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    TextButton({ month = month.minusMonths(1) }, enabled = month > first) { Text("‹", fontSize = 20.sp) }
+                    TextButton({ month = month.plusMonths(1) }, enabled = month < java.time.YearMonth.from(today)) { Text("›", fontSize = 20.sp) }
+                }
+                MonthDots(month, today) { d ->
+                    val doses = if (d.isAfter(today)) emptyList() else MedSchedule.dosesOn(listOf(m), d)
+                    DayDoses(d, doses.size, doses.count { it.slot in taken })
+                }
+                val days = (1..month.lengthOfMonth()).map { month.atDay(it) }.filter { !it.isAfter(today) }
+                    .map { d -> MedSchedule.dosesOn(listOf(m), d).let { l -> l.size to l.count { it.slot in taken } } }
+                val due = days.sumOf { it.first }
+                if (due > 0) Text("${days.sumOf { it.second } * 100 / due}% of doses taken this month", color = Muted, fontSize = 13.sp)
+            }
         }
         SectionCard("History") {
             if (history.isEmpty()) Text("Nothing logged yet", color = Muted)

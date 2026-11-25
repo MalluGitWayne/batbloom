@@ -83,7 +83,7 @@ fun HomeScreen(modifier: Modifier) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    when (now.hour) { in 5..11 -> "Good morning"; in 12..16 -> "Good afternoon"; else -> "Good evening" },
+                    when (now.hour) { in 5..11 -> "Good morning"; in 12..16 -> "Good afternoon"; in 17..21 -> "Good evening"; else -> "Good night" },
                     style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
                 )
                 Text(DateTimeFormatter.ofPattern("EEEE, d MMMM").format(today), color = Muted, fontSize = 13.sp)
@@ -143,6 +143,7 @@ fun HomeScreen(modifier: Modifier) {
                         }
                         Text("›", color = Muted, fontSize = 22.sp)
                     }
+                    Meter(all.count { it.done }.toFloat() / all.size, Teal)
                 }
             }
         }

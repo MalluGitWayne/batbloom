@@ -75,7 +75,10 @@ fun BarChart(
     var sel by remember(values.size, selected) { mutableIntStateOf(selected.coerceIn(0, values.lastIndex)) }
     val grow = remember { Animatable(0f) }
     LaunchedEffect(values) { grow.snapTo(0f); grow.animateTo(1f, tween(500, easing = FastOutSlowInEasing)) }
-    val max = (values.maxOrNull() ?: 0f).coerceAtLeast(reference ?: 0f).coerceAtLeast(1f) * 1.12f
+    val top = values.maxOrNull() ?: 0f
+    // A goal far above every bar would squash them flat: then the bars keep the height and the goal is only named.
+    val refFits = reference != null && reference > 0f && (top <= 0f || reference <= top * 1.6f)
+    val max = (if (refFits) top.coerceAtLeast(reference!!) else top).coerceAtLeast(1f) * 1.12f
     val muted = Muted
     val base = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
     val stub = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
@@ -111,7 +114,7 @@ fun BarChart(
                 }
                 drawPath(path, if (i == sel) color else color.copy(alpha = 0.32f))
             }
-            reference?.takeIf { it > 0f }?.let { ref ->
+            reference?.takeIf { refFits }?.let { ref ->
                 val y = h - ref / max * h
                 drawLine(muted.copy(alpha = 0.7f), Offset(0f, y), Offset(size.width, y), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)))
             }
@@ -126,7 +129,7 @@ fun BarChart(
             }
         }
         if (reference != null && referenceLabel != null) Text(
-            "- - $referenceLabel", color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
+            (if (refFits) "- - " else "↑ ") + referenceLabel, color = muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp),
         )
     }
 }

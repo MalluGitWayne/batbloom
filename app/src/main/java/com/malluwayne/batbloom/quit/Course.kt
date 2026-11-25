@@ -94,6 +94,20 @@ object Doses {
     enum class Missed { TakeNow, Skip }
 
     /** The user's rule: take a missed dose when remembered, unless the next one is close. Never double up. */
+    /**
+     * When to remind again about a dose due at [due]: [minutes] from [now], but never more than [windowHours] after
+     * the dose time, and (with [closeHours]) not once the next dose is so close the advice is to skip. Null: stop.
+     */
+    fun remindAgainAt(
+        due: ZonedDateTime, now: ZonedDateTime, minutes: Long,
+        next: ZonedDateTime? = null, closeHours: Int? = null, windowHours: Long = 3,
+    ): ZonedDateTime? {
+        val at = now.plusMinutes(minutes)
+        if (at.isAfter(due.plusHours(windowHours))) return null
+        if (closeHours != null && missedAdvice(at, next, closeHours) == Missed.Skip) return null
+        return at
+    }
+
     fun missedAdvice(now: ZonedDateTime, next: ZonedDateTime?, closeHours: Int): Missed =
         if (next != null && Duration.between(now, next).toMinutes() <= closeHours * 60L) Missed.Skip else Missed.TakeNow
 

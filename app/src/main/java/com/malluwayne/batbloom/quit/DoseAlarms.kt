@@ -146,10 +146,8 @@ object DoseAlarms {
         val s = prefs.schedule.value
         val zone = java.time.ZoneId.systemDefault()
         val due = s.timeOf(slot, zone)
-        val at = ZonedDateTime.now(zone).plusMinutes(minutes)
-        if (at.isAfter(due.plusHours(3))) return
         val next = s.slotsFrom(slot.date).map { s.timeOf(it, zone) }.firstOrNull { it.isAfter(due) }
-        if (Doses.missedAdvice(at, next, prefs.closeHours.value) == Doses.Missed.Skip) return
+        val at = Doses.remindAgainAt(due, ZonedDateTime.now(zone), minutes, next, prefs.closeHours.value) ?: return
         setAlarm(context, at.toInstant().toEpochMilli(), againPi(context, slot.key))
     }
 

@@ -81,6 +81,23 @@ class CourseTest {
         assertEquals(Doses.Missed.TakeNow, Doses.missedAdvice(now, null, 4))
     }
 
+    @Test fun remindAgainRule() {
+        val due = d(12, 1).atTime(8, 0).atZone(zone)
+        // A follow-up 30 minutes on, well inside the 3-hour window
+        assertEquals(due.plusMinutes(40), Doses.remindAgainAt(due, due.plusMinutes(10), 30))
+        // Exactly at the window's end still reminds; past it, stop
+        assertEquals(due.plusHours(3), Doses.remindAgainAt(due, due.plusMinutes(150), 30))
+        assertNull(Doses.remindAgainAt(due, due.plusMinutes(151), 30))
+        // Swiped long after: nothing more
+        assertNull(Doses.remindAgainAt(due, due.plusHours(5), 10))
+        // Varenicline: next dose at 10:00, skip window 4 hours -> no reminder once inside it
+        val next = due.plusHours(10)
+        assertEquals(due.plusMinutes(30), Doses.remindAgainAt(due, due, 30, next, 4))
+        val lateDue = d(12, 1).atTime(20, 0).atZone(zone)
+        val nextAm = d(12, 2).atTime(8, 0).atZone(zone)
+        assertNull(Doses.remindAgainAt(lateDue, lateDue.plusHours(9), 10, nextAm, 4, windowHours = 12))
+    }
+
     @Test fun quitProgress() {
         val quit = d(11, 28).atStartOfDay(zone)
         val p = QuitMath.progress(quit, quit.plusDays(3), perDay = 10, packSize = 20, packPrice = 340.0)

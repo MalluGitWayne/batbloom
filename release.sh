@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publishes a Batbloom release to GitHub: unit tests, UI tests (when an emulator is running), then the signed APK
+# Publishes a Batbloom release to GitHub: unit tests and lint, UI tests (when an emulator is running), then the signed APK
 # attached to a release. The app's Settings > Updates then offers it on the phone.
 #   ./release.sh "What changed in this version"
 #   SKIP_UI_TESTS=1 ./release.sh "..."   to skip the UI tests
@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
 NOTES=${1:-"Batbloom $VERSION"}
 
-./gradlew --no-daemon testDebugUnitTest
+./gradlew --no-daemon testDebugUnitTest lintDebug
 
 # UI tests reinstall the debug app, which wipes its data, so they only ever run on an emulator, never on a phone.
 ADB="${ANDROID_HOME:-$LOCALAPPDATA/Android/Sdk}/platform-tools/adb"

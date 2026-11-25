@@ -165,4 +165,7 @@ object MedSchedule {
         if (use <= 0) return null
         return (m.stock / use).toInt()
     }
+
+    /** Roughly the last day the supply covers, counting from [from]; null when it isn't tracked. */
+    fun runsOutOn(m: MedEntity, from: LocalDate): LocalDate? = daysOfStock(m, from)?.let { from.plusDays((it - 1).coerceAtLeast(0).toLong()) }
 }

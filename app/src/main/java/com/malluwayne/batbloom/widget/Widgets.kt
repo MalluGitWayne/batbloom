@@ -169,6 +169,7 @@ class BloomWidget : AppWidgetProvider() {
                 else -> prefs.selectedPlant.value to (0.62f + 0.38f * if (goal > 0) (s.todayMinutes.toFloat() / goal).coerceIn(0f, 1f) else 0f)
             }
             val doseDue = com.malluwayne.batbloom.meds.MedAlarms.widgetDose(context)
+            val doseCount = if (prefs.medsTab.value) com.malluwayne.batbloom.meds.MedAlarms.todayCounts(context) else null
             val all = app.repo.sessions.first()
             val garden = all.take(6).map { it.plantId to (it.status != com.malluwayne.batbloom.data.Status.DONE) }
             val allStats = Stats.compute(all, today, zone)
@@ -179,6 +180,10 @@ class BloomWidget : AppWidgetProvider() {
                         if (allStats.streakDays > 0) "Streak ${allStats.streakDays} day${if (allStats.streakDays == 1) "" else "s"}" else null,
                         "${s.completed} bloom${if (s.completed == 1) "" else "s"} today",
                     ).joinToString(" · "))
+                }
+                // Doses at a glance: how many of today's are taken, a tick once they all are.
+                doseCount?.takeIf { it.second > 0 }?.let { (taken, due) ->
+                    add(if (taken >= due) "Meds ✓ all $due taken today" else "Meds $taken of $due taken today")
                 }
                 val examOn = prefs.examTab.value
 

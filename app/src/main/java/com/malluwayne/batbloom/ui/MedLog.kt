@@ -21,6 +21,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -86,31 +94,80 @@ internal sealed class DoseItem(val at: LocalDateTime) {
 @Composable
 internal fun TimeGroup(at: LocalDateTime, group: List<DoseItem>, now: LocalDateTime, past: Boolean, onLog: () -> Unit) {
     val zone = ZoneId.systemDefault()
-    val late = group.any { it.open } && now.isAfter(at.plusMinutes(60))
-    SectionCard {
+    val open = group.any { it.open }
+    val late = open && now.isAfter(at.plusMinutes(60))
+    val allTaken = group.all { it.status == DoseStatus.TAKEN }
+    val base = MaterialTheme.colorScheme.surfaceContainer
+    // Done times glow teal, late ones gold: the state reads before any text does.
+    val container = when {
+        allTaken -> Teal.copy(alpha = 0.10f).compositeOver(base)
+        else -> base
+    }
+    SectionCard(container = container) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(timeFmt.format(at), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = if (late) Gold else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-            if (group.any { it.open }) Chip("Log", true, onLog) else TextButton(onLog) { Text("Edit", fontSize = 13.sp) }
+            Text(timeFmt.format(at), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = if (late) Gold else MaterialTheme.colorScheme.onSurface)
+            Text(
+                "  " + partOfDay(at.toLocalTime()), color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f),
+            )
+            when {
+                open -> Chip(if (group.size > 1) "Log all" else "Log", true, onLog)
+                allTaken -> Text("All taken", color = Teal, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onLog).padding(6.dp))
+                else -> Text("Edit", color = Muted, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onLog).padding(6.dp))
+            }
         }
         group.forEach { i ->
             val (art, title, sub) = describe(i)
+            val status = i.status
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onLog)) {
-                art()
+                Box(Modifier.alpha(when (status) { DoseStatus.TAKEN -> 0.55f; DoseStatus.SKIPPED -> 0.35f; else -> 1f })) { art() }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(title, fontWeight = FontWeight.SemiBold, color = if (i.status != null) Muted else MaterialTheme.colorScheme.onSurface)
-                    if (sub.isNotBlank()) Text(sub, color = Muted, fontSize = 13.sp)
-                }
-                when (i.status) {
-                    DoseStatus.TAKEN -> Text(
-                        "✓ " + (i.takenAt?.let { timeFmt.format(Instant.ofEpochMilli(it).atZone(zone)) } ?: "Taken"),
-                        color = Teal, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                    Text(
+                        title, fontWeight = FontWeight.SemiBold,
+                        color = if (status == null) MaterialTheme.colorScheme.onSurface else Muted,
+                        textDecoration = if (status == DoseStatus.SKIPPED) TextDecoration.LineThrough else null,
                     )
-                    DoseStatus.SKIPPED -> Text("Skipped", color = Muted, fontSize = 13.sp)
-                    else -> if (past) Text("Not logged", color = Gold, fontSize = 12.sp)
+                    Text(
+                        when (status) {
+                            DoseStatus.TAKEN -> "Taken" + (i.takenAt?.let { " at " + timeFmt.format(Instant.ofEpochMilli(it).atZone(zone)) } ?: "")
+                            DoseStatus.SKIPPED -> "Skipped"
+                            else -> sub
+                        },
+                        color = if (status == DoseStatus.TAKEN) Teal else Muted,
+                        fontSize = 13.sp,
+                    )
                 }
+                StatusDot(status, late || past)
             }
         }
     }
+}
+
+/** Taken: a filled teal tick. Skipped: a grey cross. Still to take: an empty ring, gold when it's late. */
+@Composable
+private fun StatusDot(status: String?, late: Boolean) {
+    val ring = if (late) Gold else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+    Box(
+        Modifier.size(28.dp).then(
+            when (status) {
+                DoseStatus.TAKEN -> Modifier.background(Teal, CircleShape)
+                DoseStatus.SKIPPED -> Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), CircleShape)
+                else -> Modifier.border(2.dp, ring, CircleShape)
+            },
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        when (status) {
+            DoseStatus.TAKEN -> Icon(Icons.Filled.Check, "Taken", tint = Color(0xFF0B2A26), modifier = Modifier.size(18.dp))
+            DoseStatus.SKIPPED -> Icon(Icons.Filled.Close, "Skipped", tint = Muted, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+private fun partOfDay(t: LocalTime) = when (t.hour) {
+    in 4..11 -> "Morning"
+    in 12..16 -> "Afternoon"
+    in 17..20 -> "Evening"
+    else -> "Night"
 }
 
 internal fun describe(i: DoseItem): Triple<@Composable () -> Unit, String, String> = when (i) {

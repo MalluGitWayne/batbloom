@@ -191,10 +191,7 @@ fun HomeScreen(modifier: Modifier) {
                     }
                     Text("›", color = Muted, fontSize = 22.sp)
                 }
-                if (goal > 0) LinearProgressIndicator(
-                    { (stats.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f) }, Modifier.fillMaxWidth().height(6.dp),
-                    color = Teal, drawStopIndicator = {}, gapSize = 0.dp,
-                )
+                if (goal > 0) Meter((stats.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f), Teal)
             }
         }
 

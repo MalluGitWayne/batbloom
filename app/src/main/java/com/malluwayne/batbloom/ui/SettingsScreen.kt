@@ -2,6 +2,9 @@
 
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
 import androidx.core.net.toUri
 
 import android.content.Intent
@@ -91,49 +94,55 @@ fun SettingsScreen(modifier: Modifier) {
 
     androidx.compose.runtime.CompositionLocalProvider(LocalCollapsibleCards provides true) {
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
 
-        UpdateSection()
-
-        SectionCard("Appearance") {
-            val mode by prefs.theme.collectAsState()
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemeMode.entries.forEach { m ->
-                    androidx.compose.material3.FilterChip(mode == m, { prefs.setTheme(m) }, { Text(m.label) })
-                }
+        // Theme: one tap, always visible.
+        val mode by prefs.theme.collectAsState()
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            ThemeMode.entries.forEachIndexed { i, m ->
+                SegmentedButton(
+                    mode == m, { prefs.setTheme(m) },
+                    SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size),
+                    icon = {},
+                ) { Text(if (m == ThemeMode.Oled) "OLED" else m.label, maxLines = 1, fontSize = 13.sp) }
             }
         }
 
-        SectionCard("Permissions") {
-            StatusRow("Usage access (leave detection)", hasUsage, "Turn on") { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
-            StatusRow("Notifications", hasNotif, "Allow") {
-                ctx.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName))
-            }
-            BackgroundSection(now)
-        }
+        val dndOn = remember(now) { com.malluwayne.batbloom.focus.Dnd.enabled(ctx) && com.malluwayne.batbloom.focus.Dnd.hasAccess(ctx) }
+        val examTab by prefs.examTab.collectAsState()
+        val quitTab by prefs.quitTab.collectAsState()
+        val medsTab by prefs.medsTab.collectAsState()
+        val bgOk = remember(now) { (ctx.getSystemService(android.os.PowerManager::class.java)).isIgnoringBatteryOptimizations(ctx.packageName) }
+        val toFix = listOf(hasUsage, hasNotif, bgOk).count { !it }
 
-        SectionCard("Focus") {
+        SectionCard(
+            "Focus",
+            subtitle = listOfNotNull(
+                if (allowed.isEmpty()) "No allowed apps" else "${allowed.size} allowed app${if (allowed.size == 1) "" else "s"}",
+                if (dndOn) "Do Not Disturb on" else null,
+            ).joinToString(" · "),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Allowed apps", Modifier.weight(1f))
-                TextButton({ showApps = true }) { Text(if (allowed.isEmpty()) "Choose" else "${allowed.size} chosen  \u203A") }
+                TextButton({ showApps = true }) { Text(if (allowed.isEmpty()) "Choose" else "${allowed.size} chosen  ›") }
             }
             DndRow(now)
             TimeGuardSection(now)
             if (custom.isNotEmpty()) SubSection("Custom tags") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    custom.forEach { t -> InputChip(false, { prefs.removeTag(t) }, { Text("$t  \u2715") }) }
+                    custom.forEach { t -> InputChip(false, { prefs.removeTag(t) }, { Text("$t  ✕") }) }
                 }
             }
         }
 
-        SectionCard("Tabs") {
-            Text("Turn off what you don't use. Each tab keeps its own settings (tap Edit inside it).", color = Muted, fontSize = 12.sp)
-            val examTab by prefs.examTab.collectAsState()
-            val quitTab by prefs.quitTab.collectAsState()
-            val medsTab by prefs.medsTab.collectAsState()
+        SectionCard(
+            "Tabs",
+            subtitle = listOfNotNull("Exam".takeIf { examTab }, "Quit".takeIf { quitTab }, "Meds".takeIf { medsTab })
+                .joinToString(", ").ifBlank { "Only Home and Focus" },
+        ) {
             TabSwitch("Exam", "FMGE countdown, subjects, questions and mock tests", "Hidden. The daily study reminder is paused.", examTab) {
                 prefs.setExamTab(it); com.malluwayne.batbloom.Shortcuts.update(ctx); com.malluwayne.batbloom.guard.Reminders.scheduleAll(ctx)
             }
@@ -145,23 +154,30 @@ fun SettingsScreen(modifier: Modifier) {
                 BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
             }
         }
-        BackupSection()
 
-        SectionCard("About") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AppLogo(96)
-                Column(Modifier.padding(start = 16.dp)) {
-                    Text("Batbloom", style = MaterialTheme.typography.headlineSmall)
-                    Text("Version ${com.malluwayne.batbloom.update.Updates.appVersion(ctx)} · grow a night garden", color = Muted, fontSize = 13.sp)
-                }
+        SectionCard(
+            "Permissions",
+            subtitle = if (toFix == 0) "All set" else "$toFix to fix",
+            subtitleColor = if (toFix == 0) null else Gold,
+        ) {
+            StatusRow("Usage access (leave detection)", hasUsage, "Turn on") { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+            StatusRow("Notifications", hasNotif, "Allow") {
+                ctx.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName))
             }
-            Text(
-                "Data stays on this phone. Not a substitute for medical advice.",
-                fontSize = 13.sp, color = Muted,
-            )
+            BackgroundSection(now)
+        }
+
+        BackupSection()
+        UpdateSection()
+
+        // About: a quiet footer instead of another card.
+        Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            AppLogo(40)
+            Text("Batbloom ${com.malluwayne.batbloom.update.Updates.appVersion(ctx)}", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            Text("Data stays on this phone. Not a substitute for medical advice.", color = Muted, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             TextButton({
                 ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ("package:${ctx.packageName}").toUri()))
-            }) { Text("App info") }
+            }) { Text("App info", fontSize = 13.sp) }
         }
     }
 

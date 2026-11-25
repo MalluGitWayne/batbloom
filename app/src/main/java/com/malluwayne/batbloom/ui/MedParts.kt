@@ -164,4 +164,33 @@ fun QtyStepper(qty: Double, onChange: (Double) -> Unit, label: (Double) -> Strin
     }
 }
 
-/** One medication: picture, schedule, stock, the last 7 days and its history. */
+/** One day in a week of doses: how many were due and how many were taken. */
+internal data class DayDoses(val date: LocalDate, val due: Int, val taken: Int)
+
+/** Seven dots, one per day: teal all taken, gold some, red none, faint when nothing was due or today is still open. */
+@Composable
+internal fun WeekDots(days: List<DayDoses>, today: LocalDate, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth()) {
+        days.forEach { d ->
+            val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+            val color = when {
+                d.due == 0 -> track
+                d.taken >= d.due -> Teal
+                d.taken > 0 -> Gold
+                d.date == today -> track
+                else -> MaterialTheme.colorScheme.error.copy(alpha = 0.75f)
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.padding(vertical = 4.dp).size(22.dp).background(color, RoundedCornerShape(50))
+                        .then(if (d.date == today) Modifier.border(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f), RoundedCornerShape(50)) else Modifier),
+                )
+                Text(
+                    d.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, java.util.Locale.getDefault()),
+                    color = if (d.date == today) MaterialTheme.colorScheme.onSurface else Muted, fontSize = 11.sp,
+                    fontWeight = if (d.date == today) FontWeight.SemiBold else FontWeight.Normal,
+                )
+            }
+        }
+    }
+}

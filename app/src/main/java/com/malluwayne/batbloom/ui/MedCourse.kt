@@ -92,9 +92,7 @@ fun CourseDetail(modifier: Modifier, onBack: () -> Unit) {
                 },
                 fontWeight = FontWeight.SemiBold,
             )
-            if (day in 1..schedule.courseDays) LinearProgressIndicator(
-                { day.toFloat() / schedule.courseDays }, Modifier.fillMaxWidth().height(6.dp), color = Teal, drawStopIndicator = {}, gapSize = 0.dp,
-            )
+            if (day in 1..schedule.courseDays) Meter(day.toFloat() / schedule.courseDays, Teal)
             val (am, pm) = schedule.dosesOnDay(day.coerceIn(1, schedule.courseDays))
             Text(
                 "Today: " + listOfNotNull(

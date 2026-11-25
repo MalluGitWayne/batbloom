@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollAction
@@ -60,7 +61,7 @@ class ScreensTest {
     @Test fun examQuestionCounterAdds() {
         tab("Exam")
         val before = com.malluwayne.batbloom.stats.ExamPlan.parseMcq(BatbloomApp.instance.prefs.mcq.value)[java.time.LocalDate.now()] ?: 0
-        rule.onNode(hasScrollAction()).performScrollToNode(hasText("+10"))
+        rule.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("+10"))
         rule.onNodeWithText("+10").performClick(); rule.waitForIdle()
         val after = com.malluwayne.batbloom.stats.ExamPlan.parseMcq(BatbloomApp.instance.prefs.mcq.value)[java.time.LocalDate.now()] ?: 0
         assert(after == before + 10) { "expected ${before + 10}, got $after" }
@@ -74,7 +75,7 @@ class ScreensTest {
 
     @Test fun addMedicationFlowReachesReview() {
         tab("Meds")
-        rule.onNodeWithText("+ Add").performClick(); rule.waitForIdle()
+        rule.onNodeWithContentDescription("Add a medication").performClick(); rule.waitForIdle()
         rule.onNodeWithText("Medication name").assertIsDisplayed()
         rule.onNodeWithText("Cancel").performClick(); rule.waitForIdle()
         rule.onNodeWithText("Medications").assertIsDisplayed()
@@ -101,7 +102,7 @@ class ScreensTest {
         tab("Quit")
         val quit = BatbloomApp.instance.prefs.quitDate.value
         if (quit == null) return
-        rule.onNode(hasScrollAction()).performScrollToNode(hasText("Craving? Breathe"))
+        rule.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Craving? Breathe"))
         rule.onNodeWithText("Craving? Breathe").performClick(); rule.waitForIdle()
         rule.onNodeWithText("The craving has passed").assertIsDisplayed()
     }

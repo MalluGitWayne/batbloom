@@ -86,15 +86,10 @@ fun ExamScreen(modifier: Modifier) {
     val summary = remember(sessions, today) { Stats.compute(sessions, today, zone) }
 
     val subjects = remember(sessions, today) { Revision.subjects(sessions, today, zone) }
-    // The saved weekly plan: kept for 7 days so ticks and missed subjects stay put.
-    val planJson by prefs.examPlan.collectAsState()
-    val plan = remember(planJson, subjects, today, exam) { ExamPlan.current(ExamPlan.parseSaved(planJson), subjects, today, exam) }
-    androidx.compose.runtime.LaunchedEffect(plan) { ExamPlan.formatSaved(plan).let { if (it != planJson) prefs.setExamPlan(it) } }
     val studiedDays = remember(sessions) {
         sessions.filter { it.tag == Tags.FMGE && it.status == Status.DONE && it.subject != null }
             .groupBy({ it.subject!! }, { Stats.dayOf(it.startedAt, zone) }).mapValues { it.value.toSet() }
     }
-    val planView = remember(plan, studiedDays, today) { ExamPlan.view(plan, studiedDays, today) }
     val streak = remember(sessions, today) { Revision.streak(sessions, today, zone) }
     val week = remember(sessions, today) {
         (6 downTo 0).map { today.minusDays(it.toLong()) }.map { d ->
@@ -141,7 +136,7 @@ fun ExamScreen(modifier: Modifier) {
             val e = exam
             if (e == null) Column {
                 Text("When is your exam?", color = Color.White, style = MaterialTheme.typography.titleLarge)
-                Text("Set the date to see a countdown and a study plan for each week.", color = Color(0xFFCBD2F0), fontSize = 13.sp)
+                Text("Set the date to see a countdown and whether your pace will cover every subject in time.", color = Color(0xFFCBD2F0), fontSize = 13.sp)
                 Button({ settings = true }, Modifier.padding(top = 10.dp)) { Text("Set exam date") }
             } else {
                 val days = ChronoUnit.DAYS.between(today, e)
@@ -170,25 +165,25 @@ fun ExamScreen(modifier: Modifier) {
             }
         }
 
-        // Today
+        // Today: progress to the daily goal, the last 7 days, and what to study next
         SectionCard {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Column(Modifier.weight(1f)) {
-                    Text(Rules.formatMinutes(summary.fmgeTodayMinutes), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                    Text("studied today" + if (goal > 0) " of ${Rules.formatMinutes(goal)}" else "", color = Muted, fontSize = 13.sp)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("$streak", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Gold)
-                    Text(if (streak == 1) "day streak" else "days streak", color = Muted, fontSize = 12.sp)
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Study", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (streak > 0) Text("$streak-day streak", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
-            if (goal > 0) LinearProgressIndicator(
-                { (summary.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f) }, Modifier.fillMaxWidth().height(8.dp),
-                color = Teal, drawStopIndicator = {}, gapSize = 0.dp,
+            val dayFmt = remember(locale) { DateTimeFormatter.ofPattern("EEE d MMM", locale) }
+            BarChart(
+                values = week.map { it.second.toFloat() },
+                labels = week.map { (d, _) -> d.dayOfWeek.getDisplayName(TextStyle.NARROW, locale) },
+                names = week.map { (d, _) -> if (d == today) "today" else dayFmt.format(d) },
+                color = Teal,
+                format = { Rules.formatMinutes(it.toInt()) },
+                reference = goal.toFloat().takeIf { goal > 0 },
+                referenceLabel = "daily goal ${Rules.formatMinutes(goal)}",
+                height = 110.dp,
             )
-            WeekBars(week, today)
             val current by prefs.subject.collectAsState()
-            val next = ExamPlan.next(planView, today) ?: current
+            val next = ExamPlan.suggest(subjects).firstOrNull() ?: current
             Button({ study(next) }, Modifier.fillMaxWidth()) { Text("Study now \u00B7 $next") }
         }
 
@@ -210,52 +205,11 @@ fun ExamScreen(modifier: Modifier) {
                 sessions.filter { it.tag == Tags.FMGE && it.subject == Tags.MCQ && it.status == Status.DONE && Stats.dayOf(it.startedAt, zone) == today }.sumOf { it.plannedMinutes }
             }
             if (timed > 0) Text("Plus ${Rules.formatMinutes(timed)} of timed MCQ practice today", color = Muted, fontSize = 12.sp)
-            LinearProgressIndicator({ (done.toFloat() / mcqGoal.coerceAtLeast(1)).coerceAtMost(1f) }, Modifier.fillMaxWidth().height(8.dp), color = Lavender, drawStopIndicator = {}, gapSize = 0.dp)
+            Meter(done.toFloat() / mcqGoal.coerceAtLeast(1), Lavender)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 listOf(10, 25, 50).forEach { k -> OutlinedButton({ addMcq(k) }) { Text("+$k") } }
                 TextButton({ askMcq = true }) { Text("Other\u2026") }
             }
-        }
-
-        // This week's plan
-        if (planView.any { it.second.isNotEmpty() }) SectionCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("This week", style = MaterialTheme.typography.titleMedium)
-                    val all = planView.filter { !it.first.isAfter(today) }.flatMap { it.second }.filter { !it.carried }
-                    Text("${all.count { it.done }} of ${all.size} done so far \u00b7 until ${DateTimeFormatter.ofPattern("EEE d MMM").format(plan.end)}", color = Muted, fontSize = 12.sp)
-                }
-                TextButton({ prefs.setExamPlan(ExamPlan.formatSaved(ExamPlan.Saved(today, ExamPlan.week(subjects, today, exam).toMap()))) }) { Text("Replan") }
-            }
-            val teal = Teal
-            val gold = Gold
-            planView.forEach { (d, items) ->
-                Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                    Text(
-                        if (d == today) "Today" else d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " ${d.dayOfMonth}",
-                        Modifier.weight(0.28f), fontWeight = if (d == today) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp,
-                        color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
-                    )
-                    Column(Modifier.weight(0.72f)) {
-                        if (items.isEmpty()) Text("\u2014", fontSize = 13.sp, color = Muted)
-                        items.forEach { it ->
-                            val past = d.isBefore(today)
-                            Text(
-                                when {
-                                    it.done -> "\u2713 ${it.subject}"
-                                    it.carried -> "${it.subject} \u00b7 carried over"
-                                    past -> "${it.subject} \u00b7 missed"
-                                    else -> it.subject
-                                },
-                                fontSize = 13.sp,
-                                color = when { it.done -> teal; it.carried || past -> gold; else -> MaterialTheme.colorScheme.onSurface },
-                                modifier = if (d == today && !it.done) Modifier.clickable { study(it.subject) } else Modifier,
-                            )
-                        }
-                    }
-                }
-            }
-            Text("Missed subjects move to today. Tap one of today's to study it.", color = Muted, fontSize = 11.sp)
         }
 
         // All subjects
@@ -275,19 +229,19 @@ fun ExamScreen(modifier: Modifier) {
                     color = if (p.onTrack) Teal else Gold, fontSize = 13.sp,
                 )
             }
-            LinearProgressIndicator({ covered.toFloat() / subjects.size }, Modifier.fillMaxWidth().height(6.dp), color = Lavender, drawStopIndicator = {}, gapSize = 0.dp)
+            Meter(covered.toFloat() / subjects.size, Lavender)
             val max = subjects.maxOf { it.minutes }.coerceAtLeast(1)
             val list = subjects.sortedWith(compareByDescending<Revision.SubjectStatus> { it.minutes > 0 }.thenByDescending { it.minutes })
             (if (showAll) list else list.take(8)).forEach { s ->
-                Column(Modifier.fillMaxWidth().clickable { study(s.subject) }.padding(vertical = 4.dp)) {
-                    Row {
-                        Text(s.subject, Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (s.minutes > 0) Rules.formatMinutes(s.minutes) else "Not started", fontSize = 13.sp, color = Muted)
+                Column(Modifier.fillMaxWidth().clickable { study(s.subject) }.padding(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.subject, Modifier.weight(1f), fontSize = 14.sp)
+                        Text(
+                            if (s.minutes > 0) Rules.formatMinutes(s.minutes) + " \u00B7 " + ago(s.lastStudied!!, today) else "\u2014",
+                            fontSize = 12.sp, color = Muted,
+                        )
                     }
-                    if (s.minutes > 0) {
-                        LinearProgressIndicator({ s.minutes.toFloat() / max }, Modifier.fillMaxWidth().height(5.dp).padding(top = 2.dp), color = Teal, drawStopIndicator = {}, gapSize = 0.dp)
-                        Text("Last studied ${ago(s.lastStudied!!, today)} \u00B7 ${s.days} day${if (s.days == 1) "" else "s"}", color = Muted, fontSize = 11.sp)
-                    }
+                    if (s.minutes > 0) Meter(s.minutes.toFloat() / max, Teal, height = 4.dp)
                 }
             }
             if (list.size > 8) TextButton({ showAll = !showAll }) { Text(if (showAll) "Show less" else "Show all ${list.size} subjects") }
@@ -309,7 +263,8 @@ fun ExamScreen(modifier: Modifier) {
                         Text((if (diff >= 0) "+" else "") + "$diff%", color = if (diff >= 0) Teal else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                     }
                 }
-                TestChart(tests.takeLast(10))
+                val shown = tests.takeLast(10)
+                LineChart(shown.map { it.percent }, shown.map { DateTimeFormatter.ofPattern("d MMM").format(it.date) }, ExamPlan.PASS_PERCENT, Lavender)
                 val weak = remember(tests) { ExamPlan.weakSubjects(tests) }
                 if (weak.isNotEmpty()) {
                     Text("Weakest subjects", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -400,34 +355,7 @@ fun ExamScreen(modifier: Modifier) {
 }
 
 private fun ago(d: LocalDate, today: LocalDate): String = when (val n = ChronoUnit.DAYS.between(d, today)) {
-    0L -> "today"; 1L -> "yesterday"; else -> "$n days ago"
-}
-
-@Composable
-private fun WeekBars(week: List<Pair<LocalDate, Int>>, today: LocalDate) {
-    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    val max = week.maxOf { it.second }.coerceAtLeast(30)
-    val teal = Teal
-    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
-    val desc = "Study time, last 7 days: " + week.joinToString(", ") { (d, m) -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " " + Rules.formatMinutes(m) }
-    Canvas(Modifier.fillMaxWidth().height(56.dp).semantics { contentDescription = desc }) {
-        val gap = size.width / week.size
-        val bw = gap * 0.42f
-        week.forEachIndexed { i, (d, m) ->
-            val x = i * gap + (gap - bw) / 2
-            drawRoundRect(track, Offset(x, 0f), Size(bw, size.height), CornerRadius(bw / 2))
-            val h = size.height * m / max
-            if (h > 0) drawRoundRect(if (d == today) teal else teal.copy(alpha = 0.55f), Offset(x, size.height - h), Size(bw, h), CornerRadius(bw / 2))
-        }
-    }
-    Row(Modifier.fillMaxWidth()) {
-        week.forEach { (d, _) ->
-            Text(
-                d.dayOfWeek.getDisplayName(TextStyle.NARROW, locale), Modifier.weight(1f), textAlign = TextAlign.Center,
-                fontSize = 11.sp, color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
-            )
-        }
-    }
+    0L -> "today"; 1L -> "yesterday"; else -> "${n}d ago"
 }
 
 @Composable
@@ -437,30 +365,6 @@ private fun SmallNumber(value: String, onChange: (String) -> Unit) {
         textStyle = MaterialTheme.typography.bodyMedium,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
     )
-}
-
-/** Test scores over time, with the pass mark as a dashed line. */
-@Composable
-private fun TestChart(tests: List<MockTest>) {
-    if (tests.size < 2) return
-    val teal = Teal
-    val gold = Gold
-    val grid = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-    val desc = "Mock test scores: " + tests.joinToString(", ") { "${it.percent}%" } + ". Pass mark ${ExamPlan.PASS_PERCENT}%."
-    Canvas(Modifier.fillMaxWidth().height(90.dp).semantics { contentDescription = desc }) {
-        // Zoom to the scores (and the pass mark) so changes are visible.
-        val lo = (minOf(tests.minOf { it.percent }, ExamPlan.PASS_PERCENT) - 8).coerceAtLeast(0)
-        val hi = (maxOf(tests.maxOf { it.percent }, ExamPlan.PASS_PERCENT) + 8).coerceAtMost(100)
-        val pad = 10f
-        val y = { p: Int -> pad + (size.height - 2 * pad) * (1f - (p - lo).toFloat() / (hi - lo).coerceAtLeast(1)) }
-        drawLine(gold.copy(alpha = 0.7f), Offset(0f, y(ExamPlan.PASS_PERCENT)), Offset(size.width, y(ExamPlan.PASS_PERCENT)), 2f,
-            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
-        drawLine(grid, Offset(0f, size.height), Offset(size.width, size.height), 1f)
-        val step = size.width / (tests.size - 1)
-        val pts = tests.mapIndexed { i, t -> Offset(i * step, y(t.percent)) }
-        pts.zipWithNext().forEach { (a, b) -> drawLine(teal, a, b, 5f, androidx.compose.ui.graphics.StrokeCap.Round) }
-        pts.forEach { drawCircle(teal, 7f, it); drawCircle(Color.White, 3f, it) }
-    }
 }
 
 /** Exam date, daily goal and the study reminder (moved here from Settings). */

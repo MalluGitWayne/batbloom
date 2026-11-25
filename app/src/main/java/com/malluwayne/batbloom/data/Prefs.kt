@@ -30,10 +30,10 @@ class Prefs(context: Context) {
     val mockTests: StateFlow<String> = _mockTests
     fun setMockTests(json: String) { sp.edit { putString("mock_tests", json) }; _mockTests.value = json }
 
-    /** The saved weekly study plan as JSON (see [com.malluwayne.batbloom.stats.ExamPlan.Saved]). */
-    private val _examPlan = MutableStateFlow(sp.getString("exam_plan", "")!!)
-    val examPlan: StateFlow<String> = _examPlan
-    fun setExamPlan(json: String) { sp.edit { putString("exam_plan", json) }; _examPlan.value = json }
+    /** The tip card on the Quit tab (hidden with its ✕, back on in Quit > Edit). */
+    private val _quitTips = MutableStateFlow(sp.getBoolean("quit_tips", true))
+    val quitTips: StateFlow<Boolean> = _quitTips
+    fun setQuitTips(on: Boolean) { sp.edit { putBoolean("quit_tips", on) }; _quitTips.value = on }
 
     /** Questions done per day as JSON {"2026-11-25": 120}. */
     private val _mcq = MutableStateFlow(sp.getString("mcq_log", "{}")!!)

@@ -81,14 +81,19 @@ fun UpdateSection() {
     }
     LaunchedEffect(Updates.known) { if (Updates.known != null && release == null) check() }
 
-    SectionCard("Updates") {
+    val newer = release?.let { Updates.isNewer(it.version, current) } == true
+    SectionCard(
+        "Updates",
+        subtitle = if (newer) "Batbloom ${release?.version} is available" else "Version $current",
+        subtitleColor = if (newer) Teal else null,
+    ) {
         LabeledRow("This version", current)
         val r = release
         when {
             state is SelfUpdate.State.Downloading -> {
                 Text("Downloading…", fontSize = 13.sp)
                 val p = if (state.total > 0) state.done.toFloat() / state.total else 0f
-                LinearProgressIndicator({ p }, Modifier.fillMaxWidth())
+                Meter(p, Lavender)
                 TextButton({ SelfUpdate.cancel() }) { Text("Cancel") }
             }
             state is SelfUpdate.State.Installing -> Text("Installing… Android may ask you to confirm.", fontSize = 13.sp)

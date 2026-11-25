@@ -134,23 +134,10 @@ internal fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onE
             }
         }
         if (Frequency.of(m.frequency) != Frequency.AsNeeded) SectionCard("Last 7 days") {
-            Row(Modifier.fillMaxWidth()) {
-                (6 downTo 0).map { today.minusDays(it.toLong()) }.forEach { d ->
-                    val doses = MedSchedule.dosesOn(listOf(m), d)
-                    val taken = doses.count { dose -> history.any { it.slot == dose.slot && it.status == DoseStatus.TAKEN } }
-                    val color = when {
-                        doses.isEmpty() -> MaterialTheme.colorScheme.outlineVariant
-                        taken == doses.size -> Teal
-                        taken > 0 -> Gold
-                        d == today -> MaterialTheme.colorScheme.outline
-                        else -> MaterialTheme.colorScheme.error
-                    }
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.padding(4.dp).width(26.dp).height(26.dp).background(color.copy(alpha = if (doses.isEmpty()) 0.3f else 0.85f), RoundedCornerShape(50)))
-                        Text(d.dayOfWeek.name.take(1), color = Muted, fontSize = 11.sp)
-                    }
-                }
-            }
+            WeekDots((6 downTo 0).map { today.minusDays(it.toLong()) }.map { d ->
+                val doses = MedSchedule.dosesOn(listOf(m), d)
+                DayDoses(d, doses.size, doses.count { dose -> history.any { it.slot == dose.slot && it.status == DoseStatus.TAKEN } })
+            }, today)
         }
         SectionCard("History") {
             if (history.isEmpty()) Text("Nothing logged yet", color = Muted)

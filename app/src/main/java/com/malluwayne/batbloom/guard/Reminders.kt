@@ -178,13 +178,8 @@ object Reminders {
         val s = Stats.compute(sessions, today, zone)
         val goal = a.prefs.dailyGoal.value
         val exam = a.prefs.examDate.value?.let { Stats.examLine(it, today) }
-        // Today's subjects from the weekly plan: the least-studied ones.
-        val ep = com.malluwayne.batbloom.stats.ExamPlan
-        val saved = ep.current(ep.parseSaved(a.prefs.examPlan.value), Revision.subjects(sessions, today, zone), today, a.prefs.examDate.value)
-        val studied = sessions.filter { it.tag == com.malluwayne.batbloom.data.Tags.FMGE && it.status == com.malluwayne.batbloom.data.Status.DONE && it.subject != null }
-            .groupBy({ it.subject!! }, { Stats.dayOf(it.startedAt, zone) }).mapValues { it.value.toSet() }
-        // Today's unfinished subjects from the saved plan, including any carried over.
-        val plan = ep.view(saved, studied, today).firstOrNull { it.first == today }?.second.orEmpty().filter { !it.done }.map { it.subject }
+        // Suggested subjects for today: not started first, then the least-studied.
+        val plan = com.malluwayne.batbloom.stats.ExamPlan.suggest(Revision.subjects(sessions, today, zone))
         val mcqDone = com.malluwayne.batbloom.stats.ExamPlan.parseMcq(a.prefs.mcq.value)[today] ?: 0
         val text = buildString {
             append("Goal today: ${Rules.formatMinutes(goal)}")

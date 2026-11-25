@@ -2,6 +2,8 @@
 
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -124,6 +126,12 @@ fun QuitScreen(modifier: Modifier) {
             TextButton({ setup = true }) { Text("Edit") }
         }
 
+        // Not set up yet: a gentle prompt instead of a dialog that pops up on its own.
+        if (!setupDone) SectionCard(modifier = Modifier.clickable { setup = true }) {
+            Text("Set up your tracker", fontWeight = FontWeight.SemiBold)
+            Text("Add how much you smoked and what a pack costs, for your savings. Tap to start.", color = Muted, fontSize = 13.sp)
+        }
+
         val q = quit
         if (q == null) {
             SectionCard {
@@ -171,7 +179,7 @@ fun QuitScreen(modifier: Modifier) {
                     }
                     Text(if (frac >= 1f) "🎉" else "${(frac * 100).roundToInt()}%", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Teal)
                 }
-                LinearProgressIndicator({ frac }, Modifier.fillMaxWidth().height(8.dp), color = Teal, drawStopIndicator = {}, gapSize = 0.dp)
+                Meter(frac, Teal)
                 val perDay = if (smoking.packSize > 0) smoking.perDay.toDouble() / smoking.packSize * smoking.packPrice else 0.0
                 Text(
                     if (frac >= 1f) "You've saved enough. Treat yourself!"
@@ -197,17 +205,31 @@ fun QuitScreen(modifier: Modifier) {
             Text("Write your reason. It shows here to keep you going. Tap to add it.", color = Muted, fontSize = 13.sp)
         }
 
-        // Tip of the day
-        SectionCard {
-            Text("Tip of the day", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(QuitTips[(today.toEpochDay() % QuitTips.size).toInt()], fontSize = 14.sp)
+        // Tips: today's first, swipe for more, ✕ to hide (turn back on in Edit).
+        val showTips by prefs.quitTips.collectAsState()
+        if (showTips) SectionCard {
+            val start = (today.toEpochDay() % QuitTips.size).toInt()
+            val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { QuitTips.size }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Tip", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text("${pager.currentPage + 1}/${QuitTips.size}", color = Muted, fontSize = 12.sp)
+                androidx.compose.material3.IconButton({ prefs.setQuitTips(false) }, Modifier.size(32.dp)) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.material.icons.Icons.Filled.Close, contentDescription = "Hide tips",
+                        tint = Muted, modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            androidx.compose.foundation.pager.HorizontalPager(pager, pageSpacing = 16.dp) { i ->
+                Text(QuitTips[i], fontSize = 14.sp, modifier = Modifier.fillMaxWidth())
+            }
         }
 
         BadgeShelf(badges.associate { it.id to it.earnedAt }, schedule, quit, sessions, doses)
         Spacer(Modifier.height(8.dp))
     }
 
-    if (setup || !setupDone) QuitSetupDialog(firstRun = !setupDone) { setup = false; prefs.setSmokingSetupDone() }
+    if (setup) QuitSetupDialog(firstRun = !setupDone) { saved -> setup = false; if (saved) prefs.setSmokingSetupDone() }
     if (breathe) BreathingDialog { done ->
         breathe = false
         if (done) { prefs.addBreathing(); app.appScope.launch { DoseAlarms.checkBadges(app) } }
@@ -266,9 +288,9 @@ private fun QuitTile(value: String, label: String, modifier: Modifier, color: Co
     }
 }
 
-/** Everything about your quit in one place (moved here from Settings). */
+/** Everything about your quit in one place. [onClose] gets true when saved. */
 @Composable
-private fun QuitSetupDialog(firstRun: Boolean, onClose: () -> Unit) {
+private fun QuitSetupDialog(firstRun: Boolean, onClose: (Boolean) -> Unit) {
     val prefs = BatbloomApp.instance.prefs
     val quit by prefs.quitDate.collectAsState()
     val quitTime by prefs.quitTime.collectAsState()
@@ -283,6 +305,7 @@ private fun QuitSetupDialog(firstRun: Boolean, onClose: () -> Unit) {
     var treatPrice by remember { mutableStateOf(if (treat.price > 0) treat.price.roundToInt().toString() else "") }
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
+    var tips by remember { mutableStateOf(prefs.quitTips.value) }
     val fmt = remember { DateTimeFormatter.ofPattern("EEE d MMM yyyy") }
     val tf = remember { DateTimeFormatter.ofPattern("h:mm a") }
 
@@ -296,14 +319,15 @@ private fun QuitSetupDialog(firstRun: Boolean, onClose: () -> Unit) {
         )
         prefs.setQuitReason(why.trim())
         prefs.setTreat(Treat(treatName.trim(), treatPrice.toDoubleOrNull() ?: 0.0))
-        onClose()
+        prefs.setQuitTips(tips)
+        onClose(true)
     }
 
     AlertDialog(
-        onDismissRequest = { if (!firstRun) onClose() },
+        onDismissRequest = { onClose(false) },
         title = { Text(if (firstRun) "Set up your quit tracker" else "Your quit") },
         confirmButton = { TextButton(::save) { Text("Save") } },
-        dismissButton = if (firstRun) null else ({ TextButton(onClose) { Text("Cancel") } }),
+        dismissButton = { TextButton({ onClose(false) }) { Text(if (firstRun) "Later" else "Cancel") } },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -324,6 +348,10 @@ private fun QuitSetupDialog(firstRun: Boolean, onClose: () -> Unit) {
                 OutlinedTextField(why, { why = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Why I'm quitting") }, placeholder = { Text("e.g. To breathe easy on my runs") })
                 OutlinedTextField(treatName, { treatName = it.take(40) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Treat I'm saving for") }, placeholder = { Text("e.g. New headphones") })
                 NumberBox("Treat price (₹)", treatPrice) { treatPrice = it }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Show tips", Modifier.weight(1f))
+                    androidx.compose.material3.Switch(tips, { tips = it })
+                }
             }
         },
     )

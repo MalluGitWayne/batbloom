@@ -37,24 +37,6 @@ class ExtrasTest {
 
     private fun st(s: String, min: Int) = Revision.SubjectStatus(s, min, if (min > 0) start.minusDays(1) else null, if (min > 0) 1 else 0)
 
-    @Test fun weekPlan() {
-        val subjects = Tags.fmgeSubjects.filter { it != Tags.MCQ }.map { st(it, 0) }.toMutableList()
-        subjects[subjects.indexOfFirst { it.subject == "Anatomy" }] = st("Anatomy", 300)
-        subjects[subjects.indexOfFirst { it.subject == "ENT" }] = st("ENT", 30)
-        val plan = ExamPlan.week(subjects, start, null)
-        assertEquals(7, plan.size)
-        assertTrue(plan.all { it.second.size == 2 })
-        assertTrue("Anatomy" !in plan[0].second)              // most-studied comes last
-        assertTrue(plan.flatMap { it.second }.none { it == Tags.MCQ })
-        val week = plan.flatMap { it.second }
-        assertEquals(week.size, week.toSet().size)             // no repeats within the week (14 of 19)
-        assertTrue("ENT" !in plan[0].second)                   // not-started subjects first
-        // Two weeks before the exam: three a day, nothing after the exam
-        val close = ExamPlan.week(subjects, start, start.plusDays(3))
-        assertEquals(3, close[0].second.size)
-        assertTrue(close[5].second.isEmpty())
-    }
-
     @Test fun courseEndAndMedStreak() {
         val taper = MedEntity(id = 1, name = "Pred", form = "Tablet", frequency = "Taper", times = "1-3=08:00*1|4-5=08:00*0.5", startDate = start.toString())
         assertEquals(start.plusDays(4), MedSchedule.courseEnd(taper))
@@ -80,24 +62,15 @@ class ExtrasTest {
         assertEquals(b.all.size, b.all.map { it.id }.toSet().size)
     }
 
-    @Test fun savedPlanCarriesOver() {
-        val d = { n: Long -> start.plusDays(n) }
-        val p = ExamPlan.Saved(start, mapOf(d(0) to listOf("Anatomy", "ENT"), d(1) to listOf("Physiology"), d(2) to listOf("Pathology")))
-        assertEquals(p, ExamPlan.parseSaved(ExamPlan.formatSaved(p)))
-        // Day 3 (d(2)): Anatomy studied on day 1, ENT never, Physiology studied a day late (day 3).
-        val studied = mapOf("Anatomy" to setOf(d(0)), "Physiology" to setOf(d(2)))
-        val v = ExamPlan.view(p, studied, d(2)).toMap()
-        assertTrue(v.getValue(d(0)).first { it.subject == "Anatomy" }.done)
-        assertFalse(v.getValue(d(0)).first { it.subject == "ENT" }.done)
-        val today = v.getValue(d(2))
-        assertEquals(listOf("Pathology", "ENT"), today.map { it.subject })   // ENT carried; Physiology caught up so not carried
-        assertTrue(today.last().carried)
-        assertEquals("Pathology", ExamPlan.next(ExamPlan.view(p, studied, d(2)), d(2)))
-        // The saved plan is kept within its 7 days and replaced after.
-        val subjects = Tags.fmgeSubjects.filter { it != Tags.MCQ }.map { st(it, 0) }
-        assertEquals(p, ExamPlan.current(p, subjects, d(6), null))
-        assertEquals(d(7), ExamPlan.current(p, subjects, d(7), null).start)
-        assertEquals(d(0), ExamPlan.current(null, subjects, d(0), null).start)
+    @Test fun suggestNext() {
+        val subjects = Tags.fmgeSubjects.filter { it != Tags.MCQ }.map { st(it, 0) }.toMutableList()
+        subjects.replaceAll { if (it.subject == "Anatomy") st("Anatomy", 300) else if (it.subject == "Physiology") st("Physiology", 30) else it }
+        val s2 = ExamPlan.suggest(subjects)
+        assertEquals(2, s2.size)
+        assertTrue("Anatomy" !in s2 && "Physiology" !in s2)  // not-started come first
+        val all = subjects.map { st(it.subject, 60) }.toMutableList().apply { this[3] = st(this[3].subject, 5) }
+        assertEquals(all[3].subject, ExamPlan.suggest(all, 1).single())  // then the least-studied
+        assertTrue(Tags.MCQ !in ExamPlan.suggest(subjects + st(Tags.MCQ, 0), 30))
     }
 
     @Test fun paceAndWeakSubjects() {

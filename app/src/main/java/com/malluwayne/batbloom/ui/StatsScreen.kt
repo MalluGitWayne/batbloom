@@ -76,44 +76,50 @@ fun StatsScreen(modifier: Modifier) {
             return@Column
         }
 
-        // Today, big; the rest as three small numbers.
-        Column {
-            Text(Rules.formatMinutes(s.todayMinutes), fontSize = 44.sp, fontWeight = FontWeight.Bold)
-            Text("focused today", color = Muted, fontSize = 13.sp)
-        }
+        // Three numbers, then the chart (it shows today's value at the top).
         Row(Modifier.fillMaxWidth()) {
+            Figure(Rules.formatMinutes(s.todayMinutes), "today", Modifier.weight(1f))
             Figure(Rules.formatMinutes(s.weekMinutes), "this week", Modifier.weight(1f))
-            Figure("${s.streakDays} day${if (s.streakDays == 1) "" else "s"}", if (s.bestStreak > s.streakDays) "streak \u00B7 best ${s.bestStreak}" else "streak", Modifier.weight(1f), Gold)
-            Figure("${s.completed}", "blooms", Modifier.weight(1f), Lavender)
+            Figure("${s.streakDays}d", if (s.bestStreak > s.streakDays) "streak · best ${s.bestStreak}" else "streak", Modifier.weight(1f), Gold)
         }
 
-        // Period switch and chart
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Focus time", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            PillTabs(listOf("Week", "Month"), if (month) 1 else 0) { month = it == 1 }
-        }
         SectionCard {
-            Bars(p.days.map { it.first to it.second.toDouble() }, Lavender, today = today, compact = month)
-            Text(
-                "${Rules.formatMinutes(p.totalMinutes)} in $periodName \u00B7 about ${Rules.formatMinutes(p.avgPerDay)} a day",
-                color = Muted, fontSize = 12.sp,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Focus time", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                PillTabs(listOf("Week", "Month"), if (month) 1 else 0) { month = it == 1 }
+            }
+            val days = p.days
+            val nameFmt = remember(locale) { java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", locale) }
+            BarChart(
+                values = days.map { it.second.toFloat() },
+                labels = days.mapIndexed { i, (d, _) ->
+                    when {
+                        !month -> d.dayOfWeek.getDisplayName(TextStyle.NARROW, locale)
+                        i % 7 == (days.size - 1) % 7 -> "${d.dayOfMonth}"
+                        else -> ""
+                    }
+                },
+                names = days.map { (d, _) -> if (d == today) "today" else nameFmt.format(d) },
+                color = Lavender,
+                format = { Rules.formatMinutes(it.toInt()) },
+                reference = p.avgPerDay.toFloat().takeIf { it > 0f },
+                referenceLabel = "average ${Rules.formatMinutes(p.avgPerDay)} a day",
             )
+            Text("${Rules.formatMinutes(p.totalMinutes)} in $periodName · ${s.completed} blooms in all", color = Muted, fontSize = 12.sp)
         }
 
         // Insights: a few plain sentences, only when there is something to say.
         val insights = buildList {
-            p.timeOfDay.maxByOrNull { it.second }?.let { (part, m) -> add("You focus best in the ${part.lowercase()}" to Rules.formatMinutes(m)) }
+            p.timeOfDay.maxByOrNull { it.second }?.let { (part, m) -> add("Best time of day" to "${part.lowercase().replaceFirstChar { it.uppercase() }} · ${Rules.formatMinutes(m)}") }
             if (p.sessions > 0) add("Average session" to Rules.formatMinutes(p.avgSession))
-            p.bestDay?.let { (d, m) -> add("Best day: ${d.dayOfWeek.getDisplayName(TextStyle.FULL, locale)} ${d.dayOfMonth}" to Rules.formatMinutes(m)) }
+            p.bestDay?.let { (d, m) -> add("Best day" to "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)} ${d.dayOfMonth} · ${Rules.formatMinutes(m)}") }
             if (p.sessions > 0) add("Bloomed, not wilted" to "${p.successRate}%")
         }
         if (insights.isNotEmpty()) SectionCard {
             insights.forEach { (label, value) -> LabeledRow(label, value) }
         }
 
-        // FMGE subjects live in the Exam tab now.
-
-        if (p.tagMinutes.size > 1) SectionCard("By tag \u00B7 $periodName") {
+        if (p.tagMinutes.size > 1) SectionCard("By tag · $periodName") {
             val max = p.tagMinutes.maxOf { it.second }.coerceAtLeast(1)
             p.tagMinutes.forEach { (t, m) -> HBar(t, Rules.formatMinutes(m), m.toFloat() / max, Lavender) }
         }
@@ -124,48 +130,18 @@ fun StatsScreen(modifier: Modifier) {
 @Composable
 private fun Figure(value: String, label: String, modifier: Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
     Column(modifier) {
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
+        Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = color, maxLines = 1)
         Text(label, fontSize = 12.sp, color = Muted)
     }
 }
 
 @Composable
 private fun HBar(label: String, value: String, fraction: Float, color: Color) {
-    Column {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row {
             Text(label, Modifier.weight(1f), fontSize = 13.sp)
             Text(value, fontSize = 13.sp, color = Muted)
         }
-        LinearProgressIndicator({ fraction }, Modifier.fillMaxWidth().height(6.dp), color = color, drawStopIndicator = {})
-    }
-}
-
-@Composable
-private fun Bars(data: List<Pair<LocalDate, Double>>, color: Color, today: LocalDate, compact: Boolean) {
-    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    val max = data.maxOf { it.second }.coerceAtLeast(1.0)
-    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
-    val desc = "Focus time: " + data.filter { it.second > 0 }.joinToString(", ") { (d, v) -> "${d.dayOfMonth} ${d.month.getDisplayName(TextStyle.SHORT, locale)} ${Rules.formatMinutes(v.toInt())}" }.ifBlank { "no sessions" }
-    Canvas(Modifier.fillMaxWidth().height(110.dp).semantics { contentDescription = desc }) {
-        val gap = size.width / data.size
-        val bw = gap * if (compact) 0.6f else 0.42f
-        val r = CornerRadius(bw / 2, bw / 2)
-        data.forEachIndexed { i, (d, v) ->
-            val h = (v / max).toFloat() * size.height
-            val x = i * gap + (gap - bw) / 2
-            drawRoundRect(track, Offset(x, 0f), Size(bw, size.height), r)
-            if (h > 0) drawRoundRect(if (d == today) color else color.copy(alpha = 0.55f), Offset(x, size.height - h), Size(bw, h), r)
-        }
-    }
-    Row(Modifier.fillMaxWidth()) {
-        data.forEachIndexed { i, (d, _) ->
-            val show = !compact || i % 7 == (data.size - 1) % 7
-            Text(
-                if (!show) "" else if (compact) "${d.dayOfMonth}" else d.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
-                Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 11.sp, maxLines = 1,
-                color = if (d == today) MaterialTheme.colorScheme.onSurface else Muted,
-                fontWeight = if (d == today) FontWeight.Bold else FontWeight.Normal,
-            )
-        }
+        Meter(fraction, color)
     }
 }

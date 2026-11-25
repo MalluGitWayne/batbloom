@@ -81,7 +81,7 @@ fun TimeGuardSection(refreshKey: Long) {
                     TextButton({ save(limits - pkg) }) { Text("✕", color = Muted) }
                 }
                 val f = if (limit > 0) (used.toFloat() / limit).coerceAtMost(1f) else 0f
-                LinearProgressIndicator({ f }, Modifier.fillMaxWidth(), color = if (used >= limit) MaterialTheme.colorScheme.error else Teal, drawStopIndicator = {})
+                Meter(f, if (used >= limit) MaterialTheme.colorScheme.error else Teal)
                 Text("${Rules.formatMinutes(used)} used today", fontSize = 12.sp, color = Muted)
             }
         }
@@ -199,7 +199,17 @@ fun BackupSection() {
         }
     }
 
-    SectionCard("Backup") {
+    SectionCard(
+        "Backup",
+        subtitle = when {
+            autoError != null && autoOn -> "Last backup failed"
+            autoOn && last > 0 -> "Weekly · last " + java.time.format.DateTimeFormatter.ofPattern("d MMM")
+                .format(java.time.Instant.ofEpochMilli(last).atZone(java.time.ZoneId.systemDefault()))
+            autoOn -> "Weekly"
+            else -> "Manual only"
+        },
+        subtitleColor = if (autoError != null && autoOn) MaterialTheme.colorScheme.error else null,
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Weekly automatic backup", Modifier.weight(1f))
             Switch(autoOn, { on ->

@@ -21,6 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -82,8 +85,8 @@ fun MedsScreen(modifier: Modifier) {
     val now = Instant.ofEpochMilli(nowMs).atZone(zone)
     val today = now.toLocalDate()
     val meds by dao.all().collectAsState(emptyList())
-    val since = remember(today) { today.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() }
-    val logs by remember(today) { dao.logsSince(since, today.minusDays(1).toString()) }.collectAsState(emptyList())
+    val since = remember(today) { today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli() }
+    val logs by remember(today) { dao.logsSince(since, today.minusDays(6).toString()) }.collectAsState(emptyList())
     val schedule by app.prefs.schedule.collectAsState()
     val courseLogs by app.repo.doses.collectAsState(emptyList())
 
@@ -126,6 +129,9 @@ fun MedsScreen(modifier: Modifier) {
     val items = remember(meds, logs, courseLogs, schedule, today) { itemsOn(today) }
     val yesterdayOpen = remember(meds, logs, courseLogs, schedule, today) { itemsOn(today.minusDays(1)).filter { it.open } }
     val allItems = (yesterdayOpen + items).associateBy { it.key }
+    val week = remember(meds, logs, courseLogs, schedule, today) {
+        (6 downTo 0).map { today.minusDays(it.toLong()) }.map { d -> itemsOn(d).let { l -> DayDoses(d, l.size, l.count { it.status == DoseStatus.TAKEN }) } }
+    }
     val asNeeded = meds.filter { Frequency.of(it.frequency) == Frequency.AsNeeded && MedSchedule.isActive(it, today) }
     val active = meds.filter { !it.archived }
     val archived = meds.filter { it.archived }
@@ -140,10 +146,14 @@ fun MedsScreen(modifier: Modifier) {
                 Text("Medications", style = MaterialTheme.typography.headlineMedium)
                 Text(dayFmt.format(today), color = Muted, fontSize = 13.sp)
             }
-            TextButton({ editing = newMed(today) }) { Text("+ Add", fontWeight = FontWeight.SemiBold) }
+            androidx.compose.material3.IconButton({ editing = newMed(today) }) {
+                androidx.compose.material3.Icon(Icons.Filled.Add, "Add a medication")
+            }
             Box {
                 var menu by remember { mutableStateOf(false) }
-                TextButton({ menu = true }) { Text("⋮", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+                androidx.compose.material3.IconButton({ menu = true }) {
+                    androidx.compose.material3.Icon(Icons.Filled.MoreVert, "More")
+                }
                 androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
                     androidx.compose.material3.DropdownMenuItem({ Text("Reminders") }, { menu = false; reminderSettings = true })
                     androidx.compose.material3.DropdownMenuItem({ Text("Share medication list (PDF)") }, {
@@ -153,30 +163,35 @@ fun MedsScreen(modifier: Modifier) {
             }
         }
 
-        // Today's progress, like the Health app's summary ring
-        if (items.isNotEmpty()) {
+        // Today's progress and the week, like the Health app's summary
+        if (items.isNotEmpty() || week.any { it.due > 0 }) {
             val done = items.count { it.status == DoseStatus.TAKEN }
             val logged = items.count { !it.open }
             SectionCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("$done of ${items.size} taken", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text(if (items.isEmpty()) "Nothing due today" else "$done of ${items.size} taken", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         val next = items.firstOrNull { it.open && it.at.isAfter(now.toLocalDateTime()) }
+                        val due = week.filter { it.date != today }.sumOf { it.due }
+                        val took = week.filter { it.date != today }.sumOf { it.taken.coerceAtMost(it.due) }
                         Text(
                             when {
-                                logged == items.size -> "All logged for today"
+                                items.isNotEmpty() && logged == items.size -> "All logged for today"
                                 next != null -> "Next at ${timeFmt.format(next.at)}"
-                                else -> "${items.size - logged} still to log"
+                                items.isNotEmpty() -> "${items.size - logged} still to log"
+                                due > 0 -> "${took * 100 / due}% taken in the last 6 days"
+                                else -> ""
                             },
                             color = Muted, fontSize = 13.sp,
                         )
                     }
-                    androidx.compose.material3.CircularProgressIndicator(
-                        { if (items.isEmpty()) 0f else done.toFloat() / items.size },
-                        Modifier.size(46.dp), color = Teal, strokeWidth = 6.dp,
-                        trackColor = MaterialTheme.colorScheme.outlineVariant, gapSize = 0.dp,
+                    if (items.isNotEmpty()) androidx.compose.material3.CircularProgressIndicator(
+                        { done.toFloat() / items.size },
+                        Modifier.size(44.dp), color = Teal, strokeWidth = 5.dp,
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), gapSize = 0.dp,
                     )
                 }
+                WeekDots(week, today, Modifier.padding(top = 4.dp))
             }
         }
 
@@ -247,8 +262,7 @@ fun MedsScreen(modifier: Modifier) {
                     onClick = { detailId = m.id },
                 )
             }
-            if (active.isEmpty() && !courseOn) Text("No medications yet. Tap + Add to add one.", color = Muted, fontSize = 13.sp)
-            TextButton({ editing = newMed(today) }) { Text("+ Add a medication") }
+            if (active.isEmpty() && !courseOn) TextButton({ editing = newMed(today) }) { Text("+ Add a medication") }
         }
         if (archived.isNotEmpty()) SectionCard("Archived") {
             archived.forEach { m -> MedListRow({ PillArt(m, 40.dp) }, m.name, "Archived", onClick = { detailId = m.id }) }

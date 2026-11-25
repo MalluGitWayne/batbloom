@@ -1,5 +1,6 @@
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -65,8 +66,9 @@ private fun darkScheme(p: Palette) = darkColorScheme(
     onPrimaryContainer = Color(0xFFE9E0FF),
     secondary = p.teal,
     onSecondary = Color(0xFF00332C),
-    secondaryContainer = Color(0xFF12443D),
-    onSecondaryContainer = Color(0xFFCFF7EE),
+    // Neutral: progress-bar tracks, the selected tab and chips stay quiet instead of tinted green.
+    secondaryContainer = if (p.night == Color(0xFF000000)) Color(0xFF1E1E26) else Color(0xFF2A2A33),
+    onSecondaryContainer = Color(0xFFE6E8F2),
     tertiary = p.gold,
     onTertiary = Color(0xFF2A1E00),
     tertiaryContainer = Color(0xFF4A3A10),
@@ -163,6 +165,9 @@ fun SectionCard(
     title: String? = null,
     modifier: Modifier = Modifier,
     container: Color = MaterialTheme.colorScheme.surfaceContainer,
+    /** One line under the title (Settings shows what's inside a folded section here). */
+    subtitle: String? = null,
+    subtitleColor: Color? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val collapsible = title != null && LocalCollapsibleCards.current
@@ -178,10 +183,16 @@ fun SectionCard(
                 Modifier.fillMaxWidth().then(if (collapsible) Modifier.clickable { OpenSections.open[title!!] = !open } else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    if (subtitle != null && !(collapsible && open)) Text(subtitle, color = subtitleColor ?: Muted, fontSize = 13.sp, maxLines = 1)
+                }
                 if (collapsible) {
                     val turn by androidx.compose.animation.core.animateFloatAsState(if (open) 180f else 0f, label = "chev")
-                    Text("⌄", color = Muted, fontSize = 20.sp, modifier = Modifier.rotate(turn))
+                    androidx.compose.material3.Icon(
+                        androidx.compose.material.icons.Icons.Filled.KeyboardArrowDown, contentDescription = if (open) "Collapse" else "Expand",
+                        tint = Muted, modifier = Modifier.rotate(turn),
+                    )
                 }
             }
             if (open) content()

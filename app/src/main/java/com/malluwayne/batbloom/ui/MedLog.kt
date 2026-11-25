@@ -240,5 +240,3 @@ internal fun Segmented(value: String?, onChange: (String?) -> Unit) {
         Chip("Taken", value == DoseStatus.TAKEN) { onChange(if (value == DoseStatus.TAKEN) null else DoseStatus.TAKEN) }
     }
 }
-
-/** Reminders for all medications, including varenicline (moved here from Settings). */

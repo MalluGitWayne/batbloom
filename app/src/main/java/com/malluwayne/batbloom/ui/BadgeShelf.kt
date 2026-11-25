@@ -179,10 +179,7 @@ fun AchievementsScreen(modifier: Modifier) {
                     if (top != null) Emblem(top, true, 92.dp, animate = true)
                 }
                 Spacer(Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    { Badges.points(earned).toFloat() / Badges.maxPoints }, Modifier.fillMaxWidth().height(6.dp),
-                    color = Color(0xFFF5C542), trackColor = Color.White.copy(alpha = 0.12f), drawStopIndicator = {},
-                )
+                Meter(Badges.points(earned).toFloat() / Badges.maxPoints, Color(0xFFF5C542))
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth()) {
                     Tier.entries.forEach { t ->
@@ -209,7 +206,7 @@ fun AchievementsScreen(modifier: Modifier) {
                         Text(b.title, fontWeight = FontWeight.SemiBold)
                         val (h, t) = s.progress(b)!!
                         Text(progressLabel(b, h, t), color = Muted, fontSize = 12.sp)
-                        LinearProgressIndicator({ r }, Modifier.fillMaxWidth().padding(top = 4.dp), color = Color(b.accent), gapSize = 0.dp, drawStopIndicator = {})
+                        Meter(r, Color(b.accent), Modifier.padding(top = 4.dp))
                     }
                 }
             }
@@ -301,7 +298,7 @@ private fun AchievementDialog(b: Badge, s: AchievementState, onDismiss: () -> Un
                 line?.let { Text(it, color = if (earned != null) tierText(b.tier) else Muted, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp)) }
                 if (earned == null && !hidden) s.progress(b)?.let { (h, t) ->
                     Text(progressLabel(b, h, t), color = Muted, modifier = Modifier.padding(top = 10.dp))
-                    LinearProgressIndicator({ h.toFloat() / t }, Modifier.fillMaxWidth().padding(top = 6.dp), color = Color(b.accent), gapSize = 0.dp, drawStopIndicator = {})
+                    Meter(h.toFloat() / t, Color(b.accent), Modifier.padding(top = 6.dp))
                 }
             }
         },

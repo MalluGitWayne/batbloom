@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.content.ContextCompat
 import com.malluwayne.batbloom.data.Tags
@@ -189,7 +190,11 @@ private fun AppRoot() {
                         selected = tab == i,
                         onClick = { Nav.tab.value = i },
                         icon = { Icon(t.icon, contentDescription = t.label) },
-                        label = { Text(t.label, maxLines = 1, softWrap = false) },
+                        // Six labels share the width: past 115% text they'd touch the edges, so they stop growing there.
+                        label = {
+                            val scale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+                            Text(t.label, maxLines = 1, softWrap = false, fontSize = (12f * minOf(1f, 1.15f / scale)).sp)
+                        },
                     )
                 }
             }

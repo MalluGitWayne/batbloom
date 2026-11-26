@@ -26,11 +26,19 @@ class Prefs(context: Context) {
     fun setMedsTab(on: Boolean) { sp.edit { putBoolean("meds_tab", on) }; _medsTab.value = on }
 
     /** Mock test results as JSON (see [com.malluwayne.batbloom.stats.ExamPlan]). */
+    /** Question sets logged with how many were right: same shape as mock tests, kept apart from them. */
+    private val _mcqPractice = MutableStateFlow(sp.getString("mcq_practice", "[]")!!)
+    val mcqPractice: StateFlow<String> = _mcqPractice
+    fun setMcqPractice(json: String) { sp.edit { putString("mcq_practice", json) }; _mcqPractice.value = json }
+
     private val _mockTests = MutableStateFlow(sp.getString("mock_tests", "[]")!!)
     val mockTests: StateFlow<String> = _mockTests
     fun setMockTests(json: String) { sp.edit { putString("mock_tests", json) }; _mockTests.value = json }
 
     /** The tip card on the Quit tab (hidden with its ✕, back on in Quit > Edit). */
+    private val _roundup = MutableStateFlow(sp.getBoolean("med_roundup", true))
+    val roundup: StateFlow<Boolean> = _roundup
+    fun setRoundup(on: Boolean) { sp.edit { putBoolean("med_roundup", on) }; _roundup.value = on }
     private val _quitTips = MutableStateFlow(sp.getBoolean("quit_tips", true))
     val quitTips: StateFlow<Boolean> = _quitTips
     fun setQuitTips(on: Boolean) { sp.edit { putBoolean("quit_tips", on) }; _quitTips.value = on }
@@ -53,6 +61,16 @@ class Prefs(context: Context) {
     private val _mcqGoal = MutableStateFlow(sp.getInt("mcq_goal", 100))
     val mcqGoal: StateFlow<Int> = _mcqGoal
     fun setMcqGoal(n: Int) { sp.edit { putInt("mcq_goal", n) }; _mcqGoal.value = n }
+
+    /** Cravings logged from the breathing exercise, newest kept. */
+    private val _cravings = MutableStateFlow(
+        sp.getStringSet("cravings", emptySet())!!.mapNotNull { com.malluwayne.batbloom.quit.Cravings.parse(it) }.sortedBy { it.at },
+    )
+    val cravings: StateFlow<List<com.malluwayne.batbloom.quit.Craving>> = _cravings
+    fun addCraving(c: com.malluwayne.batbloom.quit.Craving) {
+        val l = (_cravings.value + c).sortedBy { it.at }.takeLast(com.malluwayne.batbloom.quit.Cravings.KEEP)
+        sp.edit { putStringSet("cravings", l.map { com.malluwayne.batbloom.quit.Cravings.format(it) }.toSet()) }; _cravings.value = l
+    }
 
     /** Slips logged on the Quit tab (epoch millis). */
     private val _slips = MutableStateFlow(sp.getStringSet("slips", emptySet())!!.mapNotNull { it.toLongOrNull() }.sorted())

@@ -110,6 +110,19 @@ class ExtrasTest {
         assertEquals(emptyList<MockTest>(), ExamPlan.parseTests("not json"))
     }
 
+    @Test fun practiceAccuracy() {
+        val p = listOf(
+            MockTest(start, "Practice", 30, 50, mapOf("Anatomy" to (30 to 50))),
+            MockTest(start.minusDays(6), "Practice", 8, 10),
+            MockTest(start.minusDays(7), "Practice", 0, 100), // a week ago: outside
+        )
+        assertEquals(38 to 60, ExamPlan.accuracy(p, start))
+        assertEquals(null, ExamPlan.accuracy(emptyList(), start))
+        // Practice sets feed the weak subjects like mock tests do
+        assertEquals("Anatomy", ExamPlan.weakSubjects(p).single().subject)
+        assertEquals(300, ExamPlan.trimPractice(List(310) { p[0] }).size)
+    }
+
     @Test fun pdfRows() {
         val med = MedEntity(id = 2, name = "Vitamin D", form = "Capsule", strength = 1000.0, unit = "IU", startDate = start.toString(), notes = "after food")
         val rows = MedListPdf.rows(listOf(med, med.copy(id = 3, name = "Old", archived = true)), DoseSchedule(), LocalDate.of(2026, 11, 24))

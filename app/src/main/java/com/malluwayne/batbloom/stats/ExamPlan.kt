@@ -82,6 +82,14 @@ object ExamPlan {
         m.filterKeys { !it.isBefore(today.minusDays(120)) }.forEach { (d, n) -> put(d.toString(), n) }
     }.toString()
 
+    /** Right and asked over the last [days] days of practice sets; null when none had a score. */
+    fun accuracy(practice: List<MockTest>, today: LocalDate, days: Int = 7): Pair<Int, Int>? =
+        practice.filter { !it.date.isBefore(today.minusDays(days - 1L)) && !it.date.isAfter(today) && it.total > 0 }
+            .takeIf { it.isNotEmpty() }?.let { l -> l.sumOf { it.score } to l.sumOf { it.total } }
+
+    /** Keeps the last 300 practice sets so the setting stays small. */
+    fun trimPractice(l: List<MockTest>): List<MockTest> = l.takeLast(300)
+
     fun mcqWeek(m: Map<LocalDate, Int>, today: LocalDate): Int = (0..6).sumOf { m[today.minusDays(it.toLong())] ?: 0 }
 
     /** Days in a row (ending today, or yesterday if none yet today) with at least one question done. */

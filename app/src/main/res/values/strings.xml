@@ -6,5 +6,8 @@
     <string name="widget_calendar_label">Batbloom study calendar</string>
     <string name="widget_calendar_desc">Days you studied this month, with your streak</string>
     <string name="widget_smokefree_label">Batbloom smoke-free calendar</string>
+    <string name="widget_meds_label">Batbloom medications</string>
+    <string name="widget_meds_took">✓  Took it</string>
+    <string name="widget_meds_desc">Your next dose with a button to log it</string>
     <string name="widget_smokefree_desc">Every smoke-free day since your quit day</string>
 </resources>

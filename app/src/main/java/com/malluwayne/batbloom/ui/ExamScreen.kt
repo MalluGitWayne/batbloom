@@ -101,6 +101,8 @@ fun ExamScreen(modifier: Modifier) {
     val mcqJson by prefs.mcq.collectAsState()
     val mcqGoal by prefs.mcqGoal.collectAsState()
     val testsJson by prefs.mockTests.collectAsState()
+    val practiceJson by prefs.mcqPractice.collectAsState()
+    val practice = remember(practiceJson) { ExamPlan.parseTests(practiceJson) }
     var askMcq by remember { mutableStateOf(false) }
     var addTest by remember { mutableStateOf(false) }
     fun addMcq(k: Int) {
@@ -194,7 +196,7 @@ fun ExamScreen(modifier: Modifier) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Text("$done", fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                    Text("questions today of $mcqGoal", color = Muted, fontSize = 13.sp)
+                    Text("of $mcqGoal questions today", color = Muted, fontSize = 13.sp, maxLines = 1)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("${ExamPlan.mcqWeek(mcq, today)}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Lavender)
@@ -206,9 +208,16 @@ fun ExamScreen(modifier: Modifier) {
             }
             if (timed > 0) Text("Plus ${Rules.formatMinutes(timed)} of timed MCQ practice today", color = Muted, fontSize = 12.sp)
             Meter(done.toFloat() / mcqGoal.coerceAtLeast(1), Lavender)
+            ExamPlan.accuracy(practice, today)?.let { (right, asked) ->
+                val pct = right * 100 / asked
+                Text(
+                    "Accuracy $pct% this week \u00B7 $right of $asked right",
+                    color = if (pct >= ExamPlan.PASS_PERCENT) Teal else Gold, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                listOf(10, 25, 50).forEach { k -> OutlinedButton({ addMcq(k) }) { Text("+$k") } }
-                TextButton({ askMcq = true }) { Text("Other\u2026") }
+                listOf(10, 25, 50).forEach { k -> OutlinedButton({ addMcq(k) }, Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)) { Text("+$k", maxLines = 1) } }
+                TextButton({ askMcq = true }) { Text("Log a set\u2026") }
             }
         }
 
@@ -265,7 +274,7 @@ fun ExamScreen(modifier: Modifier) {
                 }
                 val shown = tests.takeLast(10)
                 LineChart(shown.map { it.percent }, shown.map { DateTimeFormatter.ofPattern("d MMM").format(it.date) }, ExamPlan.PASS_PERCENT, Lavender)
-                val weak = remember(tests) { ExamPlan.weakSubjects(tests) }
+                val weak = remember(tests, practice) { ExamPlan.weakSubjects(tests + practice) }
                 if (weak.isNotEmpty()) {
                     Text("Weakest subjects", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     weak.forEach { w ->
@@ -292,16 +301,41 @@ fun ExamScreen(modifier: Modifier) {
     if (settings) ExamSettingsDialog { settings = false }
     if (askMcq) {
         var v by remember { mutableStateOf("") }
+        var right by remember { mutableStateOf("") }
+        var subject by remember { mutableStateOf<String?>(null) }
+        var pick by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { askMcq = false },
-            title = { Text("Questions done") },
+            title = { Text("Log a set of questions") },
             text = {
                 Column {
                     NumberBox("How many? (use \u2212 to correct)", v) { v = it }
                     Row { TextButton({ v = "-" + v.trimStart('-') }) { Text("Make it \u2212") } }
+                    if (!v.startsWith("-")) {
+                        NumberBox("How many right? (optional)", right) { right = it }
+                        Box {
+                            TextButton({ pick = true }) { Text("Subject: " + (subject ?: "mixed") + "  \u25BE") }
+                            androidx.compose.material3.DropdownMenu(pick, { pick = false }) {
+                                androidx.compose.material3.DropdownMenuItem({ Text("Mixed") }, { subject = null; pick = false })
+                                Tags.fmgeSubjects.filter { it != Tags.MCQ }.forEach { s ->
+                                    androidx.compose.material3.DropdownMenuItem({ Text(s) }, { subject = s; pick = false })
+                                }
+                            }
+                        }
+                        Text("With the number right, Batbloom tracks your accuracy and finds weak subjects.", color = Muted, fontSize = 12.sp)
+                    }
                 }
             },
-            confirmButton = { TextButton({ v.toIntOrNull()?.let { addMcq(it) }; askMcq = false }) { Text("Add") } },
+            confirmButton = { TextButton({
+                v.toIntOrNull()?.let { n ->
+                    addMcq(n)
+                    val r = right.toIntOrNull()
+                    if (n > 0 && r != null) prefs.setMcqPractice(ExamPlan.formatTests(ExamPlan.trimPractice(
+                        practice + MockTest(today, "Practice", r.coerceIn(0, n), n, subject?.let { mapOf(it to (r.coerceIn(0, n) to n)) } ?: emptyMap()),
+                    )))
+                }
+                askMcq = false
+            }) { Text("Add") } },
             dismissButton = { TextButton({ askMcq = false }) { Text("Cancel") } },
         )
     }

@@ -2,7 +2,6 @@
 
 package com.malluwayne.batbloom.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,67 +9,39 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malluwayne.batbloom.BatbloomApp
-import com.malluwayne.batbloom.Nav
-import com.malluwayne.batbloom.data.DoseLogEntity
-import com.malluwayne.batbloom.data.DoseStatus
 import com.malluwayne.batbloom.data.MedEntity
-import com.malluwayne.batbloom.data.MedLogEntity
-import com.malluwayne.batbloom.meds.Frequency
-import com.malluwayne.batbloom.meds.MedDose
-import com.malluwayne.batbloom.meds.MedForm
 import com.malluwayne.batbloom.meds.MedSchedule
 import com.malluwayne.batbloom.meds.Meds
 import com.malluwayne.batbloom.quit.DoseAlarms
-import com.malluwayne.batbloom.quit.DoseSlot
-import com.malluwayne.batbloom.quit.Doses
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-private val timeFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
-private val dayFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM")
 
 // Small pieces shared by the Meds screens: rows, chips, steppers and dialogs.
 
@@ -94,10 +65,23 @@ internal fun ReminderSettingsDialog(onClose: () -> Unit) {
                         BatbloomApp.instance.appScope.launch { com.malluwayne.batbloom.meds.MedAlarms.scheduleNext(ctx) }
                     })
                 }
-                Text("A follow-up comes 30 minutes later if you haven't logged it.", color = Muted, fontSize = 12.sp)
+                Text("Until you log a dose it comes back every 30 minutes, for up to 3 hours. Swiping it away brings it back after the snooze time.", color = Muted, fontSize = 12.sp)
+                val roundup by prefs.roundup.collectAsState()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Evening round-up")
+                        Text("At 9 PM, anything from today still not logged", color = Muted, fontSize = 12.sp)
+                    }
+                    androidx.compose.material3.Switch(roundup, { prefs.setRoundup(it); com.malluwayne.batbloom.meds.MedAlarms.scheduleRoundup(ctx) })
+                }
                 if (!DoseAlarms.canExact(ctx)) Text("Exact alarms are off, so reminders may be a few minutes late.", color = Muted, fontSize = 12.sp)
                 StepRow("Snooze (minutes)", snooze, 5, 60, 5) { prefs.setSnoozeMinutes(it) }
                 StepRow("Varenicline: skip a missed dose if the next is within (hours)", close, 1, 8, 1) { prefs.setCloseHours(it) }
+                var testSent by remember { mutableStateOf(false) }
+                TextButton({ com.malluwayne.batbloom.meds.MedAlarms.scheduleTest(ctx); testSent = true }, enabled = !testSent) {
+                    Text(if (testSent) "Test coming in 1 minute" else "Send a test reminder")
+                }
+                if (testSent) Text("Lock your phone and wait. If nothing arrives, check Settings › Permissions › Battery.", color = Muted, fontSize = 12.sp)
             }
         },
     )

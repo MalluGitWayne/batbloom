@@ -241,7 +241,25 @@ fun BackupSection() {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton({ save.launch("batbloom-backup-${LocalDate.now()}.json") }) { Text("Save file") }
                 OutlinedButton({ open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Restore") }
+                // Share › Drive (or mail, a chat): Android can't hand Drive over as a folder for the weekly backup.
+                TextButton({
+                    scope.launch {
+                        runCatching {
+                            val file = withContext(Dispatchers.IO) {
+                                val dir = java.io.File(ctx.cacheDir, "shared").apply { mkdirs() }
+                                java.io.File(dir, "batbloom-backup-${LocalDate.now()}.json").apply { writeText(Backup.toJson(Backup.collect(ctx, app.db))) }
+                            }
+                            val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.share", file)
+                            ctx.startActivity(android.content.Intent.createChooser(
+                                android.content.Intent(android.content.Intent.ACTION_SEND).setType("application/json")
+                                    .putExtra(android.content.Intent.EXTRA_STREAM, uri).addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                                "Save the backup to…",
+                            ))
+                        }.onFailure { message = "Couldn't share the backup: ${it.message}" }
+                    }
+                }) { Text("Share") }
             }
+            Text("To keep a copy in Google Drive, tap Share and pick Drive.", color = Muted, fontSize = 12.sp)
         }
         message?.let { Text(it, fontSize = 13.sp, color = Teal) }
     }

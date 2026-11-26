@@ -28,6 +28,35 @@ class WidgetRenderTest {
         }
     }
 
+    /**
+     * The medications widget, inflated the way a home screen does it (RemoteViews.apply refuses views a widget
+     * can't show), in the dark and light looks, at its smallest size.
+     */
+    @Test fun medsWidgetInflates() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val out = File(ctx.getExternalFilesDir(null), "widgets").apply { mkdirs() }
+        val dm = ctx.resources.displayMetrics
+        for ((name, look) in listOf("dark" to WidgetLook.Dark, "light" to WidgetLook.Light)) {
+            val rv = android.widget.RemoteViews(ctx.packageName, R.layout.widget_meds)
+            rv.setInt(R.id.m_root, "setBackgroundResource", if (look.light) R.drawable.widget_bg_light else R.drawable.widget_bg)
+            rv.setTextViewText(R.id.m_title, "Late · 8:00 PM")
+            rv.setTextViewText(R.id.m_name, "Metformin +1")
+            rv.setTextViewText(R.id.m_count, "2 of 5 taken today")
+            rv.setTextColor(R.id.m_name, look.text); rv.setTextColor(R.id.m_title, look.muted); rv.setTextColor(R.id.m_count, look.muted)
+            val parent = android.widget.FrameLayout(ctx)
+            val root = rv.apply(ctx, parent)
+            val w = (120 * dm.density).toInt()
+            val h = (120 * dm.density).toInt()
+            root.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, w, h)
+            val took = root.findViewById<android.widget.TextView>(R.id.m_took)
+            assert(took.bottom <= h) { "the button doesn't fit at 120dp" }
+            val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+            root.draw(android.graphics.Canvas(bmp))
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, File(out, "meds_$name.png").outputStream())
+        }
+    }
+
     /** The dose button with a long label at a narrow widget width: it must stay on one line, ending in "…". */
     @Test fun doseButtonLongLabel() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext

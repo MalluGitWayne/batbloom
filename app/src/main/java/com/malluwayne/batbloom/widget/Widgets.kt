@@ -66,6 +66,7 @@ class BloomWidget : AppWidgetProvider() {
             app.appScope.launch { update(context) }
             CalendarWidget.update(context)
             SmokeFreeWidget.update(context)
+            MedsWidget.update(context)
         }
 
         internal fun launch(context: Context, action: String, code: Int): PendingIntent = PendingIntent.getActivity(
@@ -233,8 +234,8 @@ class BloomWidget : AppWidgetProvider() {
                 // A dose that is due now gets its own button: one tap marks it taken.
                 if (doseDue != null) {
                     v.setViewVisibility(R.id.w_dose, View.VISIBLE)
-                    v.setTextViewText(R.id.w_dose, doseDue.first)
-                    v.setOnClickPendingIntent(R.id.w_dose, doseDue.second)
+                    v.setTextViewText(R.id.w_dose, doseDue.label)
+                    v.setOnClickPendingIntent(R.id.w_dose, doseDue.intent)
                 } else v.setViewVisibility(R.id.w_dose, View.GONE)
                 // While a session runs, one button that opens it; otherwise quick-start buttons.
                 v.setTextViewText(

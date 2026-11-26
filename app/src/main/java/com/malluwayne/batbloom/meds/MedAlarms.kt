@@ -128,6 +128,9 @@ object MedAlarms {
     const val ACTION_SKIP = "batbloom.MED_SKIP"
     const val ACTION_SNOOZE = "batbloom.MED_SNOOZE"
     const val ACTION_DISMISSED = "batbloom.MED_DISMISSED"
+    const val ACTION_TEST = "batbloom.MED_TEST"
+    const val ACTION_ROUNDUP = "batbloom.MED_ROUNDUP"
+    private const val ROUNDUP_HOUR = 21
     const val EXTRA_AT = "at"
     const val EXTRA_FOLLOW_UP = "followUp"
     private const val RC_NEXT = 500
@@ -179,6 +182,7 @@ object MedAlarms {
     }
 
     suspend fun scheduleNext(context: Context) {
+        scheduleRoundup(context)
         val meds = app(context).db.meds().allNow()
         val next = MedSchedule.nextTime(meds, LocalDateTime.now())
         val am = context.getSystemService(AlarmManager::class.java)
@@ -237,25 +241,30 @@ object MedAlarms {
      * The widget's dose button: today's earliest unlogged dose, varenicline or any medication, whatever the time.
      * For medications one tap logs everything open at that time.
      */
-    suspend fun widgetDose(context: Context): Pair<String, PendingIntent>? {
+    /** The next dose for a widget: its button label, the tap that logs it, its name and its time. */
+    data class WidgetDose(val label: String, val intent: PendingIntent, val name: String, val at: LocalDateTime)
+
+    suspend fun widgetDose(context: Context): WidgetDose? {
         val a = app(context)
-        if (!a.prefs.medsTab.value) return DoseAlarms.dueNow(context)?.let {
-            "✓  Took ${it.label.lowercase()} ${com.malluwayne.batbloom.quit.Doses.formatMg(it.mg)}" to DoseAlarms.takenIntent(context, it.key)
+        val zone = ZoneId.systemDefault()
+        fun courseDose(s: com.malluwayne.batbloom.quit.DoseSlot): WidgetDose {
+            val mg = com.malluwayne.batbloom.quit.Doses.formatMg(s.mg)
+            return WidgetDose("✓  Took ${s.label.lowercase()} $mg", DoseAlarms.takenIntent(context, s.key), "Varenicline $mg", a.prefs.schedule.value.timeOf(s, zone).toLocalDateTime())
         }
+        if (!a.prefs.medsTab.value) return DoseAlarms.dueNow(context)?.let { courseDose(it) }
         val now = LocalDateTime.now()
         val today = now.toLocalDate()
-        val course = DoseAlarms.dueNow(context)?.let { s -> a.prefs.schedule.value.timeOf(s, ZoneId.systemDefault()).toLocalDateTime() to s }
+        val course = DoseAlarms.dueNow(context)?.let { s -> a.prefs.schedule.value.timeOf(s, zone).toLocalDateTime() to s }
         val meds = a.db.meds().allNow()
         val medTime = MedSchedule.dosesOn(meds, today).map { it.at }.distinct().firstOrNull { Meds.openAt(context, it).isNotEmpty() }
         return when {
             medTime != null && (course == null || !medTime.isAfter(course.first)) -> {
                 val open = Meds.openAt(context, medTime)
                 // The name matters more than the time on a small widget.
-                val label = "✓  Took " + open.first().med.name + if (open.size > 1) " +${open.size - 1}" else ""
-                label to pi(context, ACTION_TAKEN, medTime.toString(), 600 + (medTime.toString().hashCode() and 0xFF))
+                val name = open.first().med.name + if (open.size > 1) " +${open.size - 1}" else ""
+                WidgetDose("✓  Took $name", pi(context, ACTION_TAKEN, medTime.toString(), 600 + (medTime.toString().hashCode() and 0xFF)), name, medTime)
             }
-            course != null -> "✓  Took ${course.second.label.lowercase()} ${com.malluwayne.batbloom.quit.Doses.formatMg(course.second.mg)}" to
-                DoseAlarms.takenIntent(context, course.second.key)
+            course != null -> courseDose(course.second)
             else -> null
         }
     }
@@ -270,6 +279,65 @@ object MedAlarms {
         val course = a.prefs.schedule.value.slotsOn(today)
         val takenCourse = course.count { a.repo.doseStatus(it.key) == DoseStatus.TAKEN }
         return (takenMeds + takenCourse) to (doses.size + course.size)
+    }
+
+    /** The evening round-up at 9 PM: one nudge for anything earlier today that's still not logged. */
+    fun scheduleRoundup(context: Context) {
+        val p = app(context).prefs
+        val roundup = pi(context, ACTION_ROUNDUP, null, 504)
+        if (!p.reminders.value || !p.roundup.value || !p.medsTab.value) {
+            context.getSystemService(AlarmManager::class.java).cancel(roundup); return
+        }
+        val now = LocalDateTime.now()
+        val today9 = now.toLocalDate().atTime(ROUNDUP_HOUR, 0)
+        setAlarm(context, millis(if (today9.isAfter(now)) today9 else today9.plusDays(1)), roundup)
+    }
+
+    /** Names of today's doses, medications and varenicline, whose time has passed without a log. */
+    suspend fun unloggedToday(context: Context, now: LocalDateTime = LocalDateTime.now()): List<String> {
+        val a = app(context)
+        val today = now.toLocalDate()
+        val doses = MedSchedule.dosesOn(a.db.meds().allNow(), today).filter { !it.at.isAfter(now) }
+        val logged = if (doses.isEmpty()) emptySet() else a.db.meds().logsForSlots(doses.map { it.slot }.distinct()).map { it.medId to it.slot }.toSet()
+        val s = a.prefs.schedule.value
+        val zone = ZoneId.systemDefault()
+        val course = s.slotsOn(today).filter { !s.timeOf(it, zone).toLocalDateTime().isAfter(now) && a.repo.doseStatus(it.key) == null }
+        return (doses.filter { (it.med.id to it.slot) !in logged }.map { it.med.name } + course.map { "Varenicline" }).distinct()
+    }
+
+    suspend fun postRoundup(context: Context) {
+        val names = unloggedToday(context)
+        if (names.isEmpty()) return
+        val openApp = PendingIntent.getActivity(
+            context, 34, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_MEDS).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(context, CH_MEDS)
+            .setSmallIcon(R.drawable.ic_stat_bloom)
+            .setContentTitle("Not logged today")
+            .setContentText(names.joinToString(", ") + ". Tap to log or skip them.")
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(openApp)
+            .setAutoCancel(true)
+            .build()
+        com.malluwayne.batbloom.Notify.post(context, 3998, n)
+    }
+
+    /** A test reminder a minute from now, through the same alarm path as real doses: proves the phone lets it through. */
+    fun scheduleTest(context: Context) {
+        setAlarm(context, System.currentTimeMillis() + 60_000, pi(context, ACTION_TEST, null, 503))
+    }
+
+    fun postTest(context: Context) {
+        val n = NotificationCompat.Builder(context, CH_MEDS)
+            .setSmallIcon(R.drawable.ic_stat_bloom)
+            .setContentTitle("Test reminder")
+            .setContentText("Reminders are getting through. Real dose reminders look like this.")
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        com.malluwayne.batbloom.Notify.post(context, 3999, n)
     }
 
     fun snooze(context: Context, at: LocalDateTime) {
@@ -289,10 +357,14 @@ class MedReceiver : BroadcastReceiver() {
                     MedAlarms.ACTION_DUE -> {
                         at?.let { MedAlarms.notifyDue(context, it, intent.getBooleanExtra(MedAlarms.EXTRA_FOLLOW_UP, false)) }
                         MedAlarms.scheduleNext(context)
+                        // The widgets' "next dose" moves on with the clock.
+                        com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
                     }
                     MedAlarms.ACTION_TAKEN -> at?.let { MedAlarms.markAll(context, it, DoseStatus.TAKEN) }
                     MedAlarms.ACTION_SKIP -> at?.let { MedAlarms.markAll(context, it, DoseStatus.SKIPPED) }
                     MedAlarms.ACTION_SNOOZE -> at?.let { MedAlarms.snooze(context, it) }
+                    MedAlarms.ACTION_TEST -> MedAlarms.postTest(context)
+                    MedAlarms.ACTION_ROUNDUP -> { MedAlarms.postRoundup(context); MedAlarms.scheduleRoundup(context) }
                     // Swiped away: not a "no", just "later".
                     MedAlarms.ACTION_DISMISSED -> at?.let { if (Meds.openAt(context, it).isNotEmpty()) MedAlarms.remindAgain(context, it, app.prefs.snoozeMinutes.value.toLong()) }
                 }

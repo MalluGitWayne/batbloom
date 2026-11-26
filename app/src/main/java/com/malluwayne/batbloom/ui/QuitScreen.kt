@@ -205,6 +205,34 @@ fun QuitScreen(modifier: Modifier) {
             Text("Write your reason. It shows here to keep you going. Tap to add it.", color = Muted, fontSize = 13.sp)
         }
 
+        // Cravings: how often, and what sets them off
+        val cravings by prefs.cravings.collectAsState()
+        if (cravings.isNotEmpty()) SectionCard {
+            val days = com.malluwayne.batbloom.quit.Cravings.perDay(cravings, today, zone)
+            val dates = (13 downTo 0).map { today.minusDays(it.toLong()) }
+            val week = days.takeLast(7).sum()
+            val before = days.take(7).sum()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Cravings", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(
+                    when {
+                        before > 0 && week < before -> "Fewer than last week"
+                        before > 0 && week > before -> "More than last week"
+                        else -> "$week this week"
+                    },
+                    color = if (before > 0 && week < before) Teal else Muted, fontSize = 13.sp,
+                )
+            }
+            BarChart(
+                days.map { it.toFloat() }, dates.map { it.dayOfWeek.name.take(1) },
+                dates.map { DateTimeFormatter.ofPattern("EEE d MMM").format(it) }, Lavender,
+                format = { n -> "${n.toInt()} craving${if (n.toInt() == 1) "" else "s"}" }, height = 96.dp,
+            )
+            com.malluwayne.batbloom.quit.Cravings.topTrigger(cravings)?.let {
+                Text("Most often: ${it.lowercase()}", color = Muted, fontSize = 13.sp)
+            }
+        }
+
         // Tips: today's first, swipe for more, ✕ to hide (turn back on in Edit).
         val showTips by prefs.quitTips.collectAsState()
         if (showTips) SectionCard {
@@ -230,8 +258,9 @@ fun QuitScreen(modifier: Modifier) {
     }
 
     if (setup) QuitSetupDialog(firstRun = !setupDone) { saved -> setup = false; if (saved) prefs.setSmokingSetupDone() }
-    if (breathe) BreathingDialog { done ->
+    if (breathe) BreathingDialog { done, trigger ->
         breathe = false
+        trigger?.let { prefs.addCraving(com.malluwayne.batbloom.quit.Craving(System.currentTimeMillis(), it)) }
         if (done) { prefs.addBreathing(); app.appScope.launch { DoseAlarms.checkBadges(app) } }
     }
     if (slipAsk) AlertDialog(
@@ -245,8 +274,12 @@ fun QuitScreen(modifier: Modifier) {
 
 /** Guided breathing for a craving: in for 4, hold for 4, out for 6, for about two minutes. */
 @Composable
-/** [onClose] gets true when the exercise ran to the end or the craving passed (counts toward achievements). */
-private fun BreathingDialog(onClose: (Boolean) -> Unit) {
+/**
+ * [onClose] gets true when the exercise ran to the end or the craving passed (counts toward achievements), and the
+ * trigger picked ("" for none, null when it was closed straight away and shouldn't count as a craving).
+ */
+private fun BreathingDialog(onClose: (Boolean, String?) -> Unit) {
+    var trigger by remember { mutableStateOf("") }
     val scale = remember { androidx.compose.animation.core.Animatable(0.55f) }
     var phase by remember { mutableStateOf("Breathe in") }
     var left by remember { mutableIntStateOf(112) }
@@ -259,7 +292,8 @@ private fun BreathingDialog(onClose: (Boolean) -> Unit) {
         }
         phase = "Well done"
     }
-    androidx.compose.ui.window.Dialog({ onClose(left <= 0) }, androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+    // Closed within a few seconds without picking anything: opened by mistake, so not logged (null).
+    androidx.compose.ui.window.Dialog({ onClose(left <= 0, if (trigger.isBlank() && left > 104) null else trigger) }, androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             Modifier.fillMaxSize().background(Color(0xF0081018)).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
@@ -275,7 +309,22 @@ private fun BreathingDialog(onClose: (Boolean) -> Unit) {
             Text(if (left > 0) "${left / 60}:${"%02d".format(left % 60)} left" else "The craving should be easing now.", color = Color(0xFFCBD2F0))
             Text("Cravings usually pass in 3 to 5 minutes.", color = Color(0xFF8FA3C7), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(24.dp))
-            Button({ onClose(true) }) { Text("The craving has passed") }
+            Text("What set it off?", color = Color(0xFF8FA3C7), fontSize = 13.sp)
+            androidx.compose.foundation.layout.FlowRow(
+                Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                com.malluwayne.batbloom.quit.Cravings.triggers.forEach { t ->
+                    val on = trigger == t
+                    Text(
+                        t, color = if (on) Color(0xFF0B2A26) else Color(0xFFCBD2F0), fontSize = 13.sp,
+                        modifier = Modifier.background(if (on) Color(0xFF7FE3D0) else Color(0x22FFFFFF), RoundedCornerShape(50))
+                            .clickable { trigger = if (on) "" else t }.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Button({ onClose(true, trigger) }) { Text("The craving has passed") }
         }
     }
 }

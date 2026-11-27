@@ -205,7 +205,7 @@ private fun DayDosesDialog(m: MedEntity, day: LocalDate, logs: List<com.malluway
         title = { Text(DateTimeFormatter.ofPattern("EEEE, d MMMM").format(day)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                logged.forEach { HistoryRow(it, m) }
+                logged.forEach { HistoryRow(it, m, showArt = false) }
                 open.forEach { d ->
                     Text(
                         "${DateTimeFormatter.ofPattern("h:mm a").format(d.at)} · ${MedSchedule.qtyLabel(m, d.qty)} · not logged",

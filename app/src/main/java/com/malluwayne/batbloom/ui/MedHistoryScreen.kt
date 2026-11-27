@@ -125,7 +125,7 @@ fun MedHistoryScreen(modifier: Modifier, onBack: () -> Unit) {
 
 /** Time on the left, the medication and dose, and a tick (taken) or cross (skipped). Late doses say so. */
 @Composable
-internal fun HistoryRow(e: HistoryEntry, med: MedEntity?) {
+internal fun HistoryRow(e: HistoryEntry, med: MedEntity?, showArt: Boolean = true) {
     val taken = e.status == DoseStatus.TAKEN
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -133,10 +133,11 @@ internal fun HistoryRow(e: HistoryEntry, med: MedEntity?) {
             Modifier.width(76.dp), fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
             color = if (taken) MaterialTheme.colorScheme.onSurface else Muted,
         )
-        Box(Modifier.padding(end = 10.dp)) { if (med != null) PillArt(med, 34.dp) else PillArt(VareniclineArt, 34.dp) }
+        if (showArt) Box(Modifier.padding(end = 10.dp)) { if (med != null) PillArt(med, 34.dp) else PillArt(VareniclineArt, 34.dp) }
         Column(Modifier.weight(1f)) {
-            Text(e.name, fontWeight = FontWeight.SemiBold, color = if (taken) MaterialTheme.colorScheme.onSurface else Muted)
-            Text(e.detail, color = Muted, fontSize = 12.sp)
+            // In a single medication's day view the name is already known: the dose leads instead.
+            if (showArt) Text(e.name, fontWeight = FontWeight.SemiBold, color = if (taken) MaterialTheme.colorScheme.onSurface else Muted)
+            Text(e.detail, color = if (showArt) Muted else MaterialTheme.colorScheme.onSurface, fontSize = if (showArt) 12.sp else 14.sp)
             val late = e.minutesLate
             when {
                 !taken -> Text("Skipped" + (e.scheduled?.let { " · ${hTime.format(it)} dose" } ?: ""), color = Muted, fontSize = 12.sp)
@@ -170,7 +171,10 @@ private fun lateText(min: Long): String = when {
 private fun shareCsv(ctx: android.content.Context, entries: List<HistoryEntry>) {
     runCatching {
         val dir = java.io.File(ctx.cacheDir, "shared").apply { mkdirs() }
-        val file = java.io.File(dir, "batbloom-medication-history-${LocalDate.now()}.csv").apply { writeText(MedHistory.csv(entries)) }
+        val file = java.io.File(dir, "batbloom-medication-history-${LocalDate.now()}.csv").apply {
+            // The UTF-8 mark first, so Excel reads "·" and names in any language correctly (Sheets doesn't mind it).
+            writeText(0xFEFF.toChar() + MedHistory.csv(entries))
+        }
         val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "${ctx.packageName}.share", file)
         ctx.startActivity(android.content.Intent.createChooser(
             android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/csv")

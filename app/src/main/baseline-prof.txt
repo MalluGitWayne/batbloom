@@ -1,0 +1,5 @@
+# Baseline profile: Batbloom's own code is compiled ahead of time when the app is installed, so the first launch and
+# the first scroll through each tab don't wait for the just-in-time compiler. Compose and the AndroidX libraries ship
+# their own profiles; these rules cover the app's classes and methods.
+HSPLcom/malluwayne/batbloom/**;->**(**)**
+Lcom/malluwayne/batbloom/**;

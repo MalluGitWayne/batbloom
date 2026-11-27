@@ -96,139 +96,173 @@ fun HomeScreen(modifier: Modifier) {
         }
         UpdateBanner { Nav.tab.value = TabIds.SETTINGS }
 
-        // Focus + garden: a card like the others, in Focus purple. The plant keeps a small night tile so its glow shows.
-        SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.FOCUS }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    CardHeader("Focus", Icons.Filled.PlayArrow, TabAccent.Focus)
-                    Text(Rules.formatMinutes(stats.todayMinutes), fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
-                    Text(
-                        listOfNotNull(
-                            if (stats.streakDays > 0) "${stats.streakDays}-day streak" else null,
-                            "${stats.completed} bloom${if (stats.completed == 1) "" else "s"}",
-                        ).joinToString(" \u00B7 "),
-                        color = Muted, fontSize = 13.sp,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                        val focus = TabAccent.Focus.color()
-                        Button(
-                            { Nav.tab.value = TabIds.FOCUS },
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = focus, contentColor = Color.White),
-                        ) { Text("Start focus") }
-                        androidx.compose.material3.OutlinedButton({ Nav.tab.value = TabIds.GARDEN; Nav.garden.value = 0 }) {
-                            Text("Garden", color = focus)
-                        }
-                    }
-                }
-                Box(
-                    Modifier.padding(start = 12.dp).width(84.dp).height(108.dp).clip(RoundedCornerShape(18.dp)).plantTile(),
-                    contentAlignment = Alignment.BottomCenter,
-                ) {
-                    com.malluwayne.batbloom.plants.PlantArt(PlantCatalog.byId(plant), 1f, false, Modifier.width(76.dp).height(100.dp), animate = false)
-                }
-            }
-        }
-
-        // Next dose
-        if (medsOn) {
-            val meds by remember { app.db.meds().all() }.collectAsState(emptyList())
-            val since = remember(today) { today.atStartOfDay(zone).toInstant().toEpochMilli() }
-            val logs by remember(today) { app.db.meds().logsSince(since, today.toString()) }.collectAsState(emptyList())
-            val schedule by prefs.schedule.collectAsState()
-            val courseLogs by app.repo.doses.collectAsState(emptyList())
-            data class Due(val name: String, val detail: String, val at: java.time.LocalDateTime, val done: Boolean)
-            val all = remember(meds, logs, schedule, courseLogs, today) {
-                val logged = logs.filter { it.slot != null }.map { it.medId to it.slot }.toSet()
-                val cKeys = courseLogs.map { it.key }.toSet()
-                MedSchedule.dosesOn(meds, today).map { Due(it.med.name, MedSchedule.qtyLabel(it.med, it.qty), it.at, (it.med.id to it.slot) in logged) } +
-                    schedule.slotsOn(today).map { Due("Varenicline", Doses.formatMg(it.mg), schedule.timeOf(it, zone).toLocalDateTime(), it.key in cKeys) }
-            }.sortedBy { it.at }
-            if (all.isNotEmpty()) {
-                val open = all.filter { !it.done }
-                val next = open.firstOrNull()
-                SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.MEDS }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            CardHeader("Medications", PillIcon, TabAccent.Meds)
-                            if (next == null) Text("All ${all.size} doses logged today ✓", fontWeight = FontWeight.SemiBold, color = Teal)
-                            else {
-                                val late = now.toLocalDateTime().isAfter(next.at.plusMinutes(60))
-                                Text((if (late) "Missed: " else "Next: ") + "${next.name} · ${next.detail}", fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    "${tf.format(next.at)} · ${all.count { it.done }} of ${all.size} logged today",
-                                    color = if (late) Gold else Muted, fontSize = 13.sp,
-                                )
-                            }
-                        }
-                        Text("›", color = Muted, fontSize = 22.sp)
-                    }
-                    Meter(all.count { it.done }.toFloat() / all.size, TabAccent.Meds.color())
-                }
-            }
-        }
-
-        // Smoke-free
-        if (quitOn) {
-            val quit by prefs.quitDate.collectAsState()
-            val quitTime by prefs.quitTime.collectAsState()
-            val smoking by prefs.smoking.collectAsState()
-            quit?.let { q ->
-                val start = q.atTime(quitTime).atZone(zone)
-                val p = QuitMath.progress(start, now, smoking.perDay, smoking.packSize, smoking.packPrice)
-                SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.QUIT }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            CardHeader("Smoke-free", Icons.Filled.Favorite, TabAccent.Quit)
-                            if (p.sinceQuit.isNegative) Text("Quit day in ${ChronoUnit.DAYS.between(today, q)} days", fontWeight = FontWeight.SemiBold)
-                            else {
-                                Text(QuitMath.formatDuration(p.sinceQuit), fontWeight = FontWeight.Bold, fontSize = 22.sp, color = TabAccent.Quit.color())
-                                Text("${rupees(p.moneySaved)} saved · ${p.notSmoked} not smoked", color = Muted, fontSize = 13.sp)
-                            }
-                        }
-                        Text("›", color = Muted, fontSize = 22.sp)
-                    }
-                }
-            }
-        }
-
-        // Exam
-        if (examOn) {
-            val exam by prefs.examDate.collectAsState()
-            val goal by prefs.dailyGoal.collectAsState()
-
-            SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.EXAM }) {
+        // Each card is a block; Settings › Home sets their order and which show.
+        val cards: Map<String, @Composable () -> Unit> = mapOf(
+            "focus" to {
+            // Focus + garden: a card like the others, in Focus purple. The plant keeps a small night tile so its glow shows.
+            SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.FOCUS }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        CardHeader("FMGE", BookIcon, TabAccent.Exam)
+                        CardHeader("Focus", Icons.Filled.PlayArrow, TabAccent.Focus)
+                        Text(Rules.formatMinutes(stats.todayMinutes), fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
                         Text(
-                            exam?.let { e -> ChronoUnit.DAYS.between(today, e).let { d -> if (d > 0) "$d days to go" else if (d == 0L) "Exam day!" else "Exam done" } } ?: "Set your exam date",
-                            fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                        )
-                        Text(
-                            "${Rules.formatMinutes(stats.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)} today",
+                            listOfNotNull(
+                                if (stats.streakDays > 0) "${stats.streakDays}-day streak" else null,
+                                "${stats.completed} bloom${if (stats.completed == 1) "" else "s"}",
+                            ).joinToString(" \u00B7 "),
                             color = Muted, fontSize = 13.sp,
                         )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+                            val focus = TabAccent.Focus.color()
+                            Button(
+                                { Nav.tab.value = TabIds.FOCUS },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = focus, contentColor = Color.White),
+                            ) { Text("Start focus") }
+                            androidx.compose.material3.OutlinedButton({ Nav.tab.value = TabIds.GARDEN; Nav.garden.value = 0 }) {
+                                Text("Garden", color = focus)
+                            }
+                        }
+                    }
+                    Box(
+                        Modifier.padding(start = 12.dp).width(84.dp).height(108.dp).clip(RoundedCornerShape(18.dp)).plantTile(),
+                        contentAlignment = Alignment.BottomCenter,
+                    ) {
+                        com.malluwayne.batbloom.plants.PlantArt(PlantCatalog.byId(plant), 1f, false, Modifier.width(76.dp).height(100.dp), animate = false)
+                    }
+                }
+            }
+
+            },
+            "meds" to {
+            // Next dose
+            if (medsOn) {
+                val meds by remember { app.db.meds().all() }.collectAsState(emptyList())
+                val since = remember(today) { today.atStartOfDay(zone).toInstant().toEpochMilli() }
+                val logs by remember(today) { app.db.meds().logsSince(since, today.toString()) }.collectAsState(emptyList())
+                val schedule by prefs.schedule.collectAsState()
+                val courseLogs by app.repo.doses.collectAsState(emptyList())
+                data class Due(val name: String, val detail: String, val at: java.time.LocalDateTime, val done: Boolean)
+                val all = remember(meds, logs, schedule, courseLogs, today) {
+                    val logged = logs.filter { it.slot != null }.map { it.medId to it.slot }.toSet()
+                    val cKeys = courseLogs.map { it.key }.toSet()
+                    MedSchedule.dosesOn(meds, today).map { Due(it.med.name, MedSchedule.qtyLabel(it.med, it.qty), it.at, (it.med.id to it.slot) in logged) } +
+                        schedule.slotsOn(today).map { Due("Varenicline", Doses.formatMg(it.mg), schedule.timeOf(it, zone).toLocalDateTime(), it.key in cKeys) }
+                }.sortedBy { it.at }
+                if (all.isNotEmpty()) {
+                    val open = all.filter { !it.done }
+                    val next = open.firstOrNull()
+                    SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.MEDS }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                CardHeader("Medications", PillIcon, TabAccent.Meds)
+                                if (next == null) Text("All ${all.size} doses logged today ✓", fontWeight = FontWeight.SemiBold, color = Teal)
+                                else {
+                                    val late = now.toLocalDateTime().isAfter(next.at.plusMinutes(60))
+                                    Text((if (late) "Missed: " else "Next: ") + "${next.name} · ${next.detail}", fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "${tf.format(next.at)} · ${all.count { it.done }} of ${all.size} logged today",
+                                        color = if (late) Gold else Muted, fontSize = 13.sp,
+                                    )
+                                }
+                            }
+                            Text("›", color = Muted, fontSize = 22.sp)
+                        }
+                        Meter(all.count { it.done }.toFloat() / all.size, TabAccent.Meds.color())
+                    }
+                }
+            }
+
+            },
+            "quit" to {
+            // Smoke-free
+            if (quitOn) {
+                val quit by prefs.quitDate.collectAsState()
+                val quitTime by prefs.quitTime.collectAsState()
+                val smoking by prefs.smoking.collectAsState()
+                quit?.let { q ->
+                    val start = q.atTime(quitTime).atZone(zone)
+                    val p = QuitMath.progress(start, now, smoking.perDay, smoking.packSize, smoking.packPrice)
+                    SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.QUIT }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                CardHeader("Smoke-free", Icons.Filled.Favorite, TabAccent.Quit)
+                                if (p.sinceQuit.isNegative) Text(ChronoUnit.DAYS.between(today, q).let { d -> when { d <= 0 -> "Quit day is today"; d == 1L -> "Quit day is tomorrow"; else -> "Quit day in $d days" } }, fontWeight = FontWeight.SemiBold)
+                                else {
+                                    Text(QuitMath.formatDuration(p.sinceQuit), fontWeight = FontWeight.Bold, fontSize = 22.sp, color = TabAccent.Quit.color())
+                                    Text("${rupees(p.moneySaved)} saved · ${p.notSmoked} not smoked", color = Muted, fontSize = 13.sp)
+                                }
+                            }
+                            Text("›", color = Muted, fontSize = 22.sp)
+                        }
+                    }
+                }
+            }
+
+            },
+            "exam" to {
+            // Exam
+            if (examOn) {
+                val exam by prefs.examDate.collectAsState()
+                val goal by prefs.dailyGoal.collectAsState()
+
+                SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.EXAM }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            CardHeader("FMGE", BookIcon, TabAccent.Exam)
+                            Text(
+                                exam?.let { e -> ChronoUnit.DAYS.between(today, e).let { d -> if (d > 0) "$d day${if (d == 1L) "" else "s"} to go" else if (d == 0L) "Exam day!" else "Exam done" } } ?: "Set your exam date",
+                                fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                            )
+                            Text(
+                                "${Rules.formatMinutes(stats.fmgeTodayMinutes)} of ${Rules.formatMinutes(goal)} today",
+                                color = Muted, fontSize = 13.sp,
+                            )
+                        }
+                        Text("›", color = Muted, fontSize = 22.sp)
+                    }
+                    if (goal > 0) Meter((stats.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f), TabAccent.Exam.color())
+                }
+            }
+
+            },
+            "awards" to {
+            // Achievements
+            val earned = badges.map { it.id }.filter { id -> Badges.all.any { it.id == id } }
+            val latest = badges.filter { b -> Badges.all.any { it.id == b.id } }.maxByOrNull { it.earnedAt }?.let { Badges.byId(it.id) }
+            SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.GARDEN; Nav.garden.value = 2 }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    latest?.let { Emblem(it, true, 56.dp) }
+                    Column(Modifier.weight(1f).padding(start = if (latest != null) 12.dp else 0.dp)) {
+                        CardHeader("Achievements", Icons.Filled.Star, TabAccent.Awards)
+                        Text("${Badges.points(earned)} pts · ${earned.size} of ${Badges.all.size}", fontWeight = FontWeight.Bold)
+                        latest?.let { Text("Latest: ${it.title}", color = Muted, fontSize = 13.sp) }
                     }
                     Text("›", color = Muted, fontSize = 22.sp)
                 }
-                if (goal > 0) Meter((stats.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f), TabAccent.Exam.color())
             }
-        }
-
-        // Achievements
-        val earned = badges.map { it.id }.filter { id -> Badges.all.any { it.id == id } }
-        val latest = badges.filter { b -> Badges.all.any { it.id == b.id } }.maxByOrNull { it.earnedAt }?.let { Badges.byId(it.id) }
-        SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.GARDEN; Nav.garden.value = 2 }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                latest?.let { Emblem(it, true, 56.dp) }
-                Column(Modifier.weight(1f).padding(start = if (latest != null) 12.dp else 0.dp)) {
-                    CardHeader("Achievements", Icons.Filled.Star, TabAccent.Awards)
-                    Text("${Badges.points(earned)} pts · ${earned.size} of ${Badges.all.size}", fontWeight = FontWeight.Bold)
-                    latest?.let { Text("Latest: ${it.title}", color = Muted, fontSize = 13.sp) }
-                }
-                Text("›", color = Muted, fontSize = 22.sp)
-            }
-        }
+            },
+        )
+        val order by prefs.homeOrder.collectAsState()
+        val hidden by prefs.homeHidden.collectAsState()
+        HomeCards.ordered(order).filter { it !in hidden }.forEach { id -> androidx.compose.runtime.key(id) { cards[id]?.invoke() } }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** Home's cards, in their default order, with the names Settings shows. */
+object HomeCards {
+    val all = listOf("focus" to "Focus", "meds" to "Medications", "quit" to "Smoke-free", "exam" to "FMGE", "awards" to "Achievements")
+
+    /** The saved order, keeping only known cards and adding any new ones at the end. */
+    fun ordered(saved: List<String>): List<String> {
+        val ids = all.map { it.first }
+        return saved.filter { it in ids }.distinct() + ids.filter { it !in saved }
+    }
+
+    /** [ids] with the card at [i] moved one place up (-1) or down (+1). */
+    fun move(ids: List<String>, i: Int, by: Int): List<String> {
+        val j = i + by
+        if (i !in ids.indices || j !in ids.indices) return ids
+        return ids.toMutableList().apply { add(j, removeAt(i)) }
     }
 }

@@ -32,6 +32,7 @@ object Reminders {
     const val ACTION_FMGE = "batbloom.FMGE_REMINDER"
     const val ACTION_MILESTONE = "batbloom.MILESTONE"
     const val ACTION_BACKUP = "batbloom.AUTO_BACKUP"
+    const val ACTION_WEEKLY = "batbloom.WEEKLY"
     private const val CH_MILESTONE = "milestones"
     private const val NOTIF_STUDY = 40
 
@@ -72,6 +73,14 @@ object Reminders {
             val at = now.toLocalDate().atTime(3, 0).atZone(now.zone).let { if (it.isAfter(now)) it else it.plusDays(1) }
             am.setInexactRepeating(AlarmManager.RTC_WAKEUP, at.toInstant().toEpochMilli(), AlarmManager.INTERVAL_DAY, backup)
         } else am.cancel(backup)
+        // Weekly summary: Sundays at 7 PM (a fixed time, so setting it again doesn't move it).
+        val weekly = pi(c, ACTION_WEEKLY, 207)
+        if (prefs.weekly.value) {
+            val now = ZonedDateTime.now()
+            var at = now.with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.SUNDAY)).toLocalDate().atTime(19, 0).atZone(now.zone)
+            if (!at.isAfter(now)) at = at.plusWeeks(1)
+            am.setInexactRepeating(AlarmManager.RTC_WAKEUP, at.toInstant().toEpochMilli(), AlarmManager.INTERVAL_DAY * 7, weekly)
+        } else am.cancel(weekly)
         // FMGE reminder: once a day at the chosen time.
         val study = pi(c, ACTION_FMGE, 201)
         if (!prefs.fmgeReminder.value || !prefs.examTab.value) { am.cancel(study); return }
@@ -211,6 +220,53 @@ object Reminders {
     }
 }
 
+/** The Sunday summary: focus, doses and cravings over the last seven days, each against the week before. */
+suspend fun Reminders.notifyWeekly(c: Context) {
+    val app = c.applicationContext as BatbloomApp
+    val prefs = app.prefs
+    val zone = java.time.ZoneId.systemDefault()
+    val now = java.time.LocalDateTime.now()
+    val today = now.toLocalDate()
+    val sessions = app.repo.sessions.first()
+    val week = (6 downTo 0).map { today.minusDays(it.toLong()) }
+    // Doses whose time has come, medications and the varenicline course together.
+    var due = 0
+    var taken = 0
+    if (prefs.medsTab.value) {
+        val meds = app.db.meds().allNow()
+        val doses = week.flatMap { com.malluwayne.batbloom.meds.MedSchedule.dosesOn(meds, it) }.filter { !it.at.isAfter(now) }
+        val logs = if (doses.isEmpty()) emptyList() else app.db.meds().logsForSlots(doses.map { it.slot }.distinct())
+        due += doses.size
+        taken += doses.count { d -> logs.any { it.medId == d.med.id && it.slot == d.slot && it.status == com.malluwayne.batbloom.data.DoseStatus.TAKEN } }
+    }
+    if (prefs.medsTab.value || prefs.quitTab.value) {
+        val s = prefs.schedule.value
+        val slots = week.flatMap { s.slotsOn(it) }.filter { !s.timeOf(it, zone).toLocalDateTime().isAfter(now) }
+        due += slots.size
+        taken += slots.count { app.repo.doseStatus(it.key) == com.malluwayne.batbloom.data.DoseStatus.TAKEN }
+    }
+    val cravings = if (prefs.quitTab.value) com.malluwayne.batbloom.quit.Cravings.perDay(prefs.cravings.value, today, zone, 14) else List(14) { 0 }
+    val w = com.malluwayne.batbloom.stats.Week(
+        com.malluwayne.batbloom.stats.Weekly.focusMinutes(sessions, today.minusDays(6), today, zone),
+        com.malluwayne.batbloom.stats.Weekly.focusMinutes(sessions, today.minusDays(13), today.minusDays(7), zone),
+        taken, due, cravings.takeLast(7).sum(), cravings.take(7).sum(),
+    )
+    val lines = com.malluwayne.batbloom.stats.Weekly.lines(w)
+    val open = PendingIntent.getActivity(
+        c, 208, Intent(c, MainActivity::class.java).setAction(MainActivity.ACTION_STATS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+    val n = NotificationCompat.Builder(c, "study")
+        .setSmallIcon(R.drawable.ic_stat_bloom)
+        .setContentTitle(com.malluwayne.batbloom.stats.Weekly.title(w))
+        .setContentText(lines.first())
+        .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+        .setContentIntent(open)
+        .setAutoCancel(true)
+        .build()
+    com.malluwayne.batbloom.Notify.post(c, 42, n)
+}
+
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext as BatbloomApp
@@ -221,6 +277,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     Reminders.ACTION_GUARD -> Reminders.checkGuard(context)
                     Reminders.ACTION_FMGE -> { Reminders.notifyStudy(context); Reminders.scheduleAll(context) }
                     Reminders.ACTION_BACKUP -> com.malluwayne.batbloom.data.AutoBackup.runIfDue(context)
+                    Reminders.ACTION_WEEKLY -> Reminders.notifyWeekly(context)
                     Reminders.ACTION_MILESTONE -> {
                         Reminders.notifyMilestone(context)
                         Reminders.scheduleMilestone(context)

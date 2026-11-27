@@ -226,7 +226,9 @@ internal fun LogSheet(group: List<DoseItem>, now: ZonedDateTime, onClose: () -> 
                 TextButton({ group.forEach { choice[it.key] = DoseStatus.SKIPPED } }) { Text("Skip all") }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClose) { Text("Cancel") }
+                val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
                 Button({
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
                     val at = when (whenMode) {
                         "scheduled" -> scheduled
                         "custom" -> custom ?: now

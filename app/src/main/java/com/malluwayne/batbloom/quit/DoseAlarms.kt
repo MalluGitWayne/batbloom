@@ -171,7 +171,13 @@ object DoseAlarms {
         val strength = a.prefs.tabletStrength.value
         val change = a.repo.markDose(slot, status, strength, at)
         val left = a.prefs.tabletsLeft.value
-        if (left >= 0 && change != 0.0) a.prefs.setTabletsLeft((left + change).coerceAtLeast(0.0))
+        if (left >= 0 && change != 0.0) {
+            // Giving back returns only what was really taken off (the count stops at 0).
+            val want = if (change > 0) (change - com.malluwayne.batbloom.meds.StockShort.take(context, "c${slot.key}")).coerceAtLeast(0.0) else change
+            val now = (left + want).coerceAtLeast(0.0)
+            a.prefs.setTabletsLeft(now)
+            if (change < 0) com.malluwayne.batbloom.meds.StockShort.put(context, "c${slot.key}", -change - (left - now))
+        }
         if (status != null) {
             cancelDoseNotification(context, slot.key)
             context.getSystemService(AlarmManager::class.java).cancel(againPi(context, slot.key))

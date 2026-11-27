@@ -20,6 +20,9 @@ object Dnd {
     fun enabled(c: Context): Boolean = c.getSharedPreferences(SP, Context.MODE_PRIVATE).getBoolean("on", false)
     fun setEnabled(c: Context, on: Boolean) = c.getSharedPreferences(SP, Context.MODE_PRIVATE).edit { putBoolean("on", on) }
 
+    /** Whether Batbloom has Do Not Disturb on right now (for this session). */
+    fun active(c: Context): Boolean = c.getSharedPreferences(SP, Context.MODE_PRIVATE).getBoolean("active", false)
+
     /** At the start of a session. Does nothing if switched off, not allowed, or DND is already on by the user. */
     fun start(c: Context) {
         if (!enabled(c) || !hasAccess(c)) return

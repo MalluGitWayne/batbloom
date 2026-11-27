@@ -218,7 +218,8 @@ fun ExamScreen(modifier: Modifier) {
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                listOf(10, 25, 50).forEach { k -> OutlinedButton({ addMcq(k) }, Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)) { Text("+$k", maxLines = 1) } }
+                val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+                listOf(10, 25, 50).forEach { k -> OutlinedButton({ haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick); addMcq(k) }, Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)) { Text("+$k", maxLines = 1) } }
                 TextButton({ askMcq = true }) { Text("Log a set\u2026") }
             }
         }

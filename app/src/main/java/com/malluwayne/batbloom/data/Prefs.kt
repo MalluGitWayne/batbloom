@@ -36,6 +36,16 @@ class Prefs(context: Context) {
     fun setMockTests(json: String) { sp.edit { putString("mock_tests", json) }; _mockTests.value = json }
 
     /** The tip card on the Quit tab (hidden with its ✕, back on in Quit > Edit). */
+    /** Home's cards: their order and which are hidden (ids in com.malluwayne.batbloom.ui.HomeCards). */
+    private val _homeOrder = MutableStateFlow(sp.getString("home_order", "")!!.split(',').filter { it.isNotBlank() })
+    val homeOrder: StateFlow<List<String>> = _homeOrder
+    fun setHomeOrder(ids: List<String>) { sp.edit { putString("home_order", ids.joinToString(",")) }; _homeOrder.value = ids }
+    private val _homeHidden = MutableStateFlow(sp.getStringSet("home_hidden", emptySet())!!.toSet())
+    val homeHidden: StateFlow<Set<String>> = _homeHidden
+    fun setHomeHidden(ids: Set<String>) { sp.edit { putStringSet("home_hidden", ids) }; _homeHidden.value = ids }
+    private val _weekly = MutableStateFlow(sp.getBoolean("weekly_summary", true))
+    val weekly: StateFlow<Boolean> = _weekly
+    fun setWeekly(on: Boolean) { sp.edit { putBoolean("weekly_summary", on) }; _weekly.value = on }
     private val _roundup = MutableStateFlow(sp.getBoolean("med_roundup", true))
     val roundup: StateFlow<Boolean> = _roundup
     fun setRoundup(on: Boolean) { sp.edit { putBoolean("med_roundup", on) }; _roundup.value = on }

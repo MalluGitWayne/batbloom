@@ -433,6 +433,8 @@ private fun BreakView(s: State.Break) {
 
 @Composable
 private fun ResultView(s: State.Finished) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    androidx.compose.runtime.LaunchedEffect(s) { haptic.performHapticFeedback(if (s.success) androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm else androidx.compose.ui.hapticfeedback.HapticFeedbackType.Reject) }
     Column(
         Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

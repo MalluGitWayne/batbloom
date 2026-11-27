@@ -38,6 +38,12 @@ import kotlinx.coroutines.withContext
  */
 class FocusService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    // The timer runs on the phone's uptime, anchored to the wall clock once: changing the time in Settings can't
+    // finish a session early or stretch it. Times stay in milliseconds since 1970 for the database and display.
+    private val anchorWall = System.currentTimeMillis()
+    private val anchorElapsed = android.os.SystemClock.elapsedRealtime()
+    private fun now() = anchorWall + (android.os.SystemClock.elapsedRealtime() - anchorElapsed)
     private var loop: Job? = null
     private var guard = LeaveGuard()
     private var reader: ForegroundAppReader? = null
@@ -66,6 +72,8 @@ class FocusService : Service() {
                 }
             }
             ACTION_STOP -> (FocusEngine.state.value as? State.Running)?.let { stopStopwatch(it) } ?: stop()
+            // From the session notification: let notifications through again, keep focusing.
+            ACTION_DND_OFF -> { Dnd.restore(this); if (FocusEngine.state.value is State.Running || FocusEngine.state.value is State.Break) showOngoing() else stop() }
             ACTION_GIVE_UP -> when (val s = FocusEngine.state.value) {
                 is State.Running -> roundOver(s, success = false, reason = "gave up")
                 is State.Break -> finishAll(State.Finished(s.blooms > 0, s.request, s.request.plan?.focusMinutes ?: 0, null, s.blooms, s.request.plan?.rounds))
@@ -91,7 +99,7 @@ class FocusService : Service() {
 
     private fun startRound(req: FocusEngine.Request, round: Int?, blooms: Int) {
         val minutes = if (req.stopwatch) Rules.STOPWATCH_MAX_MINUTES else Rules.clampMinutes(req.plan?.focusMinutes ?: req.minutes)
-        val start = System.currentTimeMillis()
+        val start = now()
         val r = State.Running(-1, req, minutes, start, start + minutes * 60_000L, round, blooms)
         guard = LeaveGuard()
         FocusEngine.state.value = r
@@ -109,7 +117,7 @@ class FocusService : Service() {
             val now = FocusEngine.state.value
             if (now is State.Running && now.startAt == start) FocusEngine.state.value = now.copy(sessionId = id)
             // Given up in the instant before its row was written (a round lasts at least 10 minutes).
-            else withContext(Dispatchers.IO) { app.repo.finishSession(id, false, System.currentTimeMillis(), "gave up") }
+            else withContext(Dispatchers.IO) { app.repo.finishSession(id, false, now(), "gave up") }
             BloomWidget.refresh(this@FocusService)
         }
     }
@@ -117,7 +125,7 @@ class FocusService : Service() {
     private var lastWidget = 0L
 
     private fun tick() {
-        val now = System.currentTimeMillis()
+        val now = now()
         // The widget's plant grows with the timer: redraw it once a minute.
         if (now - lastWidget >= 60_000) { lastWidget = now; BloomWidget.refresh(this) }
         when (val s = FocusEngine.state.value) {
@@ -149,7 +157,7 @@ class FocusService : Service() {
     }
 
     private fun stopStopwatch(r: State.Running) {
-        val elapsed = (System.currentTimeMillis().coerceAtMost(r.endAt)) - r.startAt
+        val elapsed = (now().coerceAtMost(r.endAt)) - r.startAt
         val ok = Rules.stopwatchCounts(elapsed)
         roundOver(r, ok, if (ok) null else "too short", Rules.stopwatchMinutes(elapsed))
     }
@@ -158,7 +166,7 @@ class FocusService : Service() {
         cancelAlarm()
         NotificationManagerCompat.from(this).cancel(NOTIF_WARN)
         val minutes = actualMinutes ?: r.minutes
-        val endedAt = if (actualMinutes != null) System.currentTimeMillis().coerceAtMost(r.endAt) else if (success) r.endAt else System.currentTimeMillis()
+        val endedAt = if (actualMinutes != null) now().coerceAtMost(r.endAt) else if (success) r.endAt else now()
         val blooms = r.blooms + if (success) 1 else 0
         if (r.sessionId >= 0) app.appScope.launch {
             app.repo.finishSession(r.sessionId, success, endedAt, reason, actualMinutes)
@@ -167,7 +175,7 @@ class FocusService : Service() {
         val plan = r.request.plan
         val round = r.round
         if (success && plan != null && round != null && !plan.isLast(round)) {
-            val now = System.currentTimeMillis()
+            val now = now()
             val b = State.Break(r.request, now, now + plan.breakAfter(round) * 60_000L, round + 1, plan.isLongBreak(round), blooms)
             FocusEngine.state.value = b
             notifyResult("Round $round bloomed! Break time", "${plan.breakAfter(round)} min break, then round ${round + 1} of ${plan.rounds} starts by itself.")
@@ -264,6 +272,10 @@ class FocusService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addExtras(android.os.Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
             .apply {
+                if (Dnd.active(this@FocusService)) addAction(
+                    0, "Allow notifications",
+                    PendingIntent.getService(this@FocusService, 5, Intent(this@FocusService, FocusService::class.java).setAction(ACTION_DND_OFF), PendingIntent.FLAG_IMMUTABLE),
+                )
                 if ((FocusEngine.state.value as? State.Running)?.request?.stopwatch == true) addAction(
                     0, "Stop",
                     PendingIntent.getService(this@FocusService, 4, Intent(this@FocusService, FocusService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE),
@@ -312,8 +324,10 @@ class FocusService : Service() {
     private fun scheduleAlarm(at: Long) {
         // Exact when allowed, so a round blooms and the next one starts on time even in a pocket.
         val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        if (com.malluwayne.batbloom.quit.DoseAlarms.canExact(this)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
-        else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
+        // On the uptime clock too, so a changed wall clock doesn't move it.
+        val atElapsed = anchorElapsed + (at - anchorWall)
+        if (com.malluwayne.batbloom.quit.DoseAlarms.canExact(this)) am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, atElapsed, alarmIntent())
+        else am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, atElapsed, alarmIntent())
     }
 
     private fun cancelAlarm() {
@@ -324,6 +338,7 @@ class FocusService : Service() {
         const val ACTION_START = "batbloom.START"
         const val ACTION_GIVE_UP = "batbloom.GIVE_UP"
         const val ACTION_STOP = "batbloom.STOP"
+        const val ACTION_DND_OFF = "batbloom.DND_OFF"
         const val CH_SESSION = "session"
         const val CH_ALERTS = "alerts"
         const val NOTIF_SESSION = 1

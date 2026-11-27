@@ -142,6 +142,26 @@ class ExtrasTest {
         assertEquals(start.plusDays(30).atTime(8, 0), MedSchedule.nextTime(listOf(monthly), start.atTime(9, 0)))
     }
 
+    @Test fun weeklySummary() {
+        val w = com.malluwayne.batbloom.stats.Week(750, 620, 31, 33, 6, 9)
+        val lines = com.malluwayne.batbloom.stats.Weekly.lines(w)
+        assertEquals("Focus: 12h 30m, 2h 10m more than last week", lines[0])
+        assertEquals("Doses: 93% taken (31 of 33)", lines[1])
+        assertEquals("Cravings: 6, down from 9", lines[2])
+        assertEquals("More focus than last week", com.malluwayne.batbloom.stats.Weekly.title(w))
+        // Nothing to compare and no doses or cravings: one plain line
+        assertEquals(listOf("Focus: 0m"), com.malluwayne.batbloom.stats.Weekly.lines(com.malluwayne.batbloom.stats.Week(0, 0, 0, 0, 0, 0)))
+    }
+
+    @Test fun homeCardOrder() {
+        val h = com.malluwayne.batbloom.ui.HomeCards
+        assertEquals(listOf("focus", "meds", "quit", "exam", "awards"), h.ordered(emptyList()))
+        // Saved order kept, unknown ids dropped, new cards added at the end
+        assertEquals(listOf("meds", "focus", "quit", "exam", "awards"), h.ordered(listOf("meds", "gone", "focus")))
+        assertEquals(listOf("meds", "focus", "quit"), h.move(listOf("focus", "meds", "quit"), 1, -1))
+        assertEquals(listOf("focus", "meds"), h.move(listOf("focus", "meds"), 0, -1)) // already first
+    }
+
     @Test fun pdfRows() {
         val med = MedEntity(id = 2, name = "Vitamin D", form = "Capsule", strength = 1000.0, unit = "IU", startDate = start.toString(), notes = "after food")
         val rows = MedListPdf.rows(listOf(med, med.copy(id = 3, name = "Old", archived = true)), DoseSchedule(), LocalDate.of(2026, 11, 24))

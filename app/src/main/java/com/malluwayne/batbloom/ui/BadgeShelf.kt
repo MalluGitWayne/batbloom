@@ -335,6 +335,8 @@ fun AchievementCelebrations() {
 
 @Composable
 private fun UnlockCelebration(b: Badge, onDone: () -> Unit) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    LaunchedEffect(b.id) { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm) }
     val pop = remember(b.id) { Animatable(0f) }
     val fade = remember(b.id) { Animatable(0f) }
     LaunchedEffect(b.id) {

@@ -3,6 +3,9 @@
 package com.malluwayne.batbloom.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
@@ -135,6 +138,14 @@ fun SettingsScreen(modifier: Modifier) {
                 TextButton({ showApps = true }) { Text(if (allowed.isEmpty()) "Choose" else "${allowed.size} chosen  ›") }
             }
             DndRow(now)
+            val weekly by prefs.weekly.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Weekly summary")
+                    Text("Sundays at 7 PM: focus, doses and cravings against last week", color = Muted, fontSize = 12.sp)
+                }
+                androidx.compose.material3.Switch(weekly, { prefs.setWeekly(it); com.malluwayne.batbloom.guard.Reminders.scheduleAll(ctx) })
+            }
             TimeGuardSection(now)
             if (custom.isNotEmpty()) SubSection("Custom tags") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -160,6 +171,27 @@ fun SettingsScreen(modifier: Modifier) {
             }
         }
 
+        val homeOrder by prefs.homeOrder.collectAsState()
+        val homeHidden by prefs.homeHidden.collectAsState()
+        SectionCard(
+            "Home", icon = Icons.Filled.Home, iconColor = TabAccent.Home.color(),
+            subtitle = HomeCards.ordered(homeOrder).filter { it !in homeHidden }
+                .joinToString(", ") { id -> HomeCards.all.first { it.first == id }.second }.ifBlank { "No cards" },
+        ) {
+            val ids = HomeCards.ordered(homeOrder)
+            ids.forEachIndexed { i, id ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(HomeCards.all.first { it.first == id }.second, Modifier.weight(1f))
+                    androidx.compose.material3.IconButton({ prefs.setHomeOrder(HomeCards.move(ids, i, -1)) }, enabled = i > 0) {
+                        androidx.compose.material3.Icon(Icons.Filled.KeyboardArrowUp, "Move ${HomeCards.all.first { it.first == id }.second} up")
+                    }
+                    androidx.compose.material3.IconButton({ prefs.setHomeOrder(HomeCards.move(ids, i, 1)) }, enabled = i < ids.lastIndex) {
+                        androidx.compose.material3.Icon(Icons.Filled.KeyboardArrowDown, "Move ${HomeCards.all.first { it.first == id }.second} down")
+                    }
+                    androidx.compose.material3.Switch(id !in homeHidden, { on -> prefs.setHomeHidden(if (on) homeHidden - id else homeHidden + id) })
+                }
+            }
+        }
         SectionCard(
             "Permissions", icon = Icons.Filled.Lock, iconColor = TabAccent.Awards.color(),
             subtitle = if (toFix == 0) "All set" else "$toFix to fix",

@@ -44,13 +44,26 @@ object Meds {
         MedAlarms.scheduleNext(context)
     }
 
-    private suspend fun adjustStock(context: Context, medId: Long, change: Double) {
-        if (change == 0.0) return
-        val m = dao(context).get(medId) ?: return
-        if (m.stock < 0) return
+    /** Changes the supply and returns how much it really changed (it stops at 0). */
+    private suspend fun adjustStock(context: Context, medId: Long, change: Double): Double {
+        if (change == 0.0) return 0.0
+        val m = dao(context).get(medId) ?: return 0.0
+        if (m.stock < 0) return 0.0
         val left = (m.stock + change).coerceAtLeast(0.0)
         dao(context).setStock(medId, left)
         if (change < 0) warnLowStock(context, m.copy(stock = left))
+        return left - m.stock
+    }
+
+    /** Takes [qty] off for log [logId], noting any part the supply couldn't cover so undo won't give it back. */
+    private suspend fun takeOff(context: Context, medId: Long, logId: Long, qty: Double) {
+        val applied = adjustStock(context, medId, -qty)
+        StockShort.put(context, "m$logId", qty + applied)
+    }
+
+    /** Gives back what log [logId] really took off. */
+    private suspend fun giveBack(context: Context, medId: Long, logId: Long, qty: Double) {
+        adjustStock(context, medId, (qty - StockShort.take(context, "m$logId")).coerceAtLeast(0.0))
     }
 
     /** Once a day per medication, when about 3 days or less are left. */
@@ -83,10 +96,11 @@ object Meds {
 
     private suspend fun markLocked(context: Context, dose: MedDose, status: String, at: Long) {
         val before = dao(context).logFor(dose.med.id, dose.slot)
-        dao(context).log(MedLogEntity(before?.id ?: 0, dose.med.id, dose.slot, status, dose.qty, at))
+        val logId = dao(context).log(MedLogEntity(before?.id ?: 0, dose.med.id, dose.slot, status, dose.qty, at))
         val wasTaken = before?.status == DoseStatus.TAKEN
         val isTaken = status == DoseStatus.TAKEN
-        adjustStock(context, dose.med.id, if (isTaken && !wasTaken) -dose.qty else if (wasTaken && !isTaken) before!!.quantity else 0.0)
+        if (isTaken && !wasTaken) takeOff(context, dose.med.id, logId, dose.qty)
+        else if (wasTaken && !isTaken) giveBack(context, dose.med.id, before!!.id, before.quantity)
         MedAlarms.clearIfDone(context, dose.at)
         changed(context)
     }
@@ -103,13 +117,13 @@ object Meds {
     private suspend fun undoLocked(context: Context, logId: Long) {
         val l = dao(context).logById(logId) ?: return
         dao(context).deleteLog(logId)
-        if (l.status == DoseStatus.TAKEN) adjustStock(context, l.medId, l.quantity)
+        if (l.status == DoseStatus.TAKEN) giveBack(context, l.medId, l.id, l.quantity)
         changed(context)
     }
 
     suspend fun logAsNeeded(context: Context, m: MedEntity, qty: Double, at: Long = System.currentTimeMillis()) {
-        dao(context).log(MedLogEntity(0, m.id, null, DoseStatus.TAKEN, qty, at))
-        adjustStock(context, m.id, -qty)
+        val logId = dao(context).log(MedLogEntity(0, m.id, null, DoseStatus.TAKEN, qty, at))
+        takeOff(context, m.id, logId, qty)
         changed(context)
     }
 

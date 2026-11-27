@@ -1,5 +1,7 @@
 package com.malluwayne.batbloom.meds
 
+import androidx.core.content.edit
+
 import com.malluwayne.batbloom.data.MedEntity
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -168,4 +170,22 @@ object MedSchedule {
 
     /** Roughly the last day the supply covers, counting from [from]; null when it isn't tracked. */
     fun runsOutOn(m: MedEntity, from: LocalDate): LocalDate? = daysOfStock(m, from)?.let { from.plusDays((it - 1).coerceAtLeast(0).toLong()) }
+}
+
+/**
+ * Tablets a logged dose couldn't take off because the supply had run out, by log. Undoing that dose gives back only
+ * what was really taken, so the count doesn't grow. Tiny, so it lives in its own preferences file.
+ */
+object StockShort {
+    private fun sp(c: android.content.Context) = c.getSharedPreferences("stock_short", android.content.Context.MODE_PRIVATE)
+
+    fun put(c: android.content.Context, key: String, short: Double) {
+        sp(c).edit { if (short > 1e-9) putFloat(key, short.toFloat()) else remove(key) }
+    }
+
+    fun take(c: android.content.Context, key: String): Double {
+        val v = sp(c).getFloat(key, 0f).toDouble()
+        if (v > 0) sp(c).edit { remove(key) }
+        return v
+    }
 }

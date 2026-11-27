@@ -67,7 +67,10 @@ class MainActivity : ComponentActivity() {
         Updates.load(this)
         lifecycleScope.launch { Updates.dailyCheck(this@MainActivity) }
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) { com.malluwayne.batbloom.data.AutoBackup.runIfDue(this@MainActivity) }
-        handle(intent)
+        // Only a fresh launch acts on its intent. When Android rebuilds the activity (after the app was closed in
+        // the background) or it's reopened from Recents, the old "start focus" intent comes back: ignore it.
+        val fromHistory = (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+        if (savedInstanceState == null && !fromHistory) handle(intent)
     }
 
     override fun onResume() {

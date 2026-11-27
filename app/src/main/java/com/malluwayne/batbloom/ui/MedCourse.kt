@@ -133,7 +133,11 @@ fun CourseDetail(modifier: Modifier, onBack: () -> Unit) {
             TextButton({ showPlan = !showPlan }) { Text(if (showPlan) "Hide course details" else "Change course details ›") }
             if (showPlan) {
                 OutlinedButton({ pickStart = true }) { Text("Change start date") }
-                StepRow("Course length (days)", schedule.courseDays, 7, 200, 7) { prefs.setSchedule(schedule.copy(courseDays = it)) }
+                StepRow("Course length (days)", schedule.courseDays, 7, 200, 7) {
+                    // Phases stay inside the course when it gets shorter.
+                    val p2 = schedule.phase2End.coerceAtMost(it)
+                    prefs.setSchedule(schedule.copy(courseDays = it, phase2End = p2, phase1End = schedule.phase1End.coerceAtMost(p2)))
+                }
                 StepRow("Phase 1 ends on day", schedule.phase1End, 1, schedule.phase2End, 1) { prefs.setSchedule(schedule.copy(phase1End = it)) }
                 StepRow("Phase 2 ends on day", schedule.phase2End, schedule.phase1End, schedule.courseDays, 1) { prefs.setSchedule(schedule.copy(phase2End = it)) }
                 val ranges = listOf("Days 1–${schedule.phase1End}", "Days ${schedule.phase1End + 1}–${schedule.phase2End}", "Days ${schedule.phase2End + 1}–${schedule.courseDays}")

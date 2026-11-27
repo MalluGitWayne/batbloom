@@ -86,7 +86,8 @@ fun SettingsScreen(modifier: Modifier) {
     val app = BatbloomApp.instance
     val prefs = app.prefs
     val ctx = LocalContext.current
-    val now = rememberNow(2_000)
+    // Re-checked when you come back from Android's settings, not every 2 seconds.
+    val now = rememberResumeCount()
     val hasUsage = remember(now) { Device.hasUsageAccess(ctx) }
     val hasNotif = remember(now) {
         Build.VERSION.SDK_INT < 33 ||

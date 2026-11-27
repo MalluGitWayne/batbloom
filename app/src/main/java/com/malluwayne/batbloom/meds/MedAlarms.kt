@@ -18,6 +18,7 @@ import com.malluwayne.batbloom.data.MedEntity
 import com.malluwayne.batbloom.data.MedLogEntity
 import com.malluwayne.batbloom.quit.DoseAlarms
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -71,11 +72,16 @@ object Meds {
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()
-        com.malluwayne.batbloom.Notify.post(context, 4000 + (m.id % 1000).toInt(), n)
+        com.malluwayne.batbloom.Notify.post(context, 4000 + (m.id % 1000).toInt(), n) // 4000-4999: low stock
     }
 
+    /** One log change at a time, for medications and varenicline alike. */
+    val logLock = kotlinx.coroutines.sync.Mutex()
+
     /** Logs a scheduled dose as Taken or Skipped (replacing what was logged before). */
-    suspend fun mark(context: Context, dose: MedDose, status: String, at: Long = System.currentTimeMillis()) {
+    suspend fun mark(context: Context, dose: MedDose, status: String, at: Long = System.currentTimeMillis()) = logLock.withLock { markLocked(context, dose, status, at) }
+
+    private suspend fun markLocked(context: Context, dose: MedDose, status: String, at: Long) {
         val before = dao(context).logFor(dose.med.id, dose.slot)
         dao(context).log(MedLogEntity(before?.id ?: 0, dose.med.id, dose.slot, status, dose.qty, at))
         val wasTaken = before?.status == DoseStatus.TAKEN
@@ -92,7 +98,9 @@ object Meds {
     }
 
     /** Removes a log entry (scheduled or as-needed), giving back the stock if it was taken. */
-    suspend fun undo(context: Context, logId: Long) {
+    suspend fun undo(context: Context, logId: Long) = logLock.withLock { undoLocked(context, logId) }
+
+    private suspend fun undoLocked(context: Context, logId: Long) {
         val l = dao(context).logById(logId) ?: return
         dao(context).deleteLog(logId)
         if (l.status == DoseStatus.TAKEN) adjustStock(context, l.medId, l.quantity)
@@ -163,7 +171,7 @@ object MedAlarms {
     }
 
     private fun millis(t: LocalDateTime) = t.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-    private fun notifId(at: LocalDateTime) = 3000 + (at.toString().hashCode() and 0xFFF)
+    private fun notifId(at: LocalDateTime) = 30_000 + (at.toString().hashCode() and 0xFFFF)
     /** The one pending "remind me again" alarm for the doses at [at]: a follow-up, a snooze or after a swipe. */
     private fun againPi(context: Context, at: LocalDateTime) = pi(context, ACTION_DUE, at.toString(), notifId(at) + 5, followUp = true)
 
@@ -181,10 +189,10 @@ object MedAlarms {
         context.getSystemService(AlarmManager::class.java).cancel(againPi(context, at))
     }
 
-    suspend fun scheduleNext(context: Context) {
+    suspend fun scheduleNext(context: Context, after: LocalDateTime = LocalDateTime.now()) {
         scheduleRoundup(context)
         val meds = app(context).db.meds().allNow()
-        val next = MedSchedule.nextTime(meds, LocalDateTime.now())
+        val next = MedSchedule.nextTime(meds, minOf(after, LocalDateTime.now()))
         val am = context.getSystemService(AlarmManager::class.java)
         val p = app(context).prefs
         if (next == null || !p.reminders.value || !p.medsTab.value) {
@@ -320,7 +328,7 @@ object MedAlarms {
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()
-        com.malluwayne.batbloom.Notify.post(context, 3998, n)
+        com.malluwayne.batbloom.Notify.post(context, 3998, n) // round-up
     }
 
     /** A test reminder a minute from now, through the same alarm path as real doses: proves the phone lets it through. */
@@ -356,7 +364,8 @@ class MedReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     MedAlarms.ACTION_DUE -> {
                         at?.let { MedAlarms.notifyDue(context, it, intent.getBooleanExtra(MedAlarms.EXTRA_FOLLOW_UP, false)) }
-                        MedAlarms.scheduleNext(context)
+                        // From this alarm's own time (not now), so a dose due while it was running late isn't skipped.
+                        MedAlarms.scheduleNext(context, if (intent.getBooleanExtra(MedAlarms.EXTRA_FOLLOW_UP, false)) LocalDateTime.now() else at ?: LocalDateTime.now())
                         // The widgets' "next dose" moves on with the clock.
                         com.malluwayne.batbloom.widget.BloomWidget.refresh(context)
                     }

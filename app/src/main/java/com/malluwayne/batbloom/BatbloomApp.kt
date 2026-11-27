@@ -27,7 +27,7 @@ class BatbloomApp : Application() {
         // A fresh process cannot have a live session, so a row still RUNNING was cut off (phone restart, app killed).
         // Closed mid-session (phone restart, app killed): undo the session's Do Not Disturb.
         if (FocusEngine.state.value is FocusEngine.State.Idle) com.malluwayne.batbloom.focus.Dnd.restore(this)
-        if (FocusEngine.state.value is FocusEngine.State.Idle) appScope.launch {
+        if (FocusEngine.state.value is FocusEngine.State.Idle) repo.staleCheck = appScope.launch {
             repo.failStaleRunning()
             BloomWidget.refresh(this@BatbloomApp)
         }

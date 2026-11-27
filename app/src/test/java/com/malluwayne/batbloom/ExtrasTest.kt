@@ -123,6 +123,25 @@ class ExtrasTest {
         assertEquals(300, ExamPlan.trimPractice(List(310) { p[0] }).size)
     }
 
+    @Test fun reviewFixes() {
+        // Same-minute doses merge into one (they'd share one log slot)
+        val t8 = LocalTime.of(8, 0)
+        assertEquals(listOf(MedTime(t8, 2.0), MedTime(LocalTime.of(20, 0), 1.0)),
+            com.malluwayne.batbloom.ui.mergeTimes(listOf(MedTime(LocalTime.of(20, 0)), MedTime(t8), MedTime(t8))))
+        // "+ Add a time" never repeats a used hour
+        assertEquals(LocalTime.of(1, 0), com.malluwayne.batbloom.ui.freeTime(LocalTime.MIDNIGHT, listOf(LocalTime.MIDNIGHT)))
+        // Decimal comma, one point only
+        assertEquals("10.5", com.malluwayne.batbloom.ui.decimalInput("10,5"))
+        assertEquals("1.25", com.malluwayne.batbloom.ui.decimalInput("1.2.5"))
+        // One bad saved test doesn't lose the others
+        val json = """[{"d":"2026-11-20","n":"ok","s":120,"t":300},{"d":"bad"},{"d":"2026-11-21","n":"ok2","s":130,"t":300,"p":{"Anatomy":[1]}}]"""
+        assertEquals(listOf("ok", "ok2"), ExamPlan.parseTests(json).map { it.name })
+        assertEquals(mapOf(start to 5), ExamPlan.parseMcq("""{"$start":5,"nope":3}"""))
+        // Every-30-days medication still has a next time
+        val monthly = MedEntity(id = 9, name = "B12", form = "Tablet", frequency = "Interval", intervalDays = 30, times = "08:00*1", startDate = start.toString())
+        assertEquals(start.plusDays(30).atTime(8, 0), MedSchedule.nextTime(listOf(monthly), start.atTime(9, 0)))
+    }
+
     @Test fun pdfRows() {
         val med = MedEntity(id = 2, name = "Vitamin D", form = "Capsule", strength = 1000.0, unit = "IU", startDate = start.toString(), notes = "after food")
         val rows = MedListPdf.rows(listOf(med, med.copy(id = 3, name = "Old", archived = true)), DoseSchedule(), LocalDate.of(2026, 11, 24))

@@ -38,6 +38,7 @@ import com.malluwayne.batbloom.plants.drawFireflies
 import kotlinx.coroutines.flow.first
 import com.malluwayne.batbloom.stats.Stats
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.min
@@ -142,7 +143,11 @@ class BloomWidget : AppWidgetProvider() {
             return bmp.asAndroidBitmap()
         }
 
-        private suspend fun update(context: Context) {
+        private val updateLock = kotlinx.coroutines.sync.Mutex()
+
+        private suspend fun update(context: Context) = updateLock.withLock { updateLocked(context) }
+
+        private suspend fun updateLocked(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, BloomWidget::class.java))
             if (ids.isEmpty()) return
@@ -252,7 +257,6 @@ class BloomWidget : AppWidgetProvider() {
                     launch(context, if (endAt != null) MainActivity.ACTION_OPEN else MainActivity.ACTION_FOCUS, if (endAt != null) 14 else 12),
                 )
                 val art = paint(context, wDp, hDp, 24f, box, plantId, growth, false, garden, miniDp = mini, look = look)
-                v.setImageViewBitmap(R.id.w_art, art)
                 v.setOnClickPendingIntent(R.id.w_root, launch(context, MainActivity.ACTION_OPEN, 10))
                 WidgetLook.update(manager, id, v, R.id.w_art, art)
             }

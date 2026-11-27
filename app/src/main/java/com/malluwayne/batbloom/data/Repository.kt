@@ -28,7 +28,13 @@ class Repository(private val db: AppDatabase) {
 
     val doses: Flow<List<DoseLogEntity>> = quit.doses()
 
-    suspend fun startSession(s: SessionEntity): Long = db.sessions().insert(s)
+    /** The launch-time cleanup of sessions cut off by a restart; new sessions wait for it (see BatbloomApp). */
+    @Volatile var staleCheck: kotlinx.coroutines.Job? = null
+
+    suspend fun startSession(s: SessionEntity): Long {
+        staleCheck?.join()
+        return db.sessions().insert(s)
+    }
     /** [actualMinutes]: for stopwatch sessions, the minutes it really ran (replaces the planned length). */
     suspend fun finishSession(id: Long, success: Boolean, endedAt: Long, reason: String?, actualMinutes: Int? = null): Int {
         val s = db.sessions().get(id) ?: return 0

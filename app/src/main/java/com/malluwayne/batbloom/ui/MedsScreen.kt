@@ -64,7 +64,7 @@ fun MedsScreen(modifier: Modifier) {
     val nowMs = rememberNow(30_000)
     val now = Instant.ofEpochMilli(nowMs).atZone(zone)
     val today = now.toLocalDate()
-    val meds by dao.all().collectAsState(emptyList())
+    val meds by remember { dao.all() }.collectAsState(emptyList())
     val since = remember(today) { today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli() }
     val logs by remember(today) { dao.logsSince(since, today.minusDays(6).toString()) }.collectAsState(emptyList())
     val schedule by app.prefs.schedule.collectAsState()

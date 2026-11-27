@@ -59,7 +59,7 @@ fun GardenScreen(modifier: Modifier) {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val shown = remember(sessions, filter) {
+    val shown = remember(sessions, filter, today) {
         sessions.filter {
             val d = Stats.dayOf(it.startedAt, zone)
             when (filter) { 1 -> d == today; 2 -> !d.isBefore(weekStart); else -> true }

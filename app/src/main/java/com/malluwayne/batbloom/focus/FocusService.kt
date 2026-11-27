@@ -65,7 +65,7 @@ class FocusService : Service() {
                     else -> { showPlaceholder(); stop() }
                 }
             }
-            ACTION_STOP -> (FocusEngine.state.value as? State.Running)?.let { stopStopwatch(it) }
+            ACTION_STOP -> (FocusEngine.state.value as? State.Running)?.let { stopStopwatch(it) } ?: stop()
             ACTION_GIVE_UP -> when (val s = FocusEngine.state.value) {
                 is State.Running -> roundOver(s, success = false, reason = "gave up")
                 is State.Break -> finishAll(State.Finished(s.blooms > 0, s.request, s.request.plan?.focusMinutes ?: 0, null, s.blooms, s.request.plan?.rounds))
@@ -310,7 +310,10 @@ class FocusService : Service() {
     )
 
     private fun scheduleAlarm(at: Long) {
-        (getSystemService(Context.ALARM_SERVICE) as AlarmManager).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
+        // Exact when allowed, so a round blooms and the next one starts on time even in a pocket.
+        val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        if (com.malluwayne.batbloom.quit.DoseAlarms.canExact(this)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
+        else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent())
     }
 
     private fun cancelAlarm() {

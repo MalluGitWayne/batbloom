@@ -79,12 +79,23 @@ object AutoBackup {
             )?.use { cur -> while (cur.moveToNext()) existing[cur.getString(0)] = cur.getString(1) }
 
             val name = fileName(LocalDate.now())
-            // Same day twice: replace that day's file instead of making "name (1)".
-            existing[name]?.let { DocumentsContract.deleteDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, it)) }
-            val file = DocumentsContract.createDocument(resolver, parent, "application/json", name)
-                ?: error("Couldn't create the backup file")
+            // The data first, then a new file; the old same-day file goes only once the new one is written.
             val json = Backup.toJson(Backup.collect(c, app.db))
-            resolver.openOutputStream(file, "wt")!!.use { it.write(json.toByteArray()) }
+            val file = DocumentsContract.createDocument(resolver, parent, "application/json", "$name.tmp")
+                ?: error("Couldn't create the backup file")
+            try {
+                resolver.openOutputStream(file, "wt")!!.use { it.write(json.toByteArray()) }
+            } catch (e: Exception) {
+                runCatching { DocumentsContract.deleteDocument(resolver, file) }
+                throw e
+            }
+            existing[name]?.let { DocumentsContract.deleteDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, it)) }
+            // Some storage (cloud drives) can't rename: then write the final file directly and drop the temporary one.
+            if (runCatching { DocumentsContract.renameDocument(resolver, file, name) }.getOrNull() == null) {
+                val final = DocumentsContract.createDocument(resolver, parent, "application/json", name) ?: error("Couldn't create the backup file")
+                resolver.openOutputStream(final, "wt")!!.use { it.write(json.toByteArray()) }
+                runCatching { DocumentsContract.deleteDocument(resolver, file) }
+            }
 
             val names = existing.keys - name + name
             toDelete(names.toList()).forEach { old ->

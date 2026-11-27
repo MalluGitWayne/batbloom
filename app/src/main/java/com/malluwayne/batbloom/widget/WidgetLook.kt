@@ -23,12 +23,21 @@ data class WidgetLook(
          * images are well under the limit, but if a phone ever refuses one, it's resent at half resolution.
          */
         fun update(manager: android.appwidget.AppWidgetManager, id: Int, v: android.widget.RemoteViews, artId: Int, art: android.graphics.Bitmap) {
-            try {
-                manager.updateAppWidget(id, v)
-            } catch (_: IllegalArgumentException) {
-                val small = art.scale((art.width / 2).coerceAtLeast(1), (art.height / 2).coerceAtLeast(1))
-                v.setImageViewBitmap(artId, small)
+            // [v] comes without the picture. RemoteViews only ever add actions, so each try copies [v] and adds its
+            // own picture; reusing one object would send the rejected full-size picture along with the small one.
+            if (android.os.Build.VERSION.SDK_INT < 28) {
+                v.setImageViewBitmap(artId, art)
                 runCatching { manager.updateAppWidget(id, v) }
+                return
+            }
+            val small = { art.scale((art.width / 2).coerceAtLeast(1), (art.height / 2).coerceAtLeast(1)) }
+            for (picture in sequenceOf({ art }, small)) {
+                val tryViews = android.widget.RemoteViews(v).apply { setImageViewBitmap(artId, picture()) }
+                try {
+                    manager.updateAppWidget(id, tryViews); return
+                } catch (_: IllegalArgumentException) {
+                    // Too big for this phone: try the half-size picture.
+                }
             }
         }
 

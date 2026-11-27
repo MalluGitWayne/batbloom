@@ -76,7 +76,7 @@ object Badges {
         Badge("week1", "1 week smoke-free", "Seven days without smoking.", Glyph.CALENDAR, Tier.BRONZE, QUIT, TEAL),
         Badge("week2", "2 weeks smoke-free", "Fourteen days without smoking.", Glyph.CALENDAR, Tier.SILVER, QUIT, SKY),
         Badge("week3", "3 weeks smoke-free", "Twenty-one days. The habit is breaking.", Glyph.CALENDAR, Tier.SILVER, QUIT, VIOLET),
-        Badge("halfway", "Halfway", "Day 42 of the course.", Glyph.HALF, Tier.SILVER, MEDS, VIOLET),
+        Badge("halfway", "Halfway", "Halfway through the course.", Glyph.HALF, Tier.SILVER, MEDS, VIOLET),
         Badge("month1", "1 month smoke-free", "A whole month without smoking.", Glyph.MOON, Tier.GOLD, QUIT, MOON),
         Badge("course", "Course complete", "Finished the full course. Unlocks the Dawnbreath Lily.", Glyph.TROPHY, Tier.PLATINUM, MEDS, AMBER),
         Badge("month3", "3 months smoke-free", "Ninety days without smoking.", Glyph.MOON, Tier.GOLD, QUIT, AMBER),
@@ -225,7 +225,7 @@ object Badges {
         if (quit != null) quitDays.forEach { (id, d) -> if (!today.isBefore(quit.plusDays(d.toLong()))) add(id) }
         val day = schedule.dayNumber(today)
         if (day >= 1) add("course_start")
-        if (day >= 42) add("halfway")
+        if (day >= schedule.courseDays / 2) add("halfway")
         if (day >= schedule.courseDays) add("course")
         if (facts.doseStreak >= schedule.courseDays) add("dose_all")
         counts.forEach { (id, c) -> if (c.first(facts) >= c.second) add(id) }
@@ -234,7 +234,7 @@ object Badges {
     /** The day a time-based achievement will be (or was) earned; null for the ones that depend on what you do. */
     fun dueDate(id: String, schedule: DoseSchedule, quit: LocalDate?): LocalDate? = when (id) {
         "course_start" -> schedule.start
-        "halfway" -> schedule.start.plusDays(41)
+        "halfway" -> schedule.start.plusDays(schedule.courseDays / 2 - 1L)
         "course" -> schedule.endDate
         in quitDays -> quit?.plusDays(quitDays.getValue(id).toLong())
         else -> null
@@ -249,7 +249,7 @@ object Badges {
         if (id == "dose_all") return facts.doseStreak.coerceAtMost(schedule.courseDays) to schedule.courseDays
         val (from, to) = when (id) {
             "course_start" -> return null
-            "halfway" -> schedule.start to schedule.start.plusDays(41)
+            "halfway" -> schedule.start to schedule.start.plusDays(schedule.courseDays / 2 - 1L)
             "course" -> schedule.start to schedule.endDate
             in quitDays -> {
                 val q = quit ?: return null

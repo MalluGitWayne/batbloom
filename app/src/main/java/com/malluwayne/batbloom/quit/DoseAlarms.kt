@@ -15,6 +15,7 @@ import com.malluwayne.batbloom.MainActivity
 import com.malluwayne.batbloom.R
 import com.malluwayne.batbloom.data.DoseStatus
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -34,7 +35,7 @@ object DoseAlarms {
     const val EXTRA_KEY = "key"
     private const val RC_NEXT = 100
     private const val NOTIF_STOCK = 20
-    private const val NOTIF_BADGE = 21
+    private const val NOTIF_BADGE = 100
 
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -141,28 +142,31 @@ object DoseAlarms {
      * Reminds again about [slot] in [minutes] while it's still worth taking: within 3 hours of its time and not so
      * late that the next dose is close (then the advice is to skip it, never double up).
      */
-    fun remindAgain(context: Context, slot: DoseSlot, minutes: Long) {
+    fun remindAgain(context: Context, slot: DoseSlot, minutes: Long, windowHours: Long = 3) {
         val prefs = app(context).prefs
         val s = prefs.schedule.value
         val zone = java.time.ZoneId.systemDefault()
         val due = s.timeOf(slot, zone)
         val next = s.slotsFrom(slot.date).map { s.timeOf(it, zone) }.firstOrNull { it.isAfter(due) }
-        val at = Doses.remindAgainAt(due, ZonedDateTime.now(zone), minutes, next, prefs.closeHours.value) ?: return
+        val at = Doses.remindAgainAt(due, ZonedDateTime.now(zone), minutes, next, prefs.closeHours.value, windowHours) ?: return
         setAlarm(context, at.toInstant().toEpochMilli(), againPi(context, slot.key))
     }
 
-    private fun notifId(key: String) = 1000 + (key.hashCode() and 0xFFFF)
+    private fun notifId(key: String) = 100_000 + (key.hashCode() and 0xFFFF)
 
     fun cancelDoseNotification(context: Context, key: String) = NotificationManagerCompat.from(context).cancel(notifId(key))
 
     fun snooze(context: Context, key: String) {
         cancelDoseNotification(context, key)
-        val at = System.currentTimeMillis() + app(context).prefs.snoozeMinutes.value * 60_000L
-        setAlarm(context, at, againPi(context, key))
+        val slot = slotFor(context, key) ?: return
+        remindAgain(context, slot, app(context).prefs.snoozeMinutes.value.toLong(), windowHours = 24)
     }
 
     /** Logs a dose (from the notification or the app), updates the stock and warns if it is running low. */
-    suspend fun mark(context: Context, slot: DoseSlot, status: String?, at: Long = System.currentTimeMillis()) {
+    suspend fun mark(context: Context, slot: DoseSlot, status: String?, at: Long = System.currentTimeMillis()) =
+        com.malluwayne.batbloom.meds.Meds.logLock.withLock { markLocked(context, slot, status, at) }
+
+    private suspend fun markLocked(context: Context, slot: DoseSlot, status: String?, at: Long) {
         val a = app(context)
         val strength = a.prefs.tabletStrength.value
         val change = a.repo.markDose(slot, status, strength, at)

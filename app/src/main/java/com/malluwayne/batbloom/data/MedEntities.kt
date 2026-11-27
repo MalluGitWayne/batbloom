@@ -78,5 +78,7 @@ interface MedDao {
     @Query("SELECT * FROM med_log WHERE actedAt >= :since OR slot >= :sinceSlot ORDER BY actedAt DESC") fun logsSince(since: Long, sinceSlot: String): Flow<List<MedLogEntity>>
     @Query("SELECT * FROM med_log WHERE slot IN (:slots)") suspend fun logsForSlots(slots: List<String>): List<MedLogEntity>
     @Query("SELECT * FROM med_log WHERE medId = :medId ORDER BY actedAt DESC LIMIT :limit") fun history(medId: Long, limit: Int): Flow<List<MedLogEntity>>
+    /** Scheduled logs of one medication with slots in [from, to) ("2026-11-01" to "2026-12-01"). */
+    @Query("SELECT * FROM med_log WHERE medId = :medId AND slot >= :from AND slot < :to") fun logsInRange(medId: Long, from: String, to: String): Flow<List<MedLogEntity>>
     @Query("SELECT * FROM med_log WHERE status = 'TAKEN' AND slot IS NOT NULL") suspend fun takenScheduled(): List<MedLogEntity>
 }

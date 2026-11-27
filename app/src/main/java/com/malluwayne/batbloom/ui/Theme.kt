@@ -355,3 +355,19 @@ fun CardHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVec
         Text(title, color = accent.color(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
     }
 }
+
+/**
+ * Goes up each time the screen comes back to the front: permission and battery checks re-run after you return
+ * from Android's settings, instead of polling on a clock.
+ */
+@Composable
+fun rememberResumeCount(): Long {
+    var count by remember { mutableLongStateOf(0L) }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) count++ }
+        owner.lifecycle.addObserver(obs)
+        onDispose { owner.lifecycle.removeObserver(obs) }
+    }
+    return count
+}

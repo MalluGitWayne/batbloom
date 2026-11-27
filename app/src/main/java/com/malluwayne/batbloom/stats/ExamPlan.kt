@@ -23,11 +23,16 @@ object ExamPlan {
 
     fun parseTests(s: String): List<MockTest> = runCatching {
         val a = JSONArray(s)
-        (0 until a.length()).map { i ->
-            val o = a.getJSONObject(i)
-            val p = o.optJSONObject("p")
-            val parts = p?.keys()?.asSequence()?.associate { k -> p.getJSONArray(k).let { k to (it.getInt(0) to it.getInt(1)) } }.orEmpty()
-            MockTest(LocalDate.parse(o.getString("d")), o.optString("n"), o.getInt("s"), o.getInt("t"), parts)
+        // Each entry on its own: a bad one is skipped, the rest are kept.
+        (0 until a.length()).mapNotNull { i ->
+            runCatching {
+                val o = a.getJSONObject(i)
+                val p = o.optJSONObject("p")
+                val parts = p?.keys()?.asSequence()?.mapNotNull { k ->
+                    runCatching { p.getJSONArray(k).let { k to (it.getInt(0) to it.getInt(1)) } }.getOrNull()
+                }?.toMap().orEmpty()
+                MockTest(LocalDate.parse(o.getString("d")), o.optString("n"), o.getInt("s"), o.getInt("t"), parts)
+            }.getOrNull()
         }
     }.getOrDefault(emptyList()).sortedBy { it.date }
 
@@ -74,7 +79,7 @@ object ExamPlan {
 
     fun parseMcq(s: String): Map<LocalDate, Int> = runCatching {
         val o = JSONObject(s)
-        o.keys().asSequence().associate { LocalDate.parse(it) to o.getInt(it) }
+        o.keys().asSequence().mapNotNull { k -> runCatching { LocalDate.parse(k) to o.getInt(k) }.getOrNull() }.toMap()
     }.getOrDefault(emptyMap())
 
     /** Keeps the last 120 days so the setting stays small. */

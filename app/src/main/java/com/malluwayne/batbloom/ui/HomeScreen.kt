@@ -1,6 +1,7 @@
 package com.malluwayne.batbloom.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.foundation.background
@@ -28,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -94,28 +96,42 @@ fun HomeScreen(modifier: Modifier) {
         }
         UpdateBanner { Nav.tab.value = TabIds.SETTINGS }
 
-        // Focus + garden
-        Box(
-            Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF2B2560), Color(0xFF14162C))), RoundedCornerShape(24.dp))
-                .clickable { Nav.tab.value = TabIds.FOCUS }.padding(18.dp),
-        ) {
+        // Focus + garden: a card like the others, in Focus purple. The plant keeps a small night tile so its glow shows.
+        SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.FOCUS }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("FOCUS TODAY", color = Color(0xFFB9C8FF), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                    Text(Rules.formatMinutes(stats.todayMinutes), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("${stats.streakDays}-day streak · ${stats.completed} blooms", color = Color(0xFFCBD2F0), fontSize = 13.sp)
+                    CardHeader("Focus", Icons.Filled.PlayArrow, TabAccent.Focus)
+                    Text(Rules.formatMinutes(stats.todayMinutes), fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+                    Text(
+                        listOfNotNull(
+                            if (stats.streakDays > 0) "${stats.streakDays}-day streak" else null,
+                            "${stats.completed} bloom${if (stats.completed == 1) "" else "s"}",
+                        ).joinToString(" \u00B7 "),
+                        color = Muted, fontSize = 13.sp,
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                        Button({ Nav.tab.value = TabIds.FOCUS }) { Text("Start focus") }
-                        androidx.compose.material3.OutlinedButton({ Nav.tab.value = TabIds.GARDEN; Nav.garden.value = 0 }) { Text("Garden", color = Color.White) }
+                        val focus = TabAccent.Focus.color()
+                        Button(
+                            { Nav.tab.value = TabIds.FOCUS },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = focus, contentColor = Color.White),
+                        ) { Text("Start focus") }
+                        androidx.compose.material3.OutlinedButton({ Nav.tab.value = TabIds.GARDEN; Nav.garden.value = 0 }) {
+                            Text("Garden", color = focus)
+                        }
                     }
                 }
-                com.malluwayne.batbloom.plants.PlantArt(PlantCatalog.byId(plant), 1f, false, Modifier.width(96.dp).height(130.dp), animate = false)
+                Box(
+                    Modifier.padding(start = 12.dp).width(84.dp).height(108.dp).clip(RoundedCornerShape(18.dp)).plantTile(),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    com.malluwayne.batbloom.plants.PlantArt(PlantCatalog.byId(plant), 1f, false, Modifier.width(76.dp).height(100.dp), animate = false)
+                }
             }
         }
 
         // Next dose
         if (medsOn) {
-            val meds by app.db.meds().all().collectAsState(emptyList())
+            val meds by remember { app.db.meds().all() }.collectAsState(emptyList())
             val since = remember(today) { today.atStartOfDay(zone).toInstant().toEpochMilli() }
             val logs by remember(today) { app.db.meds().logsSince(since, today.toString()) }.collectAsState(emptyList())
             val schedule by prefs.schedule.collectAsState()

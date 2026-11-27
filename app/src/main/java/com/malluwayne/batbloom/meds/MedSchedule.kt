@@ -113,7 +113,7 @@ object MedSchedule {
 
     /** The first scheduled dose time strictly after [now], looking up to two weeks ahead. */
     fun nextTime(meds: List<MedEntity>, now: LocalDateTime): LocalDateTime? {
-        for (i in 0..14) {
+        for (i in 0..maxOf(62, meds.maxOfOrNull { it.intervalDays } ?: 0)) {
             val d = now.toLocalDate().plusDays(i.toLong())
             dosesOn(meds, d).map { it.at }.firstOrNull { it.isAfter(now) }?.let { return it }
         }

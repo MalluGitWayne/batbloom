@@ -341,6 +341,17 @@ private fun QuitTile(value: String, label: String, modifier: Modifier, color: Co
 @Composable
 private fun QuitSetupDialog(firstRun: Boolean, onClose: (Boolean) -> Unit) {
     val prefs = BatbloomApp.instance.prefs
+    // "I've quit now" and "Clear" reset your smoke-free time at once, so they ask first.
+    var confirm by remember { mutableStateOf<String?>(null) }
+    confirm?.let { what ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            title = { Text(if (what == "now") "Restart from now?" else "Clear your quit day?") },
+            text = { Text(if (what == "now") "Your smoke-free time starts again from this moment." else "Your smoke-free time and milestones reset until you set a new quit day.") },
+            confirmButton = { TextButton({ if (what == "now") prefs.quitNow() else prefs.setQuitDate(null); confirm = null }) { Text(if (what == "now") "Restart" else "Clear") } },
+            dismissButton = { TextButton({ confirm = null }) { Text("Cancel") } },
+        )
+    }
     val quit by prefs.quitDate.collectAsState()
     val quitTime by prefs.quitTime.collectAsState()
     val smoking by prefs.smoking.collectAsState()
@@ -388,11 +399,11 @@ private fun QuitSetupDialog(firstRun: Boolean, onClose: (Boolean) -> Unit) {
                     TextButton({ pickTime = true }) { Text(tf.format(quitTime)) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton({ prefs.quitNow() }) { Text("I've quit now") }
-                    if (quit != null) TextButton({ prefs.setQuitDate(null) }) { Text("Clear") }
+                    OutlinedButton({ if (quit == null) prefs.quitNow() else confirm = "now" }) { Text("I've quit now") }
+                    if (quit != null) TextButton({ confirm = "clear" }) { Text("Clear") }
                 }
-                NumberBox("Cigarettes a day (before quitting)", perDay) { perDay = it }
-                NumberBox("Cigarettes per pack", pack) { pack = it }
+                NumberBox("Cigarettes a day (before quitting)", perDay, whole = true) { perDay = it }
+                NumberBox("Cigarettes per pack", pack, whole = true) { pack = it }
                 NumberBox("Price per pack (₹)", price) { price = it }
                 OutlinedTextField(why, { why = it.take(120) }, Modifier.fillMaxWidth(), label = { Text("Why I'm quitting") }, placeholder = { Text("e.g. To breathe easy on my runs") })
                 OutlinedTextField(treatName, { treatName = it.take(40) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Treat I'm saving for") }, placeholder = { Text("e.g. New headphones") })
@@ -429,9 +440,11 @@ private fun QuitSetupDialog(firstRun: Boolean, onClose: (Boolean) -> Unit) {
 }
 
 @Composable
-fun NumberBox(label: String, value: String, onChange: (String) -> Unit) {
+fun NumberBox(label: String, value: String, whole: Boolean = false, onChange: (String) -> Unit) {
     OutlinedTextField(
-        value, { onChange(it.filter { c -> c.isDigit() || c == '.' }.take(7)) },
+        // Whole numbers take digits only (a leading minus stays, for corrections); amounts also take one decimal
+        // point, with a decimal comma read as a point.
+        value, { onChange(if (whole) (if (it.startsWith("-")) "-" else "") + it.filter(Char::isDigit).take(6) else decimalInput(it).take(7)) },
         label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
     )

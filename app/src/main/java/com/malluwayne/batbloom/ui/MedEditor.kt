@@ -91,7 +91,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
         }
     }
     val phases = remember { mutableStateListOf<com.malluwayne.batbloom.meds.Phase>().apply { addAll(startPhases) } }
-    val others by BatbloomApp.instance.db.meds().all().collectAsState(emptyList())
+    val others by remember { BatbloomApp.instance.db.meds().all() }.collectAsState(emptyList())
     val duplicate = others.firstOrNull { it.id != start.id && !it.archived && it.name.trim().equals(name.trim(), ignoreCase = true) }
     var startDate by remember { mutableStateOf(LocalDate.parse(start.startDate)) }
     var endDate by remember { mutableStateOf(start.endDate?.let { LocalDate.parse(it) }) }
@@ -105,17 +105,20 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
     fun build() = start.copy(
         name = name.trim(), form = form.name, strength = strength.toDoubleOrNull() ?: 0.0, unit = unit,
         shape = shape, color1 = c1, color2 = c2, background = bg, notes = notes.trim().ifBlank { null },
-        frequency = freq.name, weekdays = weekdays, intervalDays = interval, times = if (freq == Frequency.Taper) MedSchedule.formatPhases(phases) else MedSchedule.formatTimes(times),
+        frequency = freq.name, weekdays = weekdays, intervalDays = interval,
+        // Two doses at the same minute would share one log slot: they're merged into one dose of both amounts.
+        times = if (freq == Frequency.Taper) MedSchedule.formatPhases(phases.map { it.copy(times = mergeTimes(it.times)) }) else MedSchedule.formatTimes(mergeTimes(times)),
         startDate = startDate.toString(), endDate = endDate?.toString(), stock = stock.trim().toDoubleOrNull() ?: -1.0,
     )
 
+    val scheduleOk = when (freq) {
+        Frequency.AsNeeded -> true
+        Frequency.Taper -> phases.isNotEmpty() && phases.all { it.times.isNotEmpty() }
+        else -> times.isNotEmpty() && (freq != Frequency.Weekdays || weekdays != 0)
+    }
     val canNext = when (step) {
         0 -> name.isNotBlank()
-        3 -> when (freq) {
-            Frequency.AsNeeded -> true
-            Frequency.Taper -> phases.isNotEmpty() && phases.all { it.times.isNotEmpty() }
-            else -> times.isNotEmpty() && (freq != Frequency.Weekdays || weekdays != 0)
-        }
+        3 -> scheduleOk
         else -> true
     }
 
@@ -129,7 +132,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
                 }
             }
             Spacer(Modifier.weight(1f))
-            if (!isNew) TextButton({ BatbloomApp.instance.appScope.launch { Meds.save(ctx, build()) }; onClose() }, enabled = name.isNotBlank()) { Text("Save") }
+            if (!isNew) TextButton({ BatbloomApp.instance.appScope.launch { Meds.save(ctx, build()) }; onClose() }, enabled = name.isNotBlank() && scheduleOk) { Text("Save") }
             else Spacer(Modifier.size(64.dp, 1.dp))
         }
         Column(
@@ -157,7 +160,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
                 2 -> {
                     Title("Add the strength", "Optional. For example 500 mg.")
                     OutlinedTextField(
-                        strength, { strength = it.filter { ch -> ch.isDigit() || ch == '.' } }, Modifier.fillMaxWidth(), singleLine = true,
+                        strength, { strength = decimalInput(it) }, Modifier.fillMaxWidth(), singleLine = true,
                         label = { Text("Strength") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -193,7 +196,7 @@ fun MedEditor(start: MedEntity, modifier: Modifier, onClose: () -> Unit) {
                         Text(MedSchedule.summary(build()), color = Muted, fontSize = 13.sp)
                     }
                     OutlinedTextField(
-                        stock, { stock = it.filter { ch -> ch.isDigit() || ch == '.' } }, Modifier.fillMaxWidth(), singleLine = true,
+                        stock, { stock = decimalInput(it) }, Modifier.fillMaxWidth(), singleLine = true,
                         label = { Text("How many ${form.unitWord}s you have (optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
                     OutlinedTextField(notes, { notes = it }, Modifier.fillMaxWidth(), label = { Text("Notes (optional)") }, minLines = 2)
@@ -346,7 +349,7 @@ private fun ScheduleStep(
                 }
                 TextButton({
                     val last = ph.times.maxOfOrNull { it.time } ?: LocalTime.of(8, 0)
-                    phases[pi] = ph.copy(times = ph.times + MedTime(last.plusHours(12).withMinute(0)))
+                    phases[pi] = ph.copy(times = ph.times + MedTime(freeTime(last.plusHours(12).withMinute(0), ph.times.map { it.time })))
                 }) { Text("+ Add a time") }
             }
         }
@@ -371,7 +374,7 @@ private fun ScheduleStep(
         }
         TextButton({
             val last = times.maxOfOrNull { it.time } ?: LocalTime.of(8, 0)
-            times.add(MedTime(last.plusHours(4).withMinute(0)))
+            times.add(MedTime(freeTime(last.plusHours(4).withMinute(0), times.map { it.time })))
         }) { Text("+ Add a time") }
     }
     Label("Duration")
@@ -428,4 +431,19 @@ private fun ScheduleStep(
             dismissButton = { TextButton({ pickDate = null }) { Text("Cancel") } },
         ) { DatePicker(st) }
     }
+}
+
+/** Doses at the same minute become one dose of their combined amount, in time order. */
+internal fun mergeTimes(times: List<MedTime>): List<MedTime> =
+    times.groupBy { it.time.withSecond(0).withNano(0) }.map { (t, l) -> MedTime(t, l.sumOf { it.qty }) }.sortedBy { it.time }
+
+/** [want], or the next whole hour after it that isn't [used] yet. */
+internal fun freeTime(want: LocalTime, used: List<LocalTime>): LocalTime =
+    generateSequence(want) { it.plusHours(1) }.take(24).firstOrNull { it !in used } ?: want
+
+/** Digits and one decimal point; a decimal comma counts as a point. */
+internal fun decimalInput(s: String): String {
+    val t = s.replace(',', '.').filter { it.isDigit() || it == '.' }
+    val i = t.indexOf('.')
+    return if (i < 0) t else t.substring(0, i + 1) + t.substring(i + 1).replace(".", "")
 }

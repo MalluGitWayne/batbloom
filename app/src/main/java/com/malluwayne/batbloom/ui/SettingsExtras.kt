@@ -66,7 +66,10 @@ fun TimeGuardSection(refreshKey: Long) {
     val ctx = LocalContext.current
     val prefs = BatbloomApp.instance.prefs
     val limits by prefs.guard.collectAsState()
-    val usage = remember(limits, refreshKey) { Reminders.usageToday(ctx, limits.keys) }
+    // Reading today's usage walks every app event since midnight: off the main thread.
+    val usage by androidx.compose.runtime.produceState(emptyMap<String, Int>(), limits, refreshKey) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Reminders.usageToday(ctx, limits.keys) }
+    }
     var picking by remember { mutableStateOf(false) }
     fun save(m: Map<String, Int>) { prefs.setGuard(m); Reminders.scheduleAll(ctx) }
 
@@ -275,8 +278,10 @@ fun BackupSection() {
                 TextButton({
                     pendingRestore = null
                     scope.launch {
-                        withContext(Dispatchers.IO) { Backup.restore(ctx, app.db, b) }
-                        restartApp(ctx)
+                        // A file that can't be loaded leaves the data as it was (the database part is one transaction).
+                        runCatching { withContext(Dispatchers.IO) { Backup.restore(ctx, app.db, b) } }
+                            .onSuccess { restartApp(ctx) }
+                            .onFailure { message = "Couldn't restore this backup: ${it.message ?: "unreadable data"}" }
                     }
                 }) { Text("Replace and restart") }
             },

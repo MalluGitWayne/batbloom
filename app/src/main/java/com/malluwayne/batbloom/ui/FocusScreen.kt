@@ -296,7 +296,10 @@ private fun FocusOnDialog(onClose: () -> Unit) {
                 }
                 if (adding) Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(text, { text = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("New tag") })
-                    TextButton({ prefs.addTag(text); prefs.setTag(text.trim().take(20)); adding = false; text = "" }) { Text("Add") }
+                    TextButton({
+                        if (text.isNotBlank()) { prefs.addTag(text); prefs.setTag(text.trim().take(20)) }
+                        adding = false; text = ""
+                    }) { Text("Add") }
                 }
                 if (tag == Tags.FMGE) {
                     Text("Subject", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))

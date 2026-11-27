@@ -65,9 +65,12 @@ object Reminders {
         else am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 60_000, AlarmManager.INTERVAL_FIFTEEN_MINUTES, guard)
         scheduleMilestone(c)
         // Weekly backup: checked daily (cheap), writes only when a week has passed.
+        // At a fixed time (next 3 AM), so setting it again on every app start doesn't keep pushing it back.
         val backup = pi(c, ACTION_BACKUP, 206)
         if (com.malluwayne.batbloom.data.AutoBackup.enabled(c)) {
-            am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + AlarmManager.INTERVAL_HOUR, AlarmManager.INTERVAL_DAY, backup)
+            val now = java.time.ZonedDateTime.now()
+            val at = now.toLocalDate().atTime(3, 0).atZone(now.zone).let { if (it.isAfter(now)) it else it.plusDays(1) }
+            am.setInexactRepeating(AlarmManager.RTC_WAKEUP, at.toInstant().toEpochMilli(), AlarmManager.INTERVAL_DAY, backup)
         } else am.cancel(backup)
         // FMGE reminder: once a day at the chosen time.
         val study = pi(c, ACTION_FMGE, 201)
@@ -143,6 +146,7 @@ object Reminders {
         return pkgs.associateWith { ((total[it] ?: 0L) / 60_000).toInt() }
     }
 
+    @Synchronized
     fun checkGuard(c: Context) {
         val prefs = app(c).prefs
         val limits = prefs.guard.value
@@ -165,7 +169,7 @@ object Reminders {
                 .setAutoCancel(true)
                 .addAction(0, "Start focusing", open)
                 .build()
-            com.malluwayne.batbloom.Notify.post(c, 300 + (pkg.hashCode() and 0xFFF), n)
+            com.malluwayne.batbloom.Notify.post(c, 20_000 + (pkg.hashCode() and 0xFFF), n)
         }
     }
 

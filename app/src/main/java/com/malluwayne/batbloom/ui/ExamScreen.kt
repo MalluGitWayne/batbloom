@@ -106,10 +106,12 @@ fun ExamScreen(modifier: Modifier) {
     var askMcq by remember { mutableStateOf(false) }
     var addTest by remember { mutableStateOf(false) }
     fun addMcq(k: Int) {
+        val day = LocalDate.now(zone)
         val m = ExamPlan.parseMcq(prefs.mcq.value).toMutableMap()
-        m[today] = ((m[today] ?: 0) + k).coerceAtLeast(0)
-        prefs.setMcq(ExamPlan.formatMcq(m, today))
-        prefs.addMcqTotal(k)
+        val before = m[day] ?: 0
+        m[day] = (before + k).coerceAtLeast(0)
+        prefs.setMcq(ExamPlan.formatMcq(m, day))
+        prefs.addMcqTotal(m.getValue(day) - before)
         app.appScope.launch { com.malluwayne.batbloom.quit.DoseAlarms.checkBadges(app) }
     }
 
@@ -309,10 +311,10 @@ fun ExamScreen(modifier: Modifier) {
             title = { Text("Log a set of questions") },
             text = {
                 Column {
-                    NumberBox("How many? (use \u2212 to correct)", v) { v = it }
+                    NumberBox("How many? (use \u2212 to correct)", v, whole = true) { v = it }
                     Row { TextButton({ v = "-" + v.trimStart('-') }) { Text("Make it \u2212") } }
                     if (!v.startsWith("-")) {
-                        NumberBox("How many right? (optional)", right) { right = it }
+                        NumberBox("How many right? (optional)", right, whole = true) { right = it }
                         Box {
                             TextButton({ pick = true }) { Text("Subject: " + (subject ?: "mixed") + "  \u25BE") }
                             androidx.compose.material3.DropdownMenu(pick, { pick = false }) {
@@ -353,8 +355,8 @@ fun ExamScreen(modifier: Modifier) {
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     androidx.compose.material3.OutlinedTextField(name, { name = it.take(30) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Name (e.g. GT 3)") })
-                    NumberBox("Score", score) { score = it }
-                    NumberBox("Out of", total) { total = it }
+                    NumberBox("Score", score, whole = true) { score = it }
+                    NumberBox("Out of", total, whole = true) { total = it }
                     TextButton({ breakdown = !breakdown }) { Text(if (breakdown) "Hide subject scores" else "Add subject scores (optional)") }
                     if (breakdown) {
                         Text("Correct / questions for any subjects you know. This finds your weakest subjects.", color = Muted, fontSize = 12.sp)

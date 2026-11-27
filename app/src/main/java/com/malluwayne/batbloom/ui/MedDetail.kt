@@ -113,8 +113,12 @@ internal fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onE
             }
         }
         if (Frequency.of(m.frequency) != Frequency.AsNeeded) {
-            val taken = remember(history) { history.filter { it.status == DoseStatus.TAKEN }.mapNotNull { it.slot }.toSet() }
             var month by remember { mutableStateOf(java.time.YearMonth.from(today)) }
+            // That month's own logs, so older months aren't shown as missed once the recent history is long.
+            val monthLogs by remember(m.id, month) {
+                app.db.meds().logsInRange(m.id, month.atDay(1).toString(), month.plusMonths(1).atDay(1).toString())
+            }.collectAsState(emptyList())
+            val taken = remember(monthLogs) { monthLogs.filter { it.status == DoseStatus.TAKEN }.mapNotNull { it.slot }.toSet() }
             val first = java.time.YearMonth.from(LocalDate.parse(m.startDate))
             SectionCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {

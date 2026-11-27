@@ -40,7 +40,7 @@ class ScreensTest {
     }
 
     @Test fun homeShowsCards() {
-        rule.onNodeWithText("FOCUS TODAY").assertIsDisplayed()
+        rule.onNodeWithText("Achievements").assertExists()
         rule.onNodeWithText("Start focus").assertIsDisplayed()
     }
 

@@ -99,10 +99,11 @@ fun StepRow(label: String, value: Int, min: Int, max: Int, step: Int, onChange: 
 
 @Composable
 internal fun Chip(label: String, primary: Boolean, onClick: () -> Unit) {
-    val teal = Teal
+    // Chosen chips take the tab's colour (cyan on Meds).
+    val teal = Lavender
     Text(
         label,
-        color = if (primary) MaterialTheme.colorScheme.onSecondary else Muted,
+        color = if (primary) MaterialTheme.colorScheme.onPrimary else Muted,
         fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
         modifier = Modifier
             .background(if (primary) teal else Color.Transparent, RoundedCornerShape(50))

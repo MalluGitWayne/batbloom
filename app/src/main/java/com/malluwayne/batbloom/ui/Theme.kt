@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,6 +29,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,9 +47,49 @@ data class Palette(
     val isLight: Boolean,
 )
 
-val DarkPalette = Palette(Color(0xFFB9A3FF), Color(0xFF7FE3D0), Color(0xFFFFD27F), Color(0xFF0F0F13), Color(0xFF1A1A20), Color(0xFF9C9CA8), false)
-val OledPalette = DarkPalette.copy(night = Color(0xFF000000), panel = Color(0xFF0D0D12), muted = Color(0xFF8C90A6))
-val LightPalette = Palette(Color(0xFF6A4FD6), Color(0xFF0D8A79), Color(0xFFA86F00), Color(0xFFF5F4FA), Color(0xFFFFFFFF), Color(0xFF5E6276), true)
+// Neutral greys like iOS's grouped lists: a plain background, cards one step lighter (or white), no borders.
+// [lavender] is the accent: each tab swaps in its own colour (see TabAccent). Teal means done, gold means late.
+val DarkPalette = Palette(Color(0xFF7D7AFF), Color(0xFF63E6BE), Color(0xFFFFB340), Color(0xFF111113), Color(0xFF1E1E21), Color(0xFF98989F), false)
+val OledPalette = DarkPalette.copy(night = Color(0xFF000000), panel = Color(0xFF161618), muted = Color(0xFF8E8E93))
+val LightPalette = Palette(Color(0xFF5856D6), Color(0xFF00896F), Color(0xFFC46A00), Color(0xFFF2F2F7), Color(0xFFFFFFFF), Color(0xFF6E6E73), true)
+
+/**
+ * Each part of the app has its own colour, the way Apple's apps do: buttons, switches, charts and headers on that
+ * tab take it. Dark themes get the brighter shade, Light the deeper one so text stays readable on white.
+ */
+enum class TabAccent(val dark: Color, val light: Color) {
+    Home(Color(0xFF7D7AFF), Color(0xFF5856D6)),      // indigo
+    Focus(Color(0xFFBF5AF2), Color(0xFF9A3BC4)),     // purple
+    Exam(Color(0xFF0A84FF), Color(0xFF0066D6)),      // blue
+    Quit(Color(0xFF30D158), Color(0xFF1F8A3A)),      // green
+    Meds(Color(0xFF64D2FF), Color(0xFF0A7FB0)),      // cyan
+    Awards(Color(0xFFFF9F0A), Color(0xFFC25700)),    // orange
+    Settings(Color(0xFF8E8E93), Color(0xFF6E6E73)),  // grey
+    ;
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    fun color(): Color = if (LocalPalette.current.isLight) light else dark
+}
+
+/** Runs [content] in a tab's colour: the accent, primary buttons, switches and selection all follow it. */
+@Composable
+fun TabTheme(accent: TabAccent, content: @Composable () -> Unit) {
+    val base = LocalPalette.current
+    val a = if (base.isLight) accent.light else accent.dark
+    // Settings stays grey, but its switches and buttons keep iOS's blue so they still look tappable.
+    val action = if (accent == TabAccent.Settings) TabAccent.Exam.let { if (base.isLight) it.light else it.dark } else a
+    val onAction = if (action.luminance() > 0.45f) Color(0xFF0B0B0F) else Color.White
+    val scheme = MaterialTheme.colorScheme
+    androidx.compose.runtime.CompositionLocalProvider(LocalPalette provides base.copy(lavender = action)) {
+        MaterialTheme(
+            colorScheme = scheme.copy(
+                primary = action, onPrimary = onAction,
+                primaryContainer = action.copy(alpha = if (base.isLight) 0.14f else 0.22f).compositeOver(scheme.surfaceContainer),
+                onPrimaryContainer = action,
+            ),
+            typography = MaterialTheme.typography, content = content,
+        )
+    }
+}
 
 val LocalPalette = androidx.compose.runtime.staticCompositionLocalOf { DarkPalette }
 
@@ -61,32 +104,32 @@ enum class ThemeMode(val label: String) { System("System"), Dark("Dark"), Oled("
 
 private fun darkScheme(p: Palette) = darkColorScheme(
     primary = p.lavender,
-    onPrimary = Color(0xFF1B1036),
+    onPrimary = Color(0xFF0B0B0F),
     primaryContainer = Color(0xFF3A2C6B),
     onPrimaryContainer = Color(0xFFE9E0FF),
     secondary = p.teal,
     onSecondary = Color(0xFF00332C),
     // Neutral: progress-bar tracks, the selected tab and chips stay quiet instead of tinted green.
-    secondaryContainer = if (p.night == Color(0xFF000000)) Color(0xFF1E1E26) else Color(0xFF2A2A33),
-    onSecondaryContainer = Color(0xFFE6E8F2),
+    secondaryContainer = if (p.night == Color(0xFF000000)) Color(0xFF1C1C1E) else Color(0xFF2C2C2E),
+    onSecondaryContainer = Color(0xFFF2F2F7),
     tertiary = p.gold,
     onTertiary = Color(0xFF2A1E00),
     tertiaryContainer = Color(0xFF4A3A10),
     background = p.night,
-    onBackground = Color(0xFFE6E8F2),
+    onBackground = Color(0xFFF2F2F7),
     surface = p.night,
-    onSurface = Color(0xFFE6E8F2),
-    surfaceVariant = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF222229),
-    onSurfaceVariant = Color(0xFFC4C4CE),
+    onSurface = Color(0xFFF2F2F7),
+    surfaceVariant = if (p.night == Color(0xFF000000)) Color(0xFF1C1C1E) else Color(0xFF26262A),
+    onSurfaceVariant = Color(0xFFC7C7CC),
     surfaceContainer = p.panel,
-    surfaceContainerHigh = if (p.night == Color(0xFF000000)) Color(0xFF16161D) else Color(0xFF222229),
-    surfaceContainerHighest = if (p.night == Color(0xFF000000)) Color(0xFF1E1E26) else Color(0xFF2A2A32),
-    surfaceContainerLow = if (p.night == Color(0xFF000000)) Color(0xFF07070A) else Color(0xFF141418),
-    error = Color(0xFFFF8A80),
+    surfaceContainerHigh = if (p.night == Color(0xFF000000)) Color(0xFF1C1C1E) else Color(0xFF26262A),
+    surfaceContainerHighest = if (p.night == Color(0xFF000000)) Color(0xFF2C2C2E) else Color(0xFF323236),
+    surfaceContainerLow = if (p.night == Color(0xFF000000)) Color(0xFF0A0A0B) else Color(0xFF161618),
+    error = Color(0xFFFF6961),
     errorContainer = Color(0xFF5C1A1A),
     onErrorContainer = Color(0xFFFFDAD6),
-    outline = Color(0xFF4A4A56),
-    outlineVariant = Color(0xFF2C2C35),
+    outline = Color(0xFF48484A),
+    outlineVariant = Color(0xFF2C2C2E),
 )
 
 private fun lightScheme(p: Palette) = androidx.compose.material3.lightColorScheme(
@@ -96,26 +139,26 @@ private fun lightScheme(p: Palette) = androidx.compose.material3.lightColorSchem
     onPrimaryContainer = Color(0xFF21005D),
     secondary = p.teal,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE4E1EE),
-    onSecondaryContainer = Color(0xFF1A1B2E),
+    secondaryContainer = Color(0xFFE5E5EA),
+    onSecondaryContainer = Color(0xFF1C1C1E),
     tertiary = p.gold,
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFFFE6B3),
     background = p.night,
-    onBackground = Color(0xFF1A1B2E),
+    onBackground = Color(0xFF1C1C1E),
     surface = p.night,
-    onSurface = Color(0xFF1A1B2E),
-    surfaceVariant = Color(0xFFE7E5F0),
-    onSurfaceVariant = Color(0xFF474A5C),
+    onSurface = Color(0xFF1C1C1E),
+    surfaceVariant = Color(0xFFE5E5EA),
+    onSurfaceVariant = Color(0xFF48484A),
     surfaceContainer = p.panel,
-    surfaceContainerHigh = Color(0xFFECEAF4),
-    surfaceContainerHighest = Color(0xFFE3E0EE),
-    surfaceContainerLow = Color(0xFFFAF9FD),
-    error = Color(0xFFBA1A1A),
+    surfaceContainerHigh = Color(0xFFEFEFF4),
+    surfaceContainerHighest = Color(0xFFE5E5EA),
+    surfaceContainerLow = Color(0xFFF9F9FB),
+    error = Color(0xFFD70015),
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
-    outline = Color(0xFFB9B6C8),
-    outlineVariant = Color(0xFFDCD9E6),
+    outline = Color(0xFFC7C7CC),
+    outlineVariant = Color(0xFFE5E5EA),
 )
 
 /** Resolves System to Dark or Light from the phone's setting. */
@@ -129,7 +172,7 @@ fun resolvePalette(mode: ThemeMode): Palette = when (mode) {
 
 private val type = androidx.compose.material3.Typography().let { t ->
     t.copy(
-        headlineMedium = t.headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+        headlineMedium = t.headlineMedium.copy(fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp),
         headlineSmall = t.headlineSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
         titleMedium = t.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
         bodyMedium = t.bodyMedium.copy(lineHeight = 20.sp),
@@ -152,7 +195,8 @@ fun BatbloomTheme(palette: Palette = DarkPalette, content: @Composable () -> Uni
 /** Illustrated cards (night sky, milestones) stay dark in every theme. */
 @Composable
 fun DarkArt(content: @Composable () -> Unit) {
-    val p = if (LocalPalette.current == OledPalette) OledPalette else DarkPalette
+    val cur = LocalPalette.current
+    val p = (if (cur.night == Color.Black) OledPalette else DarkPalette).let { if (cur.isLight) it else it.copy(lavender = cur.lavender) }
     androidx.compose.runtime.CompositionLocalProvider(LocalPalette provides p) {
         MaterialTheme(colorScheme = darkScheme(p), typography = MaterialTheme.typography, content = content)
     }
@@ -168,21 +212,29 @@ fun SectionCard(
     /** One line under the title (Settings shows what's inside a folded section here). */
     subtitle: String? = null,
     subtitleColor: Color? = null,
+    /** A small white symbol on a coloured rounded square before the title, like iOS Settings rows. */
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    iconColor: Color? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val collapsible = title != null && LocalCollapsibleCards.current
     val open = if (collapsible) OpenSections.open[title] ?: false else true
     Card(
         modifier = modifier.fillMaxWidth().animateContentSize(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = container),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (LocalPalette.current.isLight) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.05f)),
     ) {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (title != null) Row(
                 Modifier.fillMaxWidth().then(if (collapsible) Modifier.clickable { OpenSections.open[title!!] = !open } else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (icon != null) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.padding(end = 12.dp).size(30.dp).clip(RoundedCornerShape(8.dp)).background(iconColor ?: Lavender),
+                        contentAlignment = Alignment.Center,
+                    ) { androidx.compose.material3.Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+                }
                 Column(Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.titleMedium)
                     if (subtitle != null && !(collapsible && open)) Text(subtitle, color = subtitleColor ?: Muted, fontSize = 13.sp, maxLines = 1)
@@ -293,4 +345,13 @@ fun Modifier.plantTile(): Modifier = this.background(
 /** Which titled Settings and Quit sections are open, kept while the app runs. */
 object OpenSections {
     val open = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
+}
+
+/** The header of a summary card: a small symbol and the name, both in that area's colour (Health-app style). */
+@Composable
+fun CardHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, accent: TabAccent) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Icon(icon, null, tint = accent.color(), modifier = Modifier.size(15.dp))
+        Text(title, color = accent.color(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))
+    }
 }

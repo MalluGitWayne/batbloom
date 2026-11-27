@@ -67,7 +67,7 @@ fun MilestoneHero(start: java.time.ZonedDateTime, sinceQuit: Duration, onQuitNow
     var open by rememberSaveable { mutableStateOf(false) }
     var confirmQuit by rememberSaveable { mutableStateOf(false) }
     val pal = LocalPalette.current
-    val HeroTeal = pal.teal
+    val HeroTeal = TabAccent.Quit.dark
     val HeroText = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
     val HeroMuted = pal.muted
     val bg = when {

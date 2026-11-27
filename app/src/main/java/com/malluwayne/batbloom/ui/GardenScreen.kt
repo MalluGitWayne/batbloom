@@ -144,7 +144,7 @@ fun GardenTab(modifier: Modifier) {
         }
         when (sub) {
             1 -> StatsScreen(Modifier.weight(1f))
-            2 -> AchievementsScreen(Modifier.weight(1f))
+            2 -> TabTheme(TabAccent.Awards) { AchievementsScreen(Modifier.weight(1f)) }
             else -> GardenScreen(Modifier.weight(1f))
         }
     }

@@ -27,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.content.ContextCompat
 import com.malluwayne.batbloom.data.Tags
@@ -152,15 +154,15 @@ object Nav {
     val breathe = MutableStateFlow(false)
 }
 
-private enum class Tab(val label: String, val icon: ImageVector) {
-    Focus("Focus", Icons.Filled.PlayArrow),
-    Garden("Garden", Icons.Filled.DateRange),
-    Quit("Quit", Icons.Filled.Favorite),
-    Meds("Meds", com.malluwayne.batbloom.ui.PillIcon),
-    Settings("Settings", Icons.Filled.Settings),
+private enum class Tab(val label: String, val icon: ImageVector, val accent: com.malluwayne.batbloom.ui.TabAccent) {
+    Focus("Focus", Icons.Filled.PlayArrow, com.malluwayne.batbloom.ui.TabAccent.Focus),
+    Garden("Garden", Icons.Filled.DateRange, com.malluwayne.batbloom.ui.TabAccent.Focus),
+    Quit("Quit", Icons.Filled.Favorite, com.malluwayne.batbloom.ui.TabAccent.Quit),
+    Meds("Meds", com.malluwayne.batbloom.ui.PillIcon, com.malluwayne.batbloom.ui.TabAccent.Meds),
+    Settings("Settings", Icons.Filled.Settings, com.malluwayne.batbloom.ui.TabAccent.Settings),
     // Added last so the numbers above (used by notifications and widgets) stay the same.
-    Exam("Exam", com.malluwayne.batbloom.ui.BookIcon),
-    Home("Home", Icons.Filled.Home),
+    Exam("Exam", com.malluwayne.batbloom.ui.BookIcon, com.malluwayne.batbloom.ui.TabAccent.Exam),
+    Home("Home", Icons.Filled.Home, com.malluwayne.batbloom.ui.TabAccent.Home),
 }
 
 /** The order tabs show in the bar. */
@@ -183,12 +185,20 @@ private fun AppRoot() {
     com.malluwayne.batbloom.ui.AchievementCelebrations()
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            // A plain bar a shade off the background, with no tinted pill: the chosen tab shows in its own colour.
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp) {
                 TabOrder.filter { it !in hidden }.forEach { t ->
                     val i = t.ordinal
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { Nav.tab.value = i },
+                        colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                            // Settings is grey, so when chosen it shows in full white (black in Light) instead.
+                            selectedIconColor = if (t == Tab.Settings) MaterialTheme.colorScheme.onSurface else t.accent.color(),
+                            selectedTextColor = if (t == Tab.Settings) MaterialTheme.colorScheme.onSurface else t.accent.color(),
+                            indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unselectedIconColor = com.malluwayne.batbloom.ui.Muted, unselectedTextColor = com.malluwayne.batbloom.ui.Muted,
+                        ),
                         icon = { Icon(t.icon, contentDescription = t.label) },
                         // Six labels share the width: past 115% text they'd touch the edges, so they stop growing there.
                         label = {
@@ -202,14 +212,17 @@ private fun AppRoot() {
     ) { pad ->
         val m = Modifier.padding(pad)
         androidx.compose.animation.Crossfade(tab.coerceIn(0, Tab.entries.size - 1), animationSpec = androidx.compose.animation.core.tween(260), label = "tab") { t ->
-            when (Tab.entries[t]) {
-                Tab.Focus -> FocusScreen(m)
-                Tab.Garden -> GardenTab(m)
-                Tab.Quit -> QuitScreen(m)
-                Tab.Meds -> com.malluwayne.batbloom.ui.MedsScreen(m)
-                Tab.Settings -> SettingsScreen(m)
-                Tab.Exam -> com.malluwayne.batbloom.ui.ExamScreen(m)
-                Tab.Home -> com.malluwayne.batbloom.ui.HomeScreen(m)
+            val shown = Tab.entries[t]
+            com.malluwayne.batbloom.ui.TabTheme(shown.accent) {
+                when (shown) {
+                    Tab.Focus -> FocusScreen(m)
+                    Tab.Garden -> GardenTab(m)
+                    Tab.Quit -> QuitScreen(m)
+                    Tab.Meds -> com.malluwayne.batbloom.ui.MedsScreen(m)
+                    Tab.Settings -> SettingsScreen(m)
+                    Tab.Exam -> com.malluwayne.batbloom.ui.ExamScreen(m)
+                    Tab.Home -> com.malluwayne.batbloom.ui.HomeScreen(m)
+                }
             }
         }
     }

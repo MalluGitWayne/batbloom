@@ -2,6 +2,8 @@
 
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
 import androidx.core.net.toUri
 
 import android.annotation.SuppressLint
@@ -200,7 +202,7 @@ fun BackupSection() {
     }
 
     SectionCard(
-        "Backup",
+        "Backup", icon = Icons.Filled.Done, iconColor = TabAccent.Quit.color(),
         subtitle = when {
             autoError != null && autoOn -> "Last backup failed"
             autoOn && last > 0 -> "Weekly · last " + java.time.format.DateTimeFormatter.ofPattern("d MMM")

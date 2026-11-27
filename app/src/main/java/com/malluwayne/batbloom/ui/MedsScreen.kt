@@ -167,7 +167,7 @@ fun MedsScreen(modifier: Modifier) {
                     }
                     if (items.isNotEmpty()) androidx.compose.material3.CircularProgressIndicator(
                         { done.toFloat() / items.size },
-                        Modifier.size(44.dp), color = Teal, strokeWidth = 5.dp,
+                        Modifier.size(44.dp), color = Lavender, strokeWidth = 5.dp,
                         trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), gapSize = 0.dp,
                     )
                 }

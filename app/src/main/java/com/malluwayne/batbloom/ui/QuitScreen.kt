@@ -179,7 +179,7 @@ fun QuitScreen(modifier: Modifier) {
                     }
                     Text(if (frac >= 1f) "🎉" else "${(frac * 100).roundToInt()}%", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Teal)
                 }
-                Meter(frac, Teal)
+                Meter(frac, Lavender)
                 val perDay = if (smoking.packSize > 0) smoking.perDay.toDouble() / smoking.packSize * smoking.packPrice else 0.0
                 Text(
                     if (frac >= 1f) "You've saved enough. Treat yourself!"

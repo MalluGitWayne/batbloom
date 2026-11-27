@@ -1,5 +1,7 @@
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.core.net.toUri
 
 import android.content.Intent
@@ -83,7 +85,7 @@ fun UpdateSection() {
 
     val newer = release?.let { Updates.isNewer(it.version, current) } == true
     SectionCard(
-        "Updates",
+        "Updates", icon = Icons.Filled.Refresh, iconColor = TabAccent.Meds.color(),
         subtitle = if (newer) "Batbloom ${release?.version} is available" else "Version $current",
         subtitleColor = if (newer) Teal else null,
     ) {

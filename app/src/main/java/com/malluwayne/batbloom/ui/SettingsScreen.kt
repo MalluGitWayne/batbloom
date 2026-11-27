@@ -2,6 +2,10 @@
 
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SegmentedButton
@@ -119,7 +123,7 @@ fun SettingsScreen(modifier: Modifier) {
         val toFix = listOf(hasUsage, hasNotif, bgOk).count { !it }
 
         SectionCard(
-            "Focus",
+            "Focus", icon = Icons.Filled.PlayArrow, iconColor = TabAccent.Focus.color(),
             subtitle = listOfNotNull(
                 if (allowed.isEmpty()) "No allowed apps" else "${allowed.size} allowed app${if (allowed.size == 1) "" else "s"}",
                 if (dndOn) "Do Not Disturb on" else null,
@@ -139,7 +143,7 @@ fun SettingsScreen(modifier: Modifier) {
         }
 
         SectionCard(
-            "Tabs",
+            "Tabs", icon = Icons.Filled.List, iconColor = TabAccent.Exam.color(),
             subtitle = listOfNotNull("Exam".takeIf { examTab }, "Quit".takeIf { quitTab }, "Meds".takeIf { medsTab })
                 .joinToString(", ").ifBlank { "Only Home and Focus" },
         ) {
@@ -156,7 +160,7 @@ fun SettingsScreen(modifier: Modifier) {
         }
 
         SectionCard(
-            "Permissions",
+            "Permissions", icon = Icons.Filled.Lock, iconColor = TabAccent.Awards.color(),
             subtitle = if (toFix == 0) "All set" else "$toFix to fix",
             subtitleColor = if (toFix == 0) null else Gold,
         ) {

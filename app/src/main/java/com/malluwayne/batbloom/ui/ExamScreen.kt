@@ -178,7 +178,7 @@ fun ExamScreen(modifier: Modifier) {
                 values = week.map { it.second.toFloat() },
                 labels = week.map { (d, _) -> d.dayOfWeek.getDisplayName(TextStyle.NARROW, locale) },
                 names = week.map { (d, _) -> if (d == today) "today" else dayFmt.format(d) },
-                color = Teal,
+                color = Lavender,
                 format = { Rules.formatMinutes(it.toInt()) },
                 reference = goal.toFloat().takeIf { goal > 0 },
                 referenceLabel = "daily goal ${Rules.formatMinutes(goal)}",
@@ -250,7 +250,7 @@ fun ExamScreen(modifier: Modifier) {
                             fontSize = 12.sp, color = Muted,
                         )
                     }
-                    if (s.minutes > 0) Meter(s.minutes.toFloat() / max, Teal, height = 4.dp)
+                    if (s.minutes > 0) Meter(s.minutes.toFloat() / max, Lavender, height = 4.dp)
                 }
             }
             if (list.size > 8) TextButton({ showAll = !showAll }) { Text(if (showAll) "Show less" else "Show all ${list.size} subjects") }

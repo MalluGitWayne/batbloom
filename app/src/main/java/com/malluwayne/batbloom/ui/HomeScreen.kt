@@ -1,5 +1,8 @@
 package com.malluwayne.batbloom.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -130,7 +133,7 @@ fun HomeScreen(modifier: Modifier) {
                 SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.MEDS }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Medications", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            CardHeader("Medications", PillIcon, TabAccent.Meds)
                             if (next == null) Text("All ${all.size} doses logged today ✓", fontWeight = FontWeight.SemiBold, color = Teal)
                             else {
                                 val late = now.toLocalDateTime().isAfter(next.at.plusMinutes(60))
@@ -143,7 +146,7 @@ fun HomeScreen(modifier: Modifier) {
                         }
                         Text("›", color = Muted, fontSize = 22.sp)
                     }
-                    Meter(all.count { it.done }.toFloat() / all.size, Teal)
+                    Meter(all.count { it.done }.toFloat() / all.size, TabAccent.Meds.color())
                 }
             }
         }
@@ -159,10 +162,10 @@ fun HomeScreen(modifier: Modifier) {
                 SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.QUIT }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Smoke-free", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            CardHeader("Smoke-free", Icons.Filled.Favorite, TabAccent.Quit)
                             if (p.sinceQuit.isNegative) Text("Quit day in ${ChronoUnit.DAYS.between(today, q)} days", fontWeight = FontWeight.SemiBold)
                             else {
-                                Text(QuitMath.formatDuration(p.sinceQuit), fontWeight = FontWeight.Bold, fontSize = 22.sp, color = Teal)
+                                Text(QuitMath.formatDuration(p.sinceQuit), fontWeight = FontWeight.Bold, fontSize = 22.sp, color = TabAccent.Quit.color())
                                 Text("${rupees(p.moneySaved)} saved · ${p.notSmoked} not smoked", color = Muted, fontSize = 13.sp)
                             }
                         }
@@ -180,7 +183,7 @@ fun HomeScreen(modifier: Modifier) {
             SectionCard(modifier = Modifier.clickable { Nav.tab.value = TabIds.EXAM }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("FMGE", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        CardHeader("FMGE", BookIcon, TabAccent.Exam)
                         Text(
                             exam?.let { e -> ChronoUnit.DAYS.between(today, e).let { d -> if (d > 0) "$d days to go" else if (d == 0L) "Exam day!" else "Exam done" } } ?: "Set your exam date",
                             fontWeight = FontWeight.Bold, fontSize = 20.sp,
@@ -192,7 +195,7 @@ fun HomeScreen(modifier: Modifier) {
                     }
                     Text("›", color = Muted, fontSize = 22.sp)
                 }
-                if (goal > 0) Meter((stats.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f), Teal)
+                if (goal > 0) Meter((stats.fmgeTodayMinutes.toFloat() / goal).coerceAtMost(1f), TabAccent.Exam.color())
             }
         }
 
@@ -203,7 +206,7 @@ fun HomeScreen(modifier: Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 latest?.let { Emblem(it, true, 56.dp) }
                 Column(Modifier.weight(1f).padding(start = if (latest != null) 12.dp else 0.dp)) {
-                    Text("Achievements", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    CardHeader("Achievements", Icons.Filled.Star, TabAccent.Awards)
                     Text("${Badges.points(earned)} pts · ${earned.size} of ${Badges.all.size}", fontWeight = FontWeight.Bold)
                     latest?.let { Text("Latest: ${it.title}", color = Muted, fontSize = 13.sp) }
                 }

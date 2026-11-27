@@ -162,6 +162,35 @@ class ExtrasTest {
         assertEquals(listOf("focus", "meds"), h.move(listOf("focus", "meds"), 0, -1)) // already first
     }
 
+    @Test fun medicationHistory() {
+        val zone = java.time.ZoneId.of("Asia/Kolkata")
+        fun ms(t: java.time.LocalDateTime) = t.atZone(zone).toInstant().toEpochMilli()
+        val m = MedEntity(id = 3, name = "Metformin", form = "Tablet", strength = 500.0, unit = "mg", startDate = start.toString())
+        val logs = listOf(
+            // 8 PM dose taken after midnight: stays on its own day, 1h 30m late
+            com.malluwayne.batbloom.data.MedLogEntity(1, 3, "${start}T20:00", "TAKEN", 1.0, ms(start.plusDays(1).atTime(0, 30))),
+            com.malluwayne.batbloom.data.MedLogEntity(2, 3, "${start.plusDays(1)}T08:00", "SKIPPED", 1.0, ms(start.plusDays(1).atTime(9, 0))),
+            com.malluwayne.batbloom.data.MedLogEntity(3, 3, null, "TAKEN", 2.0, ms(start.plusDays(1).atTime(14, 0))), // as needed
+            com.malluwayne.batbloom.data.MedLogEntity(4, 99, "${start}T08:00", "TAKEN", 1.0, ms(start.atTime(8, 0))), // deleted med: left out
+        )
+        val course = listOf(com.malluwayne.batbloom.data.DoseLogEntity("$start-AM", 5, 0.5, 1.0, "TAKEN", ms(start.atTime(8, 5))))
+        val e = com.malluwayne.batbloom.meds.MedHistory.entries(listOf(m), logs, course, DoseSchedule(), zone)
+        assertEquals(4, e.size)
+        assertEquals(listOf(start.plusDays(1), start.plusDays(1), start, start), e.map { it.day }) // newest day first
+        val late = e.first { it.scheduled == start.atTime(20, 0) }
+        assertEquals(start, late.day)
+        assertEquals(270L, late.minutesLate) // 20:00 -> 00:30
+        assertEquals("500 mg · 1 tablet", late.detail)
+        val v = e.first { it.medId == null }
+        assertEquals(start.atTime(8, 0), v.scheduled)
+        assertEquals(5L, v.minutesLate)
+        assertEquals(2 to 3, com.malluwayne.batbloom.meds.MedHistory.takenShare(e)) // the as-needed dose isn't counted
+        val csv = com.malluwayne.batbloom.meds.MedHistory.csv(e).lines()
+        assertEquals("Date,Medication,Dose,Status,Scheduled,Taken at", csv[0])
+        assertTrue(csv.any { it.contains("Skipped,08:00,") })
+        assertTrue(csv.any { it.contains("as needed") })
+    }
+
     @Test fun pdfRows() {
         val med = MedEntity(id = 2, name = "Vitamin D", form = "Capsule", strength = 1000.0, unit = "IU", startDate = start.toString(), notes = "after food")
         val rows = MedListPdf.rows(listOf(med, med.copy(id = 3, name = "Old", archived = true)), DoseSchedule(), LocalDate.of(2026, 11, 24))

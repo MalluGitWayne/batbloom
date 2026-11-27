@@ -126,10 +126,12 @@ internal fun MedDetail(m: MedEntity, modifier: Modifier, onBack: () -> Unit, onE
                     TextButton({ month = month.minusMonths(1) }, enabled = month > first) { Text("‹", fontSize = 20.sp) }
                     TextButton({ month = month.plusMonths(1) }, enabled = month < java.time.YearMonth.from(today)) { Text("›", fontSize = 20.sp) }
                 }
-                MonthDots(month, today) { d ->
+                var dayShown by remember { mutableStateOf<LocalDate?>(null) }
+                MonthDots(month, today, onDay = { dayShown = it }) { d ->
                     val doses = if (d.isAfter(today)) emptyList() else MedSchedule.dosesOn(listOf(m), d)
                     DayDoses(d, doses.size, doses.count { it.slot in taken })
                 }
+                dayShown?.let { d -> DayDosesDialog(m, d, monthLogs) { dayShown = null } }
                 val days = (1..month.lengthOfMonth()).map { month.atDay(it) }.filter { !it.isAfter(today) }
                     .map { d -> MedSchedule.dosesOn(listOf(m), d).let { l -> l.size to l.count { it.slot in taken } } }
                 val due = days.sumOf { it.first }
@@ -188,4 +190,31 @@ internal fun parseQtyLine(m: MedEntity): String? {
         "Days ${p.from}\u2013${p.to}: " + p.times.joinToString(", ") { "${timeFmt.format(it.time)} ${MedSchedule.qtyLabel(m, it.qty)}" }
     }
     return MedSchedule.parseTimes(m.times).joinToString(" · ") { "${timeFmt.format(it.time)}: ${MedSchedule.qtyLabel(m, it.qty)}" }
+}
+
+/** One calendar day of one medication: each scheduled dose, taken (when), skipped, or not logged. */
+@Composable
+private fun DayDosesDialog(m: MedEntity, day: LocalDate, logs: List<com.malluwayne.batbloom.data.MedLogEntity>, onClose: () -> Unit) {
+    val zone = ZoneId.systemDefault()
+    val schedule by BatbloomApp.instance.prefs.schedule.collectAsState()
+    val logged = com.malluwayne.batbloom.meds.MedHistory.entries(listOf(m), logs, emptyList(), schedule, zone).filter { it.day == day }
+    val loggedSlots = logs.mapNotNull { it.slot }.toSet()
+    val open = MedSchedule.dosesOn(listOf(m), day).filter { it.slot !in loggedSlots }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(DateTimeFormatter.ofPattern("EEEE, d MMMM").format(day)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                logged.forEach { HistoryRow(it, m) }
+                open.forEach { d ->
+                    Text(
+                        "${DateTimeFormatter.ofPattern("h:mm a").format(d.at)} · ${MedSchedule.qtyLabel(m, d.qty)} · not logged",
+                        color = if (d.at.isBefore(java.time.LocalDateTime.now())) MaterialTheme.colorScheme.error else Muted, fontSize = 13.sp,
+                    )
+                }
+                if (logged.isEmpty() && open.isEmpty()) Text("Nothing scheduled this day.", color = Muted)
+            }
+        },
+        confirmButton = { TextButton(onClose) { Text("Done") } },
+    )
 }

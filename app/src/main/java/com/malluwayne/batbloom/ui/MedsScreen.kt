@@ -73,10 +73,16 @@ fun MedsScreen(modifier: Modifier) {
     var editing by remember { mutableStateOf<MedEntity?>(null) }
     var detailId by remember { mutableStateOf<Long?>(null) }
     var courseDetail by remember { mutableStateOf(false) }
+    var history by remember { mutableStateOf(false) }
 
     editing?.let { m ->
         BackHandler { editing = null }
         MedEditor(m, modifier, onClose = { editing = null })
+        return
+    }
+    if (history) {
+        BackHandler { history = false }
+        MedHistoryScreen(modifier) { history = false }
         return
     }
     if (courseDetail) {
@@ -135,6 +141,7 @@ fun MedsScreen(modifier: Modifier) {
                     androidx.compose.material3.Icon(Icons.Filled.MoreVert, "More")
                 }
                 androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                    androidx.compose.material3.DropdownMenuItem({ Text("History") }, { menu = false; history = true })
                     androidx.compose.material3.DropdownMenuItem({ Text("Reminders") }, { menu = false; reminderSettings = true })
                     androidx.compose.material3.DropdownMenuItem({ Text("Share medication list (PDF)") }, {
                         menu = false; MedListPdf.share(ctx, meds.filter { !it.archived }, schedule, today)

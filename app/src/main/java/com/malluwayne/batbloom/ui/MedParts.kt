@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -183,7 +184,7 @@ internal fun WeekDots(days: List<DayDoses>, today: LocalDate, modifier: Modifier
 
 /** A month of days, Monday first, each coloured like [WeekDots]: the history of one medication at a glance. */
 @Composable
-internal fun MonthDots(month: java.time.YearMonth, today: LocalDate, day: (LocalDate) -> DayDoses) {
+internal fun MonthDots(month: java.time.YearMonth, today: LocalDate, onDay: ((LocalDate) -> Unit)? = null, day: (LocalDate) -> DayDoses) {
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
     // Light theme's teal and gold are deeper, so their numbers turn white to stay readable.
     val light = LocalPalette.current.isLight
@@ -213,7 +214,8 @@ internal fun MonthDots(month: java.time.YearMonth, today: LocalDate, day: (Local
                                 else -> MaterialTheme.colorScheme.error.copy(alpha = 0.75f) to Color.White
                             }
                             Box(
-                                Modifier.size(32.dp).background(bg, CircleShape).then(
+                                Modifier.size(32.dp).clip(CircleShape).background(bg, CircleShape)
+                                    .then(if (onDay != null && s.due > 0) Modifier.clickable { onDay(d) } else Modifier).then(
                                     if (d == today) Modifier.border(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), CircleShape) else Modifier,
                                 ),
                                 contentAlignment = Alignment.Center,
